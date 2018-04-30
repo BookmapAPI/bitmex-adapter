@@ -1,28 +1,38 @@
 package bitmexAdapter;
 
 public class DataUnit {
-
-	// public String symbol;
-	// public long id;
-	// public String side;
-	// public int size;
-	// public double price;
-	private int intPrice;
-
-	// Fields below refer to "orderBookL2" table dataUnits only
 	private String symbol;
 	private long id;
 	private String side;
 	private long size;
 	private double price;
+	private int intPrice;
+	private boolean isBid;
+	
+	
+	//this constructor is only used to create dataunits for the delete message
+	public DataUnit(String symbol, int intPrice, boolean isBid) {
+		super();
+		this.symbol = symbol;
+		this.intPrice = intPrice;
+		this.isBid = isBid;
+	}
+	
+	
 
-	// ...these and above (except id) refer to "trade" table dataUnits
-	private String timestamp;
-	private String tickDirection;
-	private String trdMatchID;
-	private long grossValue;
-	private double homeNotional;
-	private double foreignNotional;
+	public DataUnit() {
+		super();
+	}
+
+
+
+	public boolean isBid() {
+		return isBid;
+	}
+
+	public void setBid(boolean isBid) {
+		this.isBid = isBid;
+	}
 
 	public int getIntPrice() {
 		return intPrice;
@@ -72,34 +82,11 @@ public class DataUnit {
 		this.price = price;
 	}
 
-	public void setTimestamp(String timestamp) {
-		this.timestamp = timestamp;
-	}
-
-	public void setTickDirection(String tickDirection) {
-		this.tickDirection = tickDirection;
-	}
-
-	public void setTrdMatchID(String trdMatchID) {
-		this.trdMatchID = trdMatchID;
-	}
-
-	public void setGrossValue(long grossValue) {
-		this.grossValue = grossValue;
-	}
-
-	public void setHomeNotional(double homeNotional) {
-		this.homeNotional = homeNotional;
-	}
-
-	public void setForeignNotional(double foreignNotional) {
-		this.foreignNotional = foreignNotional;
-	}
 
 	@Override
 	public String toString() {
 		return "DataUnit [intPrice=" + intPrice + ", symbol=" + symbol + ", id=" + id + ", side=" + side + ", size="
-				+ size + ", price=" + price + ", timestamp=" + timestamp + "]";
+				+ size + ", price=" + price + "]";
 	}
 
 }

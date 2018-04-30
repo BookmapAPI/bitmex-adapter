@@ -2,10 +2,8 @@ package bitmexAdapter;
 
 public class PingTimer implements Runnable {
 
-	ClientSocket socket;
-
-	public int counter = 0;
-	boolean reconnectRequested = false;
+	private final ClientSocket socket;
+	private boolean reconnectRequested = false;
 
 	public PingTimer(ClientSocket socket) {
 		super();
@@ -21,7 +19,12 @@ public class PingTimer implements Runnable {
 	}
 
 	private void requestReconnect() {
-		socket.getClosingLatch().countDown();
+		try {
+			socket.close();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		reconnectRequested = true;
 	}
 

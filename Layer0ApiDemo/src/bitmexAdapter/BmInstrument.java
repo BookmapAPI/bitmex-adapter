@@ -1,53 +1,47 @@
 package bitmexAdapter;
 
+import java.util.HashMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import velox.api.layer1.layers.utils.OrderBook;
 
+//BmInstrument is the short for Bitmex Instrument
+//Cannot be named simply "Instrument" 
+//because the Bookmap Layer0Api has a class named "Instrument"
 public class BmInstrument {
-
 	private String symbol;
-	private String rootSymbol;
 	private double tickSize;
-	private long symbolIdx;
-
-	private Object bookLock = new Object();
-	private CustomOrderBook orderBook = new CustomOrderBook();
-	private BlockingQueue<Msg> queue = new LinkedBlockingQueue<>();
-	
-
 	private boolean isSubscribed = false;
-	public boolean isBookRead = false;
-	public boolean isBookFilled = false;
-	// private boolean isPartialParsed = false;
+	private boolean isFirstSnapshotParsed = false;
+	private OrderBook orderBook = new OrderBook();
+	private BlockingQueue<Msg> queue = new LinkedBlockingQueue<>();
+	private HashMap<Long, Integer> pricesMap = new HashMap<>();
 
-	public BmInstrument(String symbol, String rootSymbol, double tickSize) {
+	public BmInstrument(String symbol, double tickSize) {
 		super();
 		this.symbol = symbol;
-		this.rootSymbol = rootSymbol;
 		this.tickSize = tickSize;
 	}
 
 	public BmInstrument() {
 		super();
-		// TODO Auto-generated constructor stub
 	}
 
 	public BlockingQueue<Msg> getQueue() {
 		return queue;
 	}
 
-	public void setQueue(BlockingQueue<Msg> queue) {
-		this.queue = queue;
-	}
-	
-	public String getSymbol() {
-		return symbol;
+	public String getSubscribeReq() {
+		return "{\"op\":\"subscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\"]}";
 	}
 
-	public String getRootSymbol() {
-		return rootSymbol;
+	public String getUnSubscribeReq() {
+		return "{\"op\":\"unsubscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\"]}";
+	}
+
+	public String getSymbol() {
+		return symbol;
 	}
 
 	public double getTickSize() {
@@ -58,38 +52,12 @@ public class BmInstrument {
 		this.symbol = symbol;
 	}
 
-	public void setRootSymbol(String rootSymbol) {
-		this.rootSymbol = rootSymbol;
-	}
-
 	public void setTickSize(double tickSize) {
 		this.tickSize = tickSize;
 	}
 
-	public CustomOrderBook getOrderBook() {
-		synchronized (bookLock) {
+	public OrderBook getOrderBook() {
 			return orderBook;
-		}
-	}
-
-	// public BlockingQueue<Msg> getQueue() {
-	// return queue;
-	// }
-
-	public boolean isBookRead() {
-		return isBookRead;
-	}
-
-	public void setBookRead(boolean isBookRead) {
-		this.isBookRead = isBookRead;
-	}
-
-	public long getSymbolIdx() {
-		return symbolIdx;
-	}
-
-	public void setSymbolIdx(long symbolIdx) {
-		this.symbolIdx = symbolIdx;
 	}
 
 	public boolean isSubscribed() {
@@ -99,6 +67,20 @@ public class BmInstrument {
 	public void setSubscribed(boolean isSubscribed) {
 		this.isSubscribed = isSubscribed;
 	}
-
 	
+	public HashMap<Long, Integer> getPricesMap() {
+		return pricesMap;
+	}
+
+	public Integer getPriceFromMap(long id) {
+		return pricesMap.get(id);
+	}
+	
+	public boolean isFirstSnapshotParsed() {
+		return isFirstSnapshotParsed;
+	}
+
+	public void setFirstSnapshotParsed(boolean isFirstSnapshotParsed) {
+		this.isFirstSnapshotParsed = isFirstSnapshotParsed;
+	}
 }
