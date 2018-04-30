@@ -120,13 +120,17 @@ public class BitmexConnector implements Runnable {
 	}
 
 	public void fillActiveBmInstrumentsMap() {
-		String str = getServerResponse(restActiveInstrUrl);
-		if (str == null) return;
-		
-		BmInstrument[] instrs = JsonParser.getArrayFromJson(str, BmInstrument[].class);
+		synchronized (activeBmInstrumentsMap) {
+			String str = getServerResponse(restActiveInstrUrl);
+			if (str == null)
+				return;
 
-		for (BmInstrument instr : instrs) {
-			this.activeBmInstrumentsMap.put(instr.getSymbol(), instr);
+			BmInstrument[] instrs = JsonParser.getArrayFromJson(str, BmInstrument[].class);
+
+			for (BmInstrument instr : instrs) {
+				this.activeBmInstrumentsMap.put(instr.getSymbol(), instr);
+			}
+			activeBmInstrumentsMap.notify();
 		}
 	}
 
@@ -134,19 +138,19 @@ public class BitmexConnector implements Runnable {
 		return activeBmInstrumentsMap;
 	}
 
-	public void subscribe(BmInstrument instr){
+	public void subscribe(BmInstrument instr) {
 		instr.setSubscribed(true);
 		sendWebsocketMessage(instr.getSubscribeReq());
 		SnapshotTimer snTimer = new SnapshotTimer(instr, this);
 		Thread th = new Thread(snTimer);
 		th.start();
 	}
-	
-	public void unSubscribe(BmInstrument instr){
+
+	public void unSubscribe(BmInstrument instr) {
 		instr.setSubscribed(false);
 		sendWebsocketMessage(instr.getUnSubscribeReq());
 	}
-	
+
 	@Override
 	public void run() {
 		while (true) {
@@ -162,7 +166,8 @@ public class BitmexConnector implements Runnable {
 
 			if (this.activeBmInstrumentsMap.isEmpty()) {
 				fillActiveBmInstrumentsMap();
-				if (this.activeBmInstrumentsMap.isEmpty()) continue;
+				if (this.activeBmInstrumentsMap.isEmpty())
+					continue;
 			}
 			wSconnect();
 		}

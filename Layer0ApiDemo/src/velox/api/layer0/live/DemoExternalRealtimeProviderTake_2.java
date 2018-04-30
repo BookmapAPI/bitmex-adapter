@@ -1,6 +1,7 @@
 package velox.api.layer0.live;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
@@ -41,7 +42,7 @@ public class DemoExternalRealtimeProviderTake_2 extends ExternalLiveBaseProvider
 
 		public void generateData(String symbol) {
 			BmInstrument bmInstrument = connector.getActiveInstrumentsMap().get(symbol);
-			
+
 			if (!bmInstrument.isFirstSnapshotParsed()) {
 				return;
 			}
@@ -50,9 +51,10 @@ public class DemoExternalRealtimeProviderTake_2 extends ExternalLiveBaseProvider
 			if (!messages.isEmpty()) {
 				Msg message = messages.poll();
 
-				//				if (message == null || message.getAction() == null || message.getData() == null) {
-//					Log.info("***********NULL POINTER AT MESSAGE " + message);
-//				}
+				// if (message == null || message.getAction() == null ||
+				// message.getData() == null) {
+				// Log.info("***********NULL POINTER AT MESSAGE " + message);
+				// }
 
 				List<DataUnit> units = message.data;
 
@@ -116,7 +118,20 @@ public class DemoExternalRealtimeProviderTake_2 extends ExternalLiveBaseProvider
 
 				// This is delivered after REST query response
 				HashMap<String, BmInstrument> activeBmInstruments = this.connector.getActiveInstrumentsMap();
-				Set<String> set = activeBmInstruments.keySet();
+				Set<String> set = new HashSet<>();
+
+				synchronized (activeBmInstruments) {
+					if(activeBmInstruments.isEmpty()){
+						try {
+							activeBmInstruments.wait();
+						} catch (InterruptedException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}}
+					for (String key : activeBmInstruments.keySet()) {
+						set.add(key);
+					}
+				}
 
 				if (set.contains(symbol)) {
 					try {
@@ -134,6 +149,8 @@ public class DemoExternalRealtimeProviderTake_2 extends ExternalLiveBaseProvider
 
 					instrumentListeners.forEach(l -> l.onInstrumentAdded(alias, instrumentInfo));
 					this.connector.subscribe(instr);
+				} else {
+					instrumentListeners.forEach(l -> l.onInstrumentNotFound(symbol, exchange, type));
 				}
 			}
 		}
