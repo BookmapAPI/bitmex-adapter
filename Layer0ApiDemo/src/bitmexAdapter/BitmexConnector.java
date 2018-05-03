@@ -1,13 +1,18 @@
 package bitmexAdapter;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.NoRouteToHostException;
 import java.net.URI;
 import java.net.URL;
 import java.net.UnknownHostException;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.CountDownLatch;
+
 import javax.net.ssl.HttpsURLConnection;
 import velox.api.layer1.common.Log;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
@@ -21,6 +26,7 @@ public class BitmexConnector implements Runnable {
 	private HashMap<String, BmInstrument> activeBmInstrumentsMap = new HashMap<>();
 	private CountDownLatch webSocketStartingLatch = new CountDownLatch(1);
 	private ClientSocket socket;
+	public JsonParser parser = new JsonParser();
 
 	public CountDownLatch getWebSocketStartingLatch() {
 		return webSocketStartingLatch;
@@ -39,14 +45,16 @@ public class BitmexConnector implements Runnable {
 
 		try {
 			ClientSocket socket = new ClientSocket();
+			this.socket = socket;
+			this.parser.setActiveInstrumentsMap(Collections.unmodifiableMap(activeBmInstrumentsMap));
+			this.socket.setParser(parser);
+
 			client.start();
 			URI echoUri = new URI(wssUrl);
 			ClientUpgradeRequest request = new ClientUpgradeRequest();
 			client.connect(socket, echoUri, request);
-			socket.getOpeningLatch().await();
+			this.socket.getOpeningLatch().await();
 			this.webSocketStartingLatch.countDown();
-			this.socket = socket;
-			socket.parser.setActiveInstrumentsMap(this.activeBmInstrumentsMap);
 
 			for (BmInstrument instr : activeBmInstrumentsMap.values()) {
 				if (instr.isSubscribed()) {
@@ -63,19 +71,21 @@ public class BitmexConnector implements Runnable {
 			this.socket = null;
 
 		} catch (java.nio.channels.UnresolvedAddressException e) {
-			Log.info("CONNECTOR: CLIENT CANNOT CONNECT");
+			e.printStackTrace();
+			// Log.info("CONNECTOR: CLIENT CANNOT CONNECT");
 		} catch (org.eclipse.jetty.websocket.api.WebSocketException e) {
-			Log.info("CONNECTOR: CONNECTION MUST BE LOST");
-		} catch (Throwable t) {
-			Log.info("CONNECTOR: THROWABLE THROWN FROM WEBSOCKET");
-			t.printStackTrace();
+			e.printStackTrace();
+			// Log.info("CONNECTOR: CONNECTION MUST BE LOST");
+		} catch (Exception | Error e) {
+//			Log.debug("CONNECTOR: THROWABLE THROWN FROM WEBSOCKET");
+			throw new RuntimeException();
 		} finally {
 			try {
 				client.stop();
-				Log.info("CLIENT STOPPED");
 			} catch (Exception e) {
-				Log.info("CLIENT STOPPING TROUBLE");
+//				Log.debug("CLIENT STOPPING TROUBLE");
 				e.printStackTrace();
+				throw new RuntimeException();
 			}
 		}
 	}
@@ -85,6 +95,7 @@ public class BitmexConnector implements Runnable {
 			getWebSocketStartingLatch().await();
 		} catch (InterruptedException e) {
 			e.printStackTrace();
+			throw new RuntimeException();
 		}
 		socket.sendMessage(message);
 	}
@@ -98,9 +109,7 @@ public class BitmexConnector implements Runnable {
 			conn.setRequestMethod("GET");
 			conn.setRequestProperty("Accept", "application/json");
 
-			if (conn.getResponseCode() != 200) {
-				Log.info("NO RESPONSE FROM SERVER   ***   RespCode = " + conn.getResponseCode());
-			} else {
+			if (conn.getResponseCode() == 200) {
 				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
 				StringBuilder sb = new StringBuilder("");
 				String output = null;
@@ -112,8 +121,11 @@ public class BitmexConnector implements Runnable {
 				response = sb.toString();
 			}
 		} catch (UnknownHostException | NoRouteToHostException e) {
-			Log.info("NO RESPONSE FROM SERVER");
-		} catch (Exception e) {
+//			Log.info("NO RESPONSE FROM SERVER");
+		} catch (java.net.SocketException e) {
+//			Log.info("NETWORK IS UNREACHABLE");
+		} catch (IOException e){
+//			Log.debug("BUFFER READING ERROR");
 			e.printStackTrace();
 		}
 		return response;
@@ -138,12 +150,25 @@ public class BitmexConnector implements Runnable {
 		return activeBmInstrumentsMap;
 	}
 
+	private void launchSnapshotTimer(BitmexConnector connector, BmInstrument instr) {
+		TimerTask task = new TimerTask() {
+			@Override
+			public void run() {
+				if (!instr.isFirstSnapshotParsed()) {
+					connector.unSubscribe(instr);
+					connector.subscribe(instr);
+				}
+			}
+		};
+
+		Timer timer = new Timer();
+		timer.schedule(task, 8000);
+	}
+
 	public void subscribe(BmInstrument instr) {
 		instr.setSubscribed(true);
 		sendWebsocketMessage(instr.getSubscribeReq());
-		SnapshotTimer snTimer = new SnapshotTimer(instr, this);
-		Thread th = new Thread(snTimer);
-		th.start();
+		launchSnapshotTimer(this, instr);
 	}
 
 	public void unSubscribe(BmInstrument instr) {
@@ -157,9 +182,9 @@ public class BitmexConnector implements Runnable {
 			if (!isConnectionEstablished()) {
 				try {
 					Thread.sleep(5000);
-					Log.info("BITMEX CONNECTOR: SLEEP 5000");
 				} catch (InterruptedException e) {
 					e.printStackTrace();
+					throw new RuntimeException();
 				}
 				continue;
 			}

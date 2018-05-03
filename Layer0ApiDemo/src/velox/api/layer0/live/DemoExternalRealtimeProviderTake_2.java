@@ -18,7 +18,7 @@ import velox.api.layer1.data.UserPasswordDemoLoginData;
 
 import bitmexAdapter.BitmexConnector;
 import bitmexAdapter.DataUnit;
-import bitmexAdapter.Msg;
+import bitmexAdapter.Message;
 import bitmexAdapter.BmInstrument;
 
 /**
@@ -46,10 +46,10 @@ public class DemoExternalRealtimeProviderTake_2 extends ExternalLiveBaseProvider
 			if (!bmInstrument.isFirstSnapshotParsed()) {
 				return;
 			}
-			BlockingQueue<Msg> messages = bmInstrument.getQueue();
+			BlockingQueue<Message> messages = bmInstrument.getQueue();
 
 			if (!messages.isEmpty()) {
-				Msg message = messages.poll();
+				Message message = messages.poll();
 
 				// if (message == null || message.getAction() == null ||
 				// message.getData() == null) {
@@ -209,17 +209,19 @@ public class DemoExternalRealtimeProviderTake_2 extends ExternalLiveBaseProvider
 	private void handleLogin(UserPasswordDemoLoginData userPasswordDemoLoginData) {
 		// With real connection provider would attempt establishing connection
 		// here.
-		boolean isValid = "pass".equals(userPasswordDemoLoginData.password)
-				&& "user".equals(userPasswordDemoLoginData.user) && userPasswordDemoLoginData.isDemo == true;
+		
+		//there is no need in password check for demo purposes
+//		boolean isValid = "pass".equals(userPasswordDemoLoginData.password)
+//				&& "user".equals(userPasswordDemoLoginData.user) && userPasswordDemoLoginData.isDemo == true;
 
-		if (isValid) {
+//		if (isValid) {
 			// Report succesful login
 			adminListeners.forEach(Layer1ApiAdminListener::onLoginSuccessful);
 
 			// CONNECTOR
 			this.connector = new BitmexConnector();
 			Thread thread = new Thread(this.connector);
-			thread.setName("BITMEX ADAPTER: CONNECTOR");
+			thread.setName("->BitmexAdapter: connector");
 			thread.start();
 
 			// Generate some events each second
@@ -228,12 +230,12 @@ public class DemoExternalRealtimeProviderTake_2 extends ExternalLiveBaseProvider
 				// Generate some data changes
 				simulate();
 			}
-		} else {
-			// Report failed login
-			adminListeners.forEach(l -> l.onLoginFailed(LoginFailedReason.WRONG_CREDENTIALS,
-					"This provider only acepts following credentials:\n" + "username: user\n" + "password: pass\n"
-							+ "is demo: checked"));
-		}
+//		} else {
+//			// Report failed login
+//			adminListeners.forEach(l -> l.onLoginFailed(LoginFailedReason.WRONG_CREDENTIALS,
+//					"This provider only acepts following credentials:\n" + "username: user\n" + "password: pass\n"
+//							+ "is demo: checked"));
+//		}
 	}
 
 	protected void simulate() {

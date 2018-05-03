@@ -6,16 +6,16 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import velox.api.layer1.layers.utils.OrderBook;
 
-//BmInstrument is the short for Bitmex Instrument
-//Cannot be named simply "Instrument" 
-//because the Bookmap Layer0Api has a class named "Instrument"
+/*BmInstrument is the short for Bitmex Instrument
+Cannot be named simply "Instrument" 
+because the Bookmap Layer0Api has a class named "Instrument"*/
 public class BmInstrument {
 	private String symbol;
 	private double tickSize;
 	private boolean isSubscribed = false;
 	private boolean isFirstSnapshotParsed = false;
 	private OrderBook orderBook = new OrderBook();
-	private BlockingQueue<Msg> queue = new LinkedBlockingQueue<>();
+	private BlockingQueue<Message> queue = new LinkedBlockingQueue<>();
 	private HashMap<Long, Integer> pricesMap = new HashMap<>();
 
 	public BmInstrument(String symbol, double tickSize) {
@@ -28,7 +28,7 @@ public class BmInstrument {
 		super();
 	}
 
-	public BlockingQueue<Msg> getQueue() {
+	public BlockingQueue<Message> getQueue() {
 		return queue;
 	}
 

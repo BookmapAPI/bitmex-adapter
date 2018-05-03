@@ -1,9 +1,12 @@
 package bitmexAdapter;
 
+import java.math.BigDecimal;
+import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import com.google.gson.Gson;
@@ -17,23 +20,19 @@ public class JsonParser {
 		return (T[]) new Gson().fromJson(input, cls);
 	}
 
-	private Gson gson = new GsonBuilder().create();
-	private HashMap<String, BmInstrument> activeInstrumentsMap = new HashMap<>();
+	private static final Gson gson = new GsonBuilder().create();
+	private Map<String, BmInstrument> activeInstrumentsMap = new HashMap<>();
 
-	public HashMap<String, BmInstrument> getActiveInstrumentsMap() {
-		return activeInstrumentsMap;
-	}
-
-	public void setActiveInstrumentsMap(HashMap<String, BmInstrument> activeInstrumentsMap) {
+	public void setActiveInstrumentsMap(Map<String, BmInstrument> activeInstrumentsMap) {
 		this.activeInstrumentsMap = activeInstrumentsMap;
 	}
 
 	public void parse(String str) {
-		Msg msg = (Msg) gson.fromJson(str, Msg.class);
-
+		Message msg = (Message) gson.fromJson(str, Message.class);
+		
 		// skip messages if the action is not defined
 		if (msg == null || msg.action == null) {
-			Log.info(str);
+//			Log.info(str);
 			return;
 		}
 
@@ -50,7 +49,7 @@ public class JsonParser {
 					resetBookMapOrderBook(instr);
 					resetBmInstrumentOrderBook(instr);
 				}
-				processOrderMsg(msg);
+				processOrderMessage(msg);
 				msg.setData(putBestAskToTheHeadOfList(msg.getData()));
 				instr.getQueue().add(msg);
 
@@ -62,21 +61,22 @@ public class JsonParser {
 			}
 		} else {
 			if (msg.getTable().equals("trade")) {
-				processTradeMsg(msg);
+				processTradeMessage(msg);
 			} else {
-				processOrderMsg(msg);
+				processOrderMessage(msg);
 			}
 			instr.getQueue().add(msg);
 		}
 	}
 
-	// data units in the snapshot are sorted from highest price to lowest
-	// This may result in a huge red bestAsk peak on the screen
-	// because for a couple of milliseconds the bestAsk is actually the most
-	// expensive ask
-	// What is even worse, to fit this peak to the screen the picture gets
-	// zoomed out which looks pretty weird
-	// To avoid this bestAsk is moved to the beginning of the list
+	/**
+	 * data units in the snapshot are sorted from highest price to lowest This
+	 * may result in a huge red bestAsk peak on the screen because for a couple
+	 * of milliseconds the bestAsk is actually the most expensive ask What is
+	 * even worse, to fit this peak to the screen the picture gets zoomed out
+	 * which looks pretty weird To avoid this bestAsk is moved to the beginning
+	 * of the list
+	 **/
 	private ArrayList<DataUnit> putBestAskToTheHeadOfList(ArrayList<DataUnit> units) {
 		int firstAskIndex = 0;
 
@@ -92,12 +92,12 @@ public class JsonParser {
 		return units;
 	}
 
-	// setting missing values for dataunits' fields
-	// adding missing prices to <id,intPrice> map
-	// updating the orderBook
-	// This refers to order book updates only
-	// Trade orders are processed in processTradeMsg method
-	private void processOrderMsg(Msg msg) {
+	/*
+	 * setting missing values for dataunits' fields adding missing prices to
+	 * <id,intPrice> map updating the orderBook This refers to order book
+	 * updates only Trade orders are processed in processTradeMsg method
+	 */
+	private void processOrderMessage(Message msg) {
 		BmInstrument instr = activeInstrumentsMap.get(msg.data.get(0).getSymbol());
 		OrderBook book = instr.getOrderBook();
 
@@ -113,35 +113,39 @@ public class JsonParser {
 				if (msg.getAction().equals("update")) {
 					intPrice = pricesMap.get(unit.getId());
 				} else {// action is partial or insert
-					intPrice = (int) (((double) unit.getPrice()) / instr.getTickSize());
+					BigDecimal pr = new BigDecimal(unit.getPrice(), MathContext.DECIMAL32);
+					BigDecimal ts = new BigDecimal(instr.getTickSize(), MathContext.DECIMAL32);
+					BigDecimal res = pr.divide(ts, 0, BigDecimal.ROUND_HALF_UP);
+					intPrice = res.intValue();
 					pricesMap.put(unit.getId(), intPrice);
 				}
 			}
 			unit.setIntPrice(intPrice);
 			book.onUpdate(unit.isBid(), intPrice, unit.getSize());
-//			book.onUpdate(unit.isBid(), unit.getIntPrice(), unit.getSize());
 		}
 	}
 
-	private void processTradeMsg(Msg msg) {
+	private void processTradeMessage(Message msg) {
 		BmInstrument instr = activeInstrumentsMap.get(msg.data.get(0).getSymbol());
 
 		for (DataUnit unit : msg.data) {
 			unit.setBid(unit.getSide().equals("Buy"));
-			int intPrice = (int) (((double) unit.getPrice()) / instr.getTickSize());
+			
+			BigDecimal pr = new BigDecimal(unit.getPrice(), MathContext.DECIMAL32);
+			BigDecimal ts = new BigDecimal(instr.getTickSize(), MathContext.DECIMAL32);
+			BigDecimal res = pr.divide(ts, 0, BigDecimal.ROUND_HALF_UP);
+			int intPrice = res.intValue();
 			unit.setIntPrice(intPrice);
 		}
 	}
 
-	// reset orderBooks (both for Bookmap and for BmInstrument) after disconnect
-	// and reconnect
+/**	 resets orderBooks (both for Bookmap and for BmInstrument) after
+	 disconnect and reconnect
+	 For better visualization purposes besAsk and bestBid will go last
+	 in this method and come first in putBestAskToTheHeadOfList method
+	 (see the description for putBestAskToTheHeadOfList method)**/
 	private void resetBookMapOrderBook(BmInstrument instr) {
 		// Extracting lists of levels from ask and Bid maps
-		//
-		// For better visualization purposes besAsk and bestBid will go last
-		// in this method and come first in putBestAskToTheHeadOfList method
-		// (see the description for putBestAskToTheHeadOfList method)
-
 		String symbol = instr.getSymbol();
 		ArrayList<DataUnit> units = new ArrayList<>();
 
@@ -170,7 +174,7 @@ public class JsonParser {
 		units.add(new DataUnit(symbol, bestAsk, false));
 		units.add(new DataUnit(symbol, bestBid, true));
 
-		Msg mess = new Msg("orderBookL2", "delete", units);
+		Message mess = new Message("orderBookL2", "delete", units);
 		instr.getQueue().add(mess);
 	}
 

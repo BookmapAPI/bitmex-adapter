@@ -3,6 +3,11 @@ package bitmexAdapter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.WebSocketException;
@@ -23,12 +28,14 @@ public class ClientSocket {
 	private Session session;
 	private CountDownLatch openingLatch = new CountDownLatch(1);
 	private CountDownLatch closingLatch = new CountDownLatch(1);
-	public JsonParser parser = new JsonParser();
+	private JsonParser parser;
+	private boolean isConnectionPossiblyLost = false;
 	private long lastMessageTime = System.currentTimeMillis();
 
 	@OnWebSocketClose
 	public void OnClose(int i, String str) {
-		Log.info("ClientSocket: CLOSED WITH STATUS " + i + " FOR " + str + " REASON");
+		// Log.info("ClientSocket: CLOSED WITH STATUS " + i + " FOR " + str + "
+		// REASON");
 		closingLatch.countDown();
 	}
 
@@ -42,15 +49,50 @@ public class ClientSocket {
 
 	@OnWebSocketConnect
 	public void onConnect(Session session) {
-		Log.info("Connected to server");
 		this.session = session;
 		openingLatch.countDown();
-		Log.info("Socket openingLatch count down");
-		
-		PingTimer timer = new PingTimer(this);
-		Thread th = new Thread(timer);
-		th.setName("BITMEX ADAPTER: PING TIMER");
-		th.start();
+		launchPingTimer();
+	}
+
+	private void launchPingTimer() {
+		ClientSocket socket = this;
+
+		class CustomThreadFactory implements ThreadFactory {
+			public Thread newThread(Runnable r) {
+				return new Thread(r, "-> BitmexConnector: pingTimer");
+			}
+		}
+
+		long maxDelay = 5000;
+		ScheduledExecutorService snapshotTimer = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory());
+		snapshotTimer.scheduleAtFixedRate(new Runnable() {
+			@Override
+			public void run() {
+				// if the last message was > [5 + time to launch this timer] seconds ago
+				if (System.currentTimeMillis() - socket.getLastMessageTime() > maxDelay + 500) {
+					// and if this happened before
+					if (isConnectionPossiblyLost()) {
+							socket.close();
+							snapshotTimer.shutdown();
+					} else {// but this did not happen before
+						socket.sendPing();
+						socket.setConnectionPossiblyLost(true);
+					}
+				} else {
+					// the last message was <5 seconds ago, everything is OK
+					socket.setConnectionPossiblyLost(false);
+				}
+			}
+			// sleep maxDelay=5 seconds
+		}, 0, maxDelay, TimeUnit.MILLISECONDS);
+	}
+
+	public boolean isConnectionPossiblyLost() {
+		return isConnectionPossiblyLost;
+	}
+
+	public void setConnectionPossiblyLost(boolean isConnectionPossiblyLost) {
+		this.isConnectionPossiblyLost = isConnectionPossiblyLost;
 	}
 
 	public void sendMessage(String str) {
@@ -58,8 +100,6 @@ public class ClientSocket {
 			session.getRemote().sendString(str);
 		} catch (WebSocketException | IOException e) {
 			e.printStackTrace();
-		} catch (Exception d) {
-			d.printStackTrace();
 		}
 	}
 
@@ -77,42 +117,48 @@ public class ClientSocket {
 
 	@OnWebSocketError
 	public void onError(Session session, Throwable error) throws Exception {
-		Log.info("WEBSOCKET ERROR Session = " + session);
 		close();
 		error.printStackTrace();
 	}
 
-	public void close() throws Exception {
+	public void close() {
 		if (session != null) {
-			session.disconnect();
+			try {
+				session.disconnect();
+			} catch (IOException e) {
+				// Connection must be lost suddenly
+				e.printStackTrace();
+			}
 		}
-		Log.info("WEBSOCKET HAS BEEN CLOSED");
 		Thread.currentThread().interrupt();
+	}
+
+	public void setParser(JsonParser parser) {
+		this.parser = parser;
 	}
 
 	public void sendPing() {
 		try {
 			RemoteEndpoint remote = session.getRemote();
-			Log.info("CLIENT SOCKET: PING");
 			String data = "ping";
 			ByteBuffer payload = ByteBuffer.wrap(data.getBytes());
 			remote.sendPing(payload);
-		} catch (WebSocketException | IOException e) {
+			// Log.info("PING");
+		} catch (WebSocketException e) {
 			// e.printStackTrace(System.err);
-			Log.info("COnnection problems0");
-			// e.printStackTrace();
-		} catch (Exception e) {
-			// e.printStackTrace();
-			Log.info("COnnection problems1");
-
-		}
+//			 Log.debug("RemoteEndpoint unavailable");
+//			 e.printStackTrace();
+		} catch (IOException e) {
+			// e.printStackTrace(System.err);
+			 e.printStackTrace();
+		} 
 	}
 
 	@OnWebSocketFrame
 	public void onFrame(Frame frame) {
 		if (frame.getType() == Type.PONG) {
-			Log.info("SERVER: PONG");
 			lastMessageTime = System.currentTimeMillis();
+			// Log.info("PONG");
 		}
 	}
 

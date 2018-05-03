@@ -9,7 +9,6 @@ public class DataUnit {
 	private int intPrice;
 	private boolean isBid;
 	
-	
 	//this constructor is only used to create dataunits for the delete message
 	public DataUnit(String symbol, int intPrice, boolean isBid) {
 		super();
@@ -18,13 +17,9 @@ public class DataUnit {
 		this.isBid = isBid;
 	}
 	
-	
-
 	public DataUnit() {
 		super();
 	}
-
-
 
 	public boolean isBid() {
 		return isBid;
@@ -81,7 +76,6 @@ public class DataUnit {
 	public void setPrice(double price) {
 		this.price = price;
 	}
-
 
 	@Override
 	public String toString() {
