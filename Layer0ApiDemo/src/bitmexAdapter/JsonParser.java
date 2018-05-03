@@ -113,10 +113,7 @@ public class JsonParser {
 				if (msg.getAction().equals("update")) {
 					intPrice = pricesMap.get(unit.getId());
 				} else {// action is partial or insert
-					BigDecimal pr = new BigDecimal(unit.getPrice(), MathContext.DECIMAL32);
-					BigDecimal ts = new BigDecimal(instr.getTickSize(), MathContext.DECIMAL32);
-					BigDecimal res = pr.divide(ts, 0, BigDecimal.ROUND_HALF_UP);
-					intPrice = res.intValue();
+					intPrice = createIntPrice(unit.getPrice(), instr.getTickSize());
 					pricesMap.put(unit.getId(), intPrice);
 				}
 			}
@@ -125,16 +122,23 @@ public class JsonParser {
 		}
 	}
 
+	private int createIntPrice(double price, double tickSize){
+//		BigDecimal pr = new BigDecimal(price, MathContext.DECIMAL32);
+//		BigDecimal ts = new BigDecimal(tickSize, MathContext.DECIMAL32);
+//		BigDecimal res = pr.divide(ts, 0, BigDecimal.ROUND_HALF_UP);
+//		int intPrice = res.intValue();
+		
+		int intPrice = (int) Math.round(price/tickSize);
+//		Log.info(price + "=>" + intPrice);
+		return intPrice;
+	}
+	
 	private void processTradeMessage(Message msg) {
 		BmInstrument instr = activeInstrumentsMap.get(msg.data.get(0).getSymbol());
 
 		for (DataUnit unit : msg.data) {
 			unit.setBid(unit.getSide().equals("Buy"));
-			
-			BigDecimal pr = new BigDecimal(unit.getPrice(), MathContext.DECIMAL32);
-			BigDecimal ts = new BigDecimal(instr.getTickSize(), MathContext.DECIMAL32);
-			BigDecimal res = pr.divide(ts, 0, BigDecimal.ROUND_HALF_UP);
-			int intPrice = res.intValue();
+			int intPrice = createIntPrice(unit.getPrice(), instr.getTickSize());
 			unit.setIntPrice(intPrice);
 		}
 	}
