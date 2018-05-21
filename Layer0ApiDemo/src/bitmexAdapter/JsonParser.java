@@ -1,7 +1,5 @@
 package bitmexAdapter;
 
-import java.math.BigDecimal;
-import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -30,12 +28,42 @@ public class JsonParser {
 	public void parse(String str) {
 		Message msg = (Message) gson.fromJson(str, Message.class);
 		
-		// skip messages if the action is not defined
-		if (msg == null || msg.action == null) {
+//		if (msg.action == null) {
 //			Log.info(str);
+//			return;
+//		}
+		
+		
+		// skip messages if the action is not defined
+		if (msg == null || msg.action == null || msg.getTable()==null || msg.getTable() == "") {
+			Log.info(str);
 			return;
 		}
+		
 
+		if(!msg.getTable().equals("orderBookL2") 
+				&& !msg.getTable().equals("trade") 
+				&& !msg.getTable().equals("execution") 
+				&& !msg.getTable().equals("position")){
+			Log.info(msg.getTable());
+			Log.info(str);
+			return;
+		}
+		
+		if(msg.getTable().equals("execution")){
+			Log.info("WS EXECUTION" + str);
+			MessageExecution msgExec = (MessageExecution) gson.fromJson(str, MessageExecution.class);
+			processExecutionMessage(msgExec);
+			return;
+		}
+		
+		if(msg.getTable().equals("position")){
+			Log.info("WS EXECUTION" + str);
+			MessagePosition msgPos = (MessagePosition) gson.fromJson(str, MessagePosition.class);
+			processPositionMessage(msgPos);
+			return;
+		}
+		
 		BmInstrument instr = activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
 		if (!instr.isSubscribed()) {
 			return;
@@ -59,13 +87,17 @@ public class JsonParser {
 			} else {
 				return; // otherwise wait for partial
 			}
-		} else {
+		} else if(!msg.getTable().equals("execution")) {
 			if (msg.getTable().equals("trade")) {
+//				Log.info(str);
 				processTradeMessage(msg);
 			} else {
 				processOrderMessage(msg);
 			}
 			instr.getQueue().add(msg);
+		} else {//table = execution
+			MessageExecution msgExec = (MessageExecution) gson.fromJson(str, MessageExecution.class);
+			processExecutionMessage(msgExec);
 		}
 	}
 
@@ -140,6 +172,22 @@ public class JsonParser {
 			unit.setBid(unit.getSide().equals("Buy"));
 			int intPrice = createIntPrice(unit.getPrice(), instr.getTickSize());
 			unit.setIntPrice(intPrice);
+		}
+	}
+	
+	private void processExecutionMessage(MessageExecution msgExec) {
+
+		for (BmOrder order : msgExec.data) {
+			BmInstrument instr = activeInstrumentsMap.get(order.getSymbol());
+			instr.getExecutionQueue().add(order);
+		}
+	}
+	
+	private void processPositionMessage(MessagePosition msgPos) {
+
+		for (Position order : msgPos.data) {
+			BmInstrument instr = activeInstrumentsMap.get(order.getSymbol());
+			instr.getPositionQueue().add(order);
 		}
 	}
 

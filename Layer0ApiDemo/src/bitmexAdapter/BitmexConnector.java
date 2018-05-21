@@ -3,31 +3,66 @@ package bitmexAdapter;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.NoRouteToHostException;
 import java.net.URI;
 import java.net.URL;
 import java.net.UnknownHostException;
+import java.security.InvalidKeyException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CountDownLatch;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.HttpsURLConnection;
+
+import velox.api.layer0.live.DemoExternalRealtimeTradingProvider_2;
 import velox.api.layer1.common.Log;
+import velox.api.layer1.data.OrderUpdateParameters;
+
+import org.apache.commons.codec.binary.Hex;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 
+import com.google.gson.JsonObject;
+
+import bitmexAdapter.TradeConnector.GeneralType;
+import bitmexAdapter.TradeConnector.Method;
+
 public class BitmexConnector implements Runnable {
-	private final String wssUrl = "wss://www.bitmex.com/realtime";
-	private final String restApi = "https://www.bitmex.com/api/v1";
-	private final String restActiveInstrUrl = "https://www.bitmex.com/api/v1/instrument/active";
+//	private final String wssUrl = "wss://www.bitmex.com/realtime";
+//	private final String restApi = "https://www.bitmex.com/api/v1";
+//	private final String restActiveInstrUrl = "https://www.bitmex.com/api/v1/instrument/active";
+	private final String wssUrl = "wss://testnet.bitmex.com/realtime";
+	private final String restApi = "https://testnet.bitmex.com/api/v1";
+	private final String restActiveInstrUrl = "https://testnet.bitmex.com/api/v1/instrument/active";
 	private HashMap<String, BmInstrument> activeBmInstrumentsMap = new HashMap<>();
 	private CountDownLatch webSocketStartingLatch = new CountDownLatch(1);
 	private ClientSocket socket;
 	public JsonParser parser = new JsonParser();
+//	КОСТЫЛЬ
+	public DemoExternalRealtimeTradingProvider_2 provider;
+	
+//	КОСТЫЛЬ
+	TradeConnector connr;
 
+	public TradeConnector getTrConn() {
+		return connr;
+	}
+
+	public void setTrConn(TradeConnector trConn) {
+		this.connr = trConn;
+	}
+//	END КОСТЫЛЬ
+
+	
+	
 	public CountDownLatch getWebSocketStartingLatch() {
 		return webSocketStartingLatch;
 	}
@@ -37,6 +72,60 @@ public class BitmexConnector implements Runnable {
 			return false;
 		}
 		return true;
+	}
+	
+	public ClientUpgradeRequest  wssAuth() {
+		ClientUpgradeRequest req = new ClientUpgradeRequest();
+		String method = "GET";
+		String subPath = "/realtime";
+		String orderAPiKEy = "PLc0jF_9Jh2-gYU6ye-6BS4q";
+		String orderApiSecret = "xyMWpfSlONCWCwrntm0GotQN42ia291Vv2aWANlp-f0Kb5-I";
+		long moment = getMoment();
+		String data = "";
+		
+		try {	
+			String messageBody = createMessageBody(method, subPath, data, moment);
+			String signature = generateSignature(orderApiSecret, messageBody);
+			
+			
+			req.setMethod(method);
+			
+//			req.setHeader("Content-Type", "application/json");
+//			req.setHeader("Accept", "application/json");
+			
+			req.setHeader("api-expires", Long.toString(moment));
+			req.setHeader("api-key", orderAPiKEy);//**************************
+			req.setHeader("api-signature", signature);
+//			req.setHeader("Content-Length", Integer.toString(data.getBytes("UTF-8").length));
+//			System.out.println(Integer.toString(data.getBytes("UTF-8").length));
+		
+//		} catch (UnsupportedEncodingException | InvalidKeyException | NoSuchAlgorithmException e) {
+		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return req;
+	}
+	
+	public String wssAuthTwo() {
+		String method = "GET";
+		String subPath = "/realtime";
+//		String subPath = "";
+		String orderAPiKEy = "PLc0jF_9Jh2-gYU6ye-6BS4q";
+		String orderApiSecret = "xyMWpfSlONCWCwrntm0GotQN42ia291Vv2aWANlp-f0Kb5-I";
+		long moment = getMoment();
+
+		String data = "";
+		String res = null;
+		
+		try {	
+			String messageBody = createMessageBody(method, subPath, data, moment);
+			String signature = generateSignature(orderApiSecret, messageBody);
+//			res = "?api-nonce=" + moment + "&api-signature=" + signature + "&api-key=" + orderAPiKEy;
+			res = "{\"op\": \"authKey\", \"args\": [\"" + orderAPiKEy +"\", "+ moment + ", \"" + signature + "\"]}";
+		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
+		}
+		return res;
 	}
 
 	public void wSconnect() {
@@ -49,18 +138,42 @@ public class BitmexConnector implements Runnable {
 			this.parser.setActiveInstrumentsMap(Collections.unmodifiableMap(activeBmInstrumentsMap));
 			this.socket.setParser(parser);
 
+			
+			
+			
 			client.start();
 			URI echoUri = new URI(wssUrl);
 			ClientUpgradeRequest request = new ClientUpgradeRequest();
+			
+//			АВТОРИЗАЦИЯ ВЕБСОКЕТ 1 
+//			request = wssAuth();
+//			Log.info("*********WSS AUTH");
+			
+			
+			
+			
 			client.connect(socket, echoUri, request);
 			this.socket.getOpeningLatch().await();
+			
+			
+//			АВТОРИЗАЦИЯ ВЕБСОКЕТ 1 
+			String mes = wssAuthTwo();
+			Log.info("AUTH MESSAGE PASSED");
+			this.socket.sendMessage(mes);
+			this.socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"execution\"]}");
+			this.socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"position\"]}");
+			Log.info("SENDING AUTH MESSAGE PASSED");
+			
 			this.webSocketStartingLatch.countDown();
-
+			
 			for (BmInstrument instr : activeBmInstrumentsMap.values()) {
 				if (instr.isSubscribed()) {
 					subscribe(instr);
 				}
 			}
+			
+			
+			
 
 			// WAITING FOR THE SOCKET TO CLOSE
 			socket.getClosingLatch().await();
@@ -108,6 +221,7 @@ public class BitmexConnector implements Runnable {
 			HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
 			conn.setRequestMethod("GET");
 			conn.setRequestProperty("Accept", "application/json");
+			
 
 			if (conn.getResponseCode() == 200) {
 				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
@@ -137,11 +251,31 @@ public class BitmexConnector implements Runnable {
 			if (str == null)
 				return;
 
+//			JsonObject json = new JsonObject();
+////			json.addProperty("ordStatus", "New");
+////			json.addProperty("side", side);
+////			json.addProperty("price", price);
+////			json.addProperty("orderQty", orderQty);
+////			json.addProperty("ordType", "Limit");
+////			String data = json.toString();
+//			String data = "";
+//			try {
+////				String st = trConn.require(GeneralType.execution, Method.GET, "?filter=%7B%22ordStatus%22%3A%20%22New%22%7D&count=100&reverse=false");
+//				String st = trConn.require0(GeneralType.execution, Method.GET, data);
+//				String st0 = trConn.require0(GeneralType.instrument, Method.GET, data);
+//				Log.info("NEW ORDERS SNAPSHOT " + st);
+//				Log.info("TEST " + st0);
+//			} catch (InvalidKeyException | NoSuchAlgorithmException e) {
+//				// TODO Auto-generated catch block
+//				e.printStackTrace();
+//			}
+			
 			BmInstrument[] instrs = JsonParser.getArrayFromJson(str, BmInstrument[].class);
 
 			for (BmInstrument instr : instrs) {
 				this.activeBmInstrumentsMap.put(instr.getSymbol(), instr);
 			}
+				
 			activeBmInstrumentsMap.notify();
 		}
 	}
@@ -151,30 +285,101 @@ public class BitmexConnector implements Runnable {
 	}
 
 	private void launchSnapshotTimer(BitmexConnector connector, BmInstrument instr) {
-		TimerTask task = new TimerTask() {
-			@Override
-			public void run() {
-				if (!instr.isFirstSnapshotParsed()) {
-					connector.unSubscribe(instr);
-					connector.subscribe(instr);
-				}
-			}
-		};
-
-		Timer timer = new Timer();
-		timer.schedule(task, 8000);
+//		TimerTask task = new TimerTask() {
+//			@Override
+//			public void run() {
+//				if (!instr.isFirstSnapshotParsed()) {
+//					connector.unSubscribe(instr);
+//					connector.subscribe(instr);
+//				}
+//			}
+//		};
+//
+//		Timer timer = new Timer();
+//		timer.schedule(task, 8000);
 	}
 
 	public void subscribe(BmInstrument instr) {
 		instr.setSubscribed(true);
 		sendWebsocketMessage(instr.getSubscribeReq());
 		launchSnapshotTimer(this, instr);
+		
+		//getting open orders snapshot
+		long moment = getMoment();
+		String data1 = "";
+		String data0 = "?filter=%7B%22open%22:true%7D";
+//		String addr = "/api/v1/order?filter=%7B%22open%22:true%7D";
+		String addr = "/api/v1/order?filter=%7B%22symbol%22%3A%22" + instr.getSymbol() + "%22%2C%22ordStatus%22%3A%22New%22%7D";
+		String sign;
+		try {
+			sign = TradeConnector.generateSignature(connr.orderApiSecret, createMessageBody("GET", addr, data1, moment));
+			String st0 = connr.get("https://testnet.bitmex.com" + addr,
+					connr.orderApiKey, 
+					sign,
+					moment,
+					data0);
+			Log.info("EXISTING ORDERS => " + st0);
+			BmOrder[] orders = JsonParser.getArrayFromJson(st0, BmOrder[].class);
+			for(BmOrder order : orders ){
+				order.setSnapshot(true);
+				instr.getExecutionQueue().add(order);
+				provider.createBookmapOrder(order);
+			}
+		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		}
+		
+		
+		
 	}
 
 	public void unSubscribe(BmInstrument instr) {
 		instr.setSubscribed(false);
 		sendWebsocketMessage(instr.getUnSubscribeReq());
 	}
+	
+	
+	
+	
+	public static long getMoment(){
+		return System.currentTimeMillis() + 10000;
+	}
+
+	public static String hash256(String data) throws NoSuchAlgorithmException {
+		MessageDigest md = MessageDigest.getInstance("SHA-256");
+		md.update(data.getBytes());
+		return bytesToHex(md.digest());
+	}
+
+	public static String bytesToHex(byte[] bytes) {
+		StringBuffer result = new StringBuffer();
+		for (byte byt : bytes)
+			result.append(Integer.toString((byt & 0xff) + 0x100, 16).substring(1));
+		return result.toString();
+	}
+	
+
+
+	public static String createMessageBody(String method, String path, String data, long moment) {
+		String messageBody = method + path + Long.toString(moment) + data;
+		Log.info("messageBody\t" + messageBody);
+		return messageBody;
+	}
+
+	public static String generateSignature(String apiSecret, String messageBody)
+			throws NoSuchAlgorithmException, InvalidKeyException {
+		Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
+		SecretKeySpec secretKey = new SecretKeySpec(apiSecret.getBytes(), "HmacSHA256");
+		sha256_HMAC.init(secretKey);
+		byte[] hash = sha256_HMAC.doFinal(messageBody.getBytes());
+		String check = Hex.encodeHexString(hash);
+		Log.info("signature\t" + check);
+		return check;
+	}
+	
+	
+	
+	
 
 	@Override
 	public void run() {

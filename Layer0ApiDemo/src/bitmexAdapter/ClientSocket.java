@@ -41,6 +41,7 @@ public class ClientSocket {
 
 	@OnWebSocketMessage
 	public void onText(Session session, String message) throws IOException {
+		
 		if (session != null && message != null) {
 			parser.parse(message);
 			lastMessageTime = System.currentTimeMillis();
@@ -96,6 +97,7 @@ public class ClientSocket {
 	}
 
 	public void sendMessage(String str) {
+		Log.info("OUT MESSAGE " + str);
 		try {
 			session.getRemote().sendString(str);
 		} catch (WebSocketException | IOException e) {

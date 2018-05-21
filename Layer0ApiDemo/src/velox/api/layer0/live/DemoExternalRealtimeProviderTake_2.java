@@ -19,6 +19,7 @@ import velox.api.layer1.data.UserPasswordDemoLoginData;
 import bitmexAdapter.BitmexConnector;
 import bitmexAdapter.DataUnit;
 import bitmexAdapter.Message;
+import bitmexAdapter.TradeConnector;
 import bitmexAdapter.BmInstrument;
 
 /**
@@ -28,7 +29,8 @@ import bitmexAdapter.BmInstrument;
  */
 public class DemoExternalRealtimeProviderTake_2 extends ExternalLiveBaseProvider {
 
-	private BitmexConnector connector;
+	public BitmexConnector connector = new BitmexConnector();
+	public TradeConnector connr = new TradeConnector();
 
 	protected class Instrument {
 
@@ -69,7 +71,7 @@ public class DemoExternalRealtimeProviderTake_2 extends ExternalLiveBaseProvider
 						for (Layer1ApiDataListener listener : dataListeners) {
 							final boolean isOtc = false;
 							listener.onTrade(symbol, unit.getIntPrice(), (int) unit.getSize(),
-									new TradeInfo(isOtc, !unit.isBid()));
+									new TradeInfo(isOtc, unit.isBid()));
 						}
 					}
 				}
@@ -117,6 +119,7 @@ public class DemoExternalRealtimeProviderTake_2 extends ExternalLiveBaseProvider
 				// asynchronously (e.g use Executor)
 
 				// This is delivered after REST query response
+				connector.getWebSocketStartingLatch();
 				HashMap<String, BmInstrument> activeBmInstruments = this.connector.getActiveInstrumentsMap();
 				Set<String> set = new HashSet<>();
 
@@ -219,7 +222,8 @@ public class DemoExternalRealtimeProviderTake_2 extends ExternalLiveBaseProvider
 			adminListeners.forEach(Layer1ApiAdminListener::onLoginSuccessful);
 
 			// CONNECTOR
-			this.connector = new BitmexConnector();
+//			this.connector = new BitmexConnector();
+			this.connector.setTrConn(connr);
 			Thread thread = new Thread(this.connector);
 			thread.setName("->BitmexAdapter: connector");
 			thread.start();

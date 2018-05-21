@@ -17,6 +17,15 @@ public class BmInstrument {
 	private OrderBook orderBook = new OrderBook();
 	private BlockingQueue<Message> queue = new LinkedBlockingQueue<>();
 	private HashMap<Long, Integer> pricesMap = new HashMap<>();
+	
+	//	This is a temporary solution
+	// Generally there must be one queue for any so called dataUnit, no matter which, 
+	//either order update data or trade or position or whatever
+	private BlockingQueue<BmOrder> executionQueue = new LinkedBlockingQueue<>();
+	private BlockingQueue<Position> positionQueue = new LinkedBlockingQueue<>();
+
+
+	
 
 	public BmInstrument(String symbol, double tickSize) {
 		super();
@@ -83,4 +92,21 @@ public class BmInstrument {
 	public void setFirstSnapshotParsed(boolean isFirstSnapshotParsed) {
 		this.isFirstSnapshotParsed = isFirstSnapshotParsed;
 	}
+	
+	public BlockingQueue<BmOrder> getExecutionQueue() {
+		return executionQueue;
+	}
+
+	public void setExecutionQueue(BlockingQueue<BmOrder> executionQueue) {
+		this.executionQueue = executionQueue;
+	}
+
+	public BlockingQueue<Position> getPositionQueue() {
+		return positionQueue;
+	}
+
+	public void setPositionQueue(BlockingQueue<Position> positionQueue) {
+		this.positionQueue = positionQueue;
+	}
+	
 }
