@@ -1,5 +1,7 @@
 package bitmexAdapter;
 
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -12,12 +14,21 @@ because the Bookmap Layer0Api has a class named "Instrument"*/
 public class BmInstrument {
 	private String symbol;
 	private double tickSize;
+	private long multiplier;
+
 	private boolean isSubscribed = false;
 	private boolean isFirstSnapshotParsed = false;
 	private OrderBook orderBook = new OrderBook();
 	private BlockingQueue<Message> queue = new LinkedBlockingQueue<>();
 	private HashMap<Long, Integer> pricesMap = new HashMap<>();
+	private Position validPosition = new Position(0L, "", "", 0L, 0L, 0L, 0D);
 	
+	private int executionsVolume = 0;
+	private int sellOrdersCount = 0;
+	private int buyOrdersCount = 0;
+	
+	
+
 	//	This is a temporary solution
 	// Generally there must be one queue for any so called dataUnit, no matter which, 
 	//either order update data or trade or position or whatever
@@ -36,7 +47,23 @@ public class BmInstrument {
 	public BmInstrument() {
 		super();
 	}
+	
+	public int getExecutionsVolume() {
+		return executionsVolume;
+	}
 
+	public void setExecutionsVolume(int executionsVolume) {
+		this.executionsVolume = executionsVolume;
+	}
+
+	public long getMultiplier() {
+		return multiplier;
+	}
+
+	public void setMultiplier(long multiplier) {
+		this.multiplier = multiplier;
+	}
+	
 	public BlockingQueue<Message> getQueue() {
 		return queue;
 	}
@@ -108,5 +135,31 @@ public class BmInstrument {
 	public void setPositionQueue(BlockingQueue<Position> positionQueue) {
 		this.positionQueue = positionQueue;
 	}
+
+	public Position getValidPosition() {
+		return validPosition;
+	}
+
+	public void setValidPosition(Position validPosition) {
+		this.validPosition = validPosition;
+	}
+
+	public int getSellOrdersCount() {
+		return sellOrdersCount;
+	}
+
+	public void setSellOrdersCount(int sellOrdersCount) {
+		this.sellOrdersCount = sellOrdersCount;
+	}
+
+	public int getBuyOrdersCount() {
+		return buyOrdersCount;
+	}
+
+	public void setBuyOrdersCount(int buyOrdersCount) {
+		this.buyOrdersCount = buyOrdersCount;
+	}
+	
+	
 	
 }

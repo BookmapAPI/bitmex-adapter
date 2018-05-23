@@ -1,9 +1,14 @@
 package bitmexAdapter;
-
+/** This object is created after having parsed json.
+ * Some field are objects because we need null references
+ * to show the Consumer the values are not included to json.
+ * That means values did not change and the Consumer must use
+ * the previous value.
+ */
 public class Position {
 
 
-	private long account;
+	private Long account;
 	private String symbol;
 	private String currency;
 	private String underlying;
@@ -47,7 +52,7 @@ public class Position {
 	private long grossExecCost;
 	private boolean	isOpen;
 	private double markPrice;
-	private long markValue;
+	private Long markValue;
 	private long riskValue;
 	private double homeNotional;
 	private double foreignNotional;
@@ -69,7 +74,7 @@ public class Position {
 	private long varMargin;
 	private long realisedGrossPnl;
 	private long realisedTax;
-	private long realisedPnl;
+	private Long realisedPnl;
 	private long unrealisedGrossPnl;
 	private long longBankrupt;
 	private long shortBankrupt;
@@ -77,7 +82,7 @@ public class Position {
 	private double indicativeTaxRate;
 	private long indicativeTax;
 	private long unrealisedTax;
-	private long unrealisedPnl;
+	private Long unrealisedPnl;
 	private double unrealisedPnlPcnt;
 	private double unrealisedRoePcnt;
 	private double simpleQty;
@@ -86,7 +91,7 @@ public class Position {
 	private double simplePnl;
 	private double simplePnlPcnt;
 	private double avgCostPrice;
-	private double avgEntryPrice;
+	private Double avgEntryPrice;
 	private double breakEvenPrice;
 	private double marginCallPrice;
 	private double liquidationPrice;
@@ -94,9 +99,24 @@ public class Position {
 	private String timestamp;
 	private double lastPrice;
 	private long lastValue;
+	
+	public Position(Long account, String symbol, String currency, Long markValue, Long realisedPnl, Long unrealisedPnl,
+			Double avgEntryPrice) {
+		super();
+		this.account = account;
+		this.symbol = symbol;
+		this.currency = currency;
+		this.markValue = markValue;
+		this.realisedPnl = realisedPnl;
+		this.unrealisedPnl = unrealisedPnl;
+		this.avgEntryPrice = avgEntryPrice;
+	}
 
-
-	public long getAccount() {
+	public Position() {
+		super();
+	}
+	
+	public Long getAccount() {
 		return account;
 	}
 	public String getSymbol() {
@@ -228,7 +248,7 @@ public class Position {
 	public double getMarkPrice() {
 		return markPrice;
 	}
-	public long getMarkValue() {
+	public Long getMarkValue() {
 		return markValue;
 	}
 	public long getRiskValue() {
@@ -294,7 +314,7 @@ public class Position {
 	public long getRealisedTax() {
 		return realisedTax;
 	}
-	public long getRealisedPnl() {
+	public Long getRealisedPnl() {
 		return realisedPnl;
 	}
 	public long getUnrealisedGrossPnl() {
@@ -318,7 +338,7 @@ public class Position {
 	public long getUnrealisedTax() {
 		return unrealisedTax;
 	}
-	public long getUnrealisedPnl() {
+	public Long getUnrealisedPnl() {
 		return unrealisedPnl;
 	}
 	public double getUnrealisedPnlPcnt() {
@@ -345,7 +365,7 @@ public class Position {
 	public double getAvgCostPrice() {
 		return avgCostPrice;
 	}
-	public double getAvgEntryPrice() {
+	public Double getAvgEntryPrice() {
 		return avgEntryPrice;
 	}
 	public double getBreakEvenPrice() {
@@ -369,7 +389,7 @@ public class Position {
 	public long getLastValue() {
 		return lastValue;
 	}
-	public void setAccount(long account) {
+	public void setAccount(Long account) {
 		this.account = account;
 	}
 	public void setSymbol(String symbol) {
@@ -501,7 +521,7 @@ public class Position {
 	public void setMarkPrice(double markPrice) {
 		this.markPrice = markPrice;
 	}
-	public void setMarkValue(long markValue) {
+	public void setMarkValue(Long markValue) {
 		this.markValue = markValue;
 	}
 	public void setRiskValue(long riskValue) {
@@ -567,7 +587,7 @@ public class Position {
 	public void setRealisedTax(long realisedTax) {
 		this.realisedTax = realisedTax;
 	}
-	public void setRealisedPnl(long realisedPnl) {
+	public void setRealisedPnl(Long realisedPnl) {
 		this.realisedPnl = realisedPnl;
 	}
 	public void setUnrealisedGrossPnl(long unrealisedGrossPnl) {
@@ -591,7 +611,7 @@ public class Position {
 	public void setUnrealisedTax(long unrealisedTax) {
 		this.unrealisedTax = unrealisedTax;
 	}
-	public void setUnrealisedPnl(long unrealisedPnl) {
+	public void setUnrealisedPnl(Long unrealisedPnl) {
 		this.unrealisedPnl = unrealisedPnl;
 	}
 	public void setUnrealisedPnlPcnt(double unrealisedPnlPcnt) {
@@ -618,7 +638,7 @@ public class Position {
 	public void setAvgCostPrice(double avgCostPrice) {
 		this.avgCostPrice = avgCostPrice;
 	}
-	public void setAvgEntryPrice(double avgEntryPrice) {
+	public void setAvgEntryPrice(Double avgEntryPrice) {
 		this.avgEntryPrice = avgEntryPrice;
 	}
 	public void setBreakEvenPrice(double breakEvenPrice) {
@@ -643,4 +663,12 @@ public class Position {
 		this.lastValue = lastValue;
 	}
 
+	@Override
+	public String toString() {
+		return "Position [account=" + account + ", symbol=" + symbol + ", currency=" + currency + ", markValue="
+				+ markValue + ", realisedPnl=" + realisedPnl + ", unrealisedPnl=" + unrealisedPnl + ", avgEntryPrice="
+				+ avgEntryPrice + "]";
+	}
+
+	
 }

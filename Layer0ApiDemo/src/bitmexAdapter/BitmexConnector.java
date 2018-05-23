@@ -329,6 +329,7 @@ public class BitmexConnector implements Runnable {
 			e.printStackTrace();
 		}
 		
+		instr.setExecutionsVolume(countExecutionsVolume(instr.getSymbol()));
 		
 		
 	}
@@ -377,6 +378,32 @@ public class BitmexConnector implements Runnable {
 		return check;
 	}
 	
+	private int countExecutionsVolume(String symbol){
+		String z = MiscUtils.getDateTwentyFourHoursAgoAsUrlEncodedString();
+		System.out.println("Z = " + z);
+		int sum = 0;
+		long moment = connr.getMoment();
+		String data1 = "";
+		String addr = "/api/v1/execution?symbol=" + symbol + "&filter=%7B%22ordStatus%22%3A%22Filled%22%7D&count=100&reverse=false&startTime="
+				+ z;
+		String sign;
+		try {
+			sign = TradeConnector.generateSignature(connr.orderApiSecret,
+					connr.createMessageBody("GET", addr, data1, moment));
+			String st0 = connr.get("https://testnet.bitmex.com" + addr, connr.orderApiKey, sign, moment, "");
+			
+			BmOrder[] orders = TradeConnector.getArrayFromJson(st0, BmOrder[].class);
+			for (BmOrder order : orders) {
+				sum += order.getSimpleOrderQty();
+			}
+
+			System.out.println("=> " + st0);
+		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		}
+		
+		return sum;
+	}
 	
 	
 	

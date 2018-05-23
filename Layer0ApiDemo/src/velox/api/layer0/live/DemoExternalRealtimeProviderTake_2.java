@@ -8,7 +8,9 @@ import java.util.concurrent.BlockingQueue;
 
 import velox.api.layer1.Layer1ApiAdminListener;
 import velox.api.layer1.Layer1ApiDataListener;
+import velox.api.layer1.common.Log;
 import velox.api.layer1.data.InstrumentInfo;
+import velox.api.layer1.data.InstrumentInfoCrypto;
 import velox.api.layer1.data.LoginData;
 import velox.api.layer1.data.LoginFailedReason;
 import velox.api.layer1.data.OrderSendParameters;
@@ -149,6 +151,9 @@ public class DemoExternalRealtimeProviderTake_2 extends ExternalLiveBaseProvider
 					instruments.put(alias, newInstrument);
 					final InstrumentInfo instrumentInfo = new InstrumentInfo(symbol, exchange, type, newInstrument.pips,
 							1, "", false);
+//					Log.info("MULTIPLIER" + Math.round(1.0/instr.getTickSize()));
+//					final InstrumentInfo instrumentInfo = new InstrumentInfoCrypto(symbol, exchange, type, newInstrument.pips,
+//							1, "", false, 1.0/instr.getTickSize());
 
 					instrumentListeners.forEach(l -> l.onInstrumentAdded(alias, instrumentInfo));
 					this.connector.subscribe(instr);

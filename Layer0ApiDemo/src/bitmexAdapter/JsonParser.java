@@ -27,43 +27,39 @@ public class JsonParser {
 
 	public void parse(String str) {
 		Message msg = (Message) gson.fromJson(str, Message.class);
-		
-//		if (msg.action == null) {
-//			Log.info(str);
-//			return;
-//		}
-		
-		
+
+		// if (msg.action == null) {
+		// Log.info(str);
+		// return;
+		// }
+
 		// skip messages if the action is not defined
-		if (msg == null || msg.action == null || msg.getTable()==null || msg.getTable() == "") {
+		if (msg == null || msg.action == null || msg.getTable() == null || msg.getTable() == "") {
 			Log.info(str);
 			return;
 		}
-		
 
-		if(!msg.getTable().equals("orderBookL2") 
-				&& !msg.getTable().equals("trade") 
-				&& !msg.getTable().equals("execution") 
-				&& !msg.getTable().equals("position")){
+		if (!msg.getTable().equals("orderBookL2") && !msg.getTable().equals("trade")
+				&& !msg.getTable().equals("execution") && !msg.getTable().equals("position")) {
 			Log.info(msg.getTable());
 			Log.info(str);
 			return;
 		}
-		
-		if(msg.getTable().equals("execution")){
+
+		if (msg.getTable().equals("execution")) {
 			Log.info("WS EXECUTION" + str);
 			MessageExecution msgExec = (MessageExecution) gson.fromJson(str, MessageExecution.class);
 			processExecutionMessage(msgExec);
 			return;
 		}
-		
-		if(msg.getTable().equals("position")){
+
+		if (msg.getTable().equals("position")) {
 			Log.info("WS EXECUTION" + str);
 			MessagePosition msgPos = (MessagePosition) gson.fromJson(str, MessagePosition.class);
 			processPositionMessage(msgPos);
 			return;
 		}
-		
+
 		BmInstrument instr = activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
 		if (!instr.isSubscribed()) {
 			return;
@@ -87,15 +83,15 @@ public class JsonParser {
 			} else {
 				return; // otherwise wait for partial
 			}
-		} else if(!msg.getTable().equals("execution")) {
+		} else if (!msg.getTable().equals("execution")) {
 			if (msg.getTable().equals("trade")) {
-//				Log.info(str);
+				// Log.info(str);
 				processTradeMessage(msg);
 			} else {
 				processOrderMessage(msg);
 			}
 			instr.getQueue().add(msg);
-		} else {//table = execution
+		} else {// table = execution
 			MessageExecution msgExec = (MessageExecution) gson.fromJson(str, MessageExecution.class);
 			processExecutionMessage(msgExec);
 		}
@@ -154,17 +150,17 @@ public class JsonParser {
 		}
 	}
 
-	private int createIntPrice(double price, double tickSize){
-//		BigDecimal pr = new BigDecimal(price, MathContext.DECIMAL32);
-//		BigDecimal ts = new BigDecimal(tickSize, MathContext.DECIMAL32);
-//		BigDecimal res = pr.divide(ts, 0, BigDecimal.ROUND_HALF_UP);
-//		int intPrice = res.intValue();
-		
-		int intPrice = (int) Math.round(price/tickSize);
-//		Log.info(price + "=>" + intPrice);
+	private int createIntPrice(double price, double tickSize) {
+		// BigDecimal pr = new BigDecimal(price, MathContext.DECIMAL32);
+		// BigDecimal ts = new BigDecimal(tickSize, MathContext.DECIMAL32);
+		// BigDecimal res = pr.divide(ts, 0, BigDecimal.ROUND_HALF_UP);
+		// int intPrice = res.intValue();
+
+		int intPrice = (int) Math.round(price / tickSize);
+		// Log.info(price + "=>" + intPrice);
 		return intPrice;
 	}
-	
+
 	private void processTradeMessage(Message msg) {
 		BmInstrument instr = activeInstrumentsMap.get(msg.data.get(0).getSymbol());
 
@@ -174,28 +170,39 @@ public class JsonParser {
 			unit.setIntPrice(intPrice);
 		}
 	}
-	
+
 	private void processExecutionMessage(MessageExecution msgExec) {
 
 		for (BmOrder order : msgExec.data) {
 			BmInstrument instr = activeInstrumentsMap.get(order.getSymbol());
-			instr.getExecutionQueue().add(order);
+			//if the instrument is not subscribed
+			//the position info is simply a garbage
+			//and should be ignored
+			if (instr.isSubscribed()) {
+				instr.getExecutionQueue().add(order);
+			}
+
 		}
 	}
-	
+
 	private void processPositionMessage(MessagePosition msgPos) {
+		Log.info("EXEC MSG PROCESSED");
 
 		for (Position order : msgPos.data) {
 			BmInstrument instr = activeInstrumentsMap.get(order.getSymbol());
 			instr.getPositionQueue().add(order);
 		}
+
+		Log.info("EXEC MSG PROCESSED ADDED TO THE QUEUE");
 	}
 
-/**	 resets orderBooks (both for Bookmap and for BmInstrument) after
-	 disconnect and reconnect
-	 For better visualization purposes besAsk and bestBid will go last
-	 in this method and come first in putBestAskToTheHeadOfList method
-	 (see the description for putBestAskToTheHeadOfList method)**/
+	/**
+	 * resets orderBooks (both for Bookmap and for BmInstrument) after
+	 * disconnect and reconnect For better visualization purposes besAsk and
+	 * bestBid will go last in this method and come first in
+	 * putBestAskToTheHeadOfList method (see the description for
+	 * putBestAskToTheHeadOfList method)
+	 **/
 	private void resetBookMapOrderBook(BmInstrument instr) {
 		// Extracting lists of levels from ask and Bid maps
 		String symbol = instr.getSymbol();
