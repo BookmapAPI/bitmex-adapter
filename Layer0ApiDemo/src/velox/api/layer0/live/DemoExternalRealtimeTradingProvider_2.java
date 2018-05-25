@@ -59,9 +59,8 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 	// AtomicInteger orderIdGenerator = new AtomicInteger();
 	// AtomicInteger executionIdGenerator = new AtomicInteger();
 
-//	private int sellOrdersCount = 0;
-//	private int buyOrdersCount = 0;
-	
+	// private int sellOrdersCount = 0;
+	// private int buyOrdersCount = 0;
 
 	/* Holds the valid position */
 
@@ -123,25 +122,28 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 		// before reporting REJECT - this will make Bookmap consider all rejects
 		// to be new ones instead of historical ones
 
-		// ****************** TO BITMEX
-		tempClientId = simpleParameters.clientId;
-		Log.info("CLIENT ID " + tempClientId);
-		Log.info("***Order gets sent to BitMex");
-		BmOrder ord = connr.processNewOrder(simpleParameters);
-		String bmId = ord.getOrderID();
-		Log.info("BM_ID " + bmId);
-		// ****************** TO BITMEX ENDS
-		BmInstrument instr = connector.getActiveInstrumentsMap().get(ord.getSymbol());
-		if (simpleParameters.isBuy) {
-			instr.setBuyOrdersCount(instr.getBuyOrdersCount() + simpleParameters.size);
-//			buyOrdersCount += simpleParameters.size;
-		} else {
-			instr.setSellOrdersCount(instr.getSellOrdersCount() + simpleParameters.size);
-//			sellOrdersCount += simpleParameters.size;
-		}
+		// // ****************** TO BITMEX
+		// tempClientId = simpleParameters.clientId;
+		// Log.info("CLIENT ID " + tempClientId);
+		// Log.info("***Order gets sent to BitMex");
+		// BmOrder ord = connr.processNewOrder(simpleParameters);
+		// String bmId = ord.getOrderID();
+		// Log.info("BM_ID " + bmId);
+		// // ****************** TO BITMEX ENDS
+		// BmInstrument instr =
+		// connector.getActiveInstrumentsMap().get(ord.getSymbol());
+		// if (simpleParameters.isBuy) {
+		// instr.setBuyOrdersCount(instr.getBuyOrdersCount() +
+		// simpleParameters.size);
+		//// buyOrdersCount += simpleParameters.size;
+		// } else {
+		// instr.setSellOrdersCount(instr.getSellOrdersCount() +
+		// simpleParameters.size);
+		//// sellOrdersCount += simpleParameters.size;
+		// }
 
 		Log.info("***OrderInfoBuilder builder CREATED");
-		final OrderInfoBuilder builder = new OrderInfoBuilder(simpleParameters.alias, bmId, simpleParameters.isBuy,
+		final OrderInfoBuilder builder = new OrderInfoBuilder(simpleParameters.alias, "temp", simpleParameters.isBuy,
 				orderType, simpleParameters.clientId, simpleParameters.doNotIncrease);
 
 		// You need to set these fields, otherwise Bookmap might not handle
@@ -158,40 +160,65 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 		// First, since we are not going to emulate stop or market orders in
 		// this demo,
 		// let's reject anything except for Limit orders.
-		if (orderType != OrderType.LMT) {
-
-			Log.info("***Order gets REJECTED");
-
-			// Necessary fields are already populated, so just change status to
-			// rejected and send
-			builder.setStatus(OrderStatus.REJECTED);
-			tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
-			builder.markAllUnchanged();
-
-			// Provider can complain to user here explaining what was done wrong
-			adminListeners.forEach(l -> l.onSystemTextMessage("This provider only supports limit orders",
-					SystemTextMessageType.ORDER_FAILURE));
-		} else {
+		if (orderType == OrderType.STP || orderType == OrderType.LMT || orderType == OrderType.STP_LMT ) {
+//			rejectOrder(builder);
+//		} else if (orderType == OrderType.LMT) {
 
 			// ****************** TO BITMEX
-			// Log.info("***Order gets sent to BitMex");
-			// BmOrder ord = connr.processNewOrder(simpleParameters);
-			// String bmId = ord.getOrderID();
-			// ****************** TO BITMEX ENDS
+			tempClientId = simpleParameters.clientId;
+			Log.info("CLIENT ID " + tempClientId);
+			Log.info("***Order gets sent to BitMex");
+			BmOrder ord = connr.processNewOrder(simpleParameters, orderType);
+			if (ord == null) {
+				rejectOrder(builder);
+			} else {
+				String bmId = ord.getOrderID();
+				Log.info("BM_ID " + bmId);
+				// ****************** TO BITMEX ENDS
+				BmInstrument instr = connector.getActiveInstrumentsMap().get(ord.getSymbol());
+				if (simpleParameters.isBuy) {
+					instr.setBuyOrdersCount(instr.getBuyOrdersCount() + simpleParameters.size);
+					// buyOrdersCount += simpleParameters.size;
+				} else {
+					instr.setSellOrdersCount(instr.getSellOrdersCount() + simpleParameters.size);
+					// sellOrdersCount += simpleParameters.size;
+				}
+				// String bmId = ord.getOrderID();
+				// ****************** TO BITMEX ENDS
 
-			// We are going to simulate this order, entering WORKING state
-			builder.setStatus(OrderStatus.WORKING);
+				builder.setOrderId(bmId);
+				// We are going to simulate this order, entering WORKING state
+				builder.setStatus(OrderStatus.WORKING);
 
-			tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
-			builder.markAllUnchanged();
+				tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
+				builder.markAllUnchanged();
 
-			synchronized (workingOrders) {
-				// workingOrders.put(builder.orderId, builder);
-				workingOrders.put(builder.getOrderId(), builder);
+				synchronized (workingOrders) {
+					// workingOrders.put(builder.orderId, builder);
+					workingOrders.put(builder.getOrderId(), builder);
+				}
 			}
 
+		} else {
+			rejectOrder(builder);
 		}
 
+	}
+
+	public void rejectOrder(OrderInfoBuilder builder) {
+		Log.info("***Order gets REJECTED");
+
+		// Necessary fields are already populated, so just change status to
+		// rejected and send
+		builder.setStatus(OrderStatus.REJECTED);
+		tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
+		builder.markAllUnchanged();
+
+		// Provider can complain to user here explaining what was done wrong
+		adminListeners.forEach(l -> l.onSystemTextMessage("The order was rejected",
+				// adminListeners.forEach(l -> l.onSystemTextMessage("This
+				// provider only supports limit orders",
+				SystemTextMessageType.ORDER_FAILURE));
 	}
 
 	public void createBookmapOrder(BmOrder order) {
@@ -208,7 +235,9 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 
 		double stopPrice = type.equals(OrderType.STP) ? order.getPrice() : Double.NaN;
 		double limitPrice = type.equals(OrderType.LMT) ? order.getPrice() : Double.NaN;
-		int size = (int) order.getLeavesQty();
+		// int size = (int) order.getLeavesQty();
+		int size = (int) order.getSimpleLeavesQty();
+		Log.info("SIMPLE LEAVES QTY = " + size);
 
 		final OrderInfoBuilder builder = new OrderInfoBuilder(symbol, orderId, isBuy, type, clientId, doNotIncrease);
 
@@ -222,6 +251,15 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 		builder.setStatus(OrderStatus.WORKING);
 		tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
 		builder.markAllUnchanged();
+
+		BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
+		if (isBuy) {
+			instr.setBuyOrdersCount(instr.getBuyOrdersCount() + size);
+			// buyOrdersCount += simpleParameters.size;
+		} else {
+			instr.setSellOrdersCount(instr.getSellOrdersCount() + size);
+			// sellOrdersCount += simpleParameters.size;
+		}
 
 		synchronized (workingOrders) {
 			// workingOrders.put(builder.orderId, builder);
@@ -251,9 +289,8 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 				OrderCancelParameters orderCancelParameters = (OrderCancelParameters) orderUpdateParameters;
 				connr.cancelOrder(orderCancelParameters.orderId);
 
-				
 				OrderInfoBuilder builder = workingOrders.get(orderCancelParameters.orderId);
-				
+
 				String symbol = connr.isolateSymbol(builder.getInstrumentAlias());
 				BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
 				if (builder.isBuy()) {
@@ -262,53 +299,47 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 					instr.setSellOrdersCount(instr.getSellOrdersCount() - builder.getUnfilled());
 				}
 
-//				if (builder.isBuy()) {
-//					buyOrdersCount -= builder.getUnfilled();
-//				} else {
-//					sellOrdersCount -= builder.getUnfilled();
-//				}
-				
-				
 				OrderInfoBuilder order = workingOrders.remove(orderCancelParameters.orderId);
 				order.setStatus(OrderStatus.CANCELLED);
 				tradingListeners.forEach(l -> l.onOrderUpdated(order.build()));
-				
-				
+
 			} else if (orderUpdateParameters.getClass() == OrderResizeParameters.class) {
 
 				Log.info("***order with provided ID gets RESIZED");
 
 				// Resize order with provided ID
 				OrderResizeParameters orderResizeParameters = (OrderResizeParameters) orderUpdateParameters;
+				Log.info("RESIZE ORDER BY " + orderResizeParameters.size);
 
-				BmOrder ord = connr.resizeOrder(orderResizeParameters.orderId, orderResizeParameters.size);
+				int newSize = orderResizeParameters.size;
+				BmOrder ord = connr.resizeOrder(orderResizeParameters.orderId, newSize);
 
 				OrderInfoBuilder builder = workingOrders.get(orderResizeParameters.orderId);
-				
+
 				if (builder == null) {
 					Log.info("ORDER IS NULL");
 				}
+				int oldSize = builder.getUnfilled();
 
 				String symbol = connr.isolateSymbol(ord.getSymbol());
 				BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
 				if (builder.isBuy()) {
-					instr.setBuyOrdersCount(instr.getBuyOrdersCount() - builder.getUnfilled());
+					instr.setBuyOrdersCount(instr.getBuyOrdersCount() + newSize - oldSize);
 				} else {
-					instr.setSellOrdersCount(instr.getSellOrdersCount() - builder.getUnfilled());
+					instr.setSellOrdersCount(instr.getSellOrdersCount() + newSize - oldSize);
 				}
-				
-//				if (workingOrders.get(orderResizeParameters.orderId).isBuy()) {
-//					buyOrdersCount += orderResizeParameters.size - builder.getUnfilled();
-//				} else {
-//					sellOrdersCount += orderResizeParameters.size - builder.getUnfilled();
-//				}
-				
-				
+
+				// if (workingOrders.get(orderResizeParameters.orderId).isBuy())
+				// {
+				// buyOrdersCount += orderResizeParameters.size -
+				// builder.getUnfilled();
+				// } else {
+				// sellOrdersCount += orderResizeParameters.size -
+				// builder.getUnfilled();
+				// }
+
 				builder.setUnfilled(orderResizeParameters.size);
 				tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
-
-				
-				
 
 			} else if (orderUpdateParameters.getClass() == OrderMoveParameters.class) {
 
@@ -348,7 +379,7 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 				// report limit orders support, but no stop orders support
 				// If you actually need it, you can report stop orders support
 				// but reject stop orders when those are sent.
-				.setSupportedStopOrders(Arrays.asList(new OrderType[] { OrderType.LMT, OrderType.STP })).build();
+				.setSupportedStopOrders(Arrays.asList(new OrderType[] { OrderType.LMT, OrderType.STP, OrderType.STP_LMT })).build();
 	}
 
 	@Override
@@ -402,18 +433,18 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 										orderExec.getLastPx(), orderExec.getExecID(), executionTime);
 
 								tradingListeners.forEach(l -> l.onOrderExecuted(executionInfo));
-								
+
 								OrderInfoBuilder builder = workingOrders.get(orderExec.getOrderID());
-								//updating filled orders volume
-								instr.setExecutionsVolume(instr.getExecutionsVolume() + (int)orderExec.getSimpleCumQty());
+								// updating filled orders volume
+								instr.setExecutionsVolume(
+										instr.getExecutionsVolume() + (int) orderExec.getSimpleCumQty());
 								if (builder.isBuy()) {
 									instr.setBuyOrdersCount(instr.getBuyOrdersCount() - builder.getUnfilled());
-//									buyOrdersCount -= builder.getUnfilled();
+									// buyOrdersCount -= builder.getUnfilled();
 								} else {
 									instr.setSellOrdersCount(instr.getSellOrdersCount() - builder.getUnfilled());
-//									sellOrdersCount -= builder.getUnfilled();
+									// sellOrdersCount -= builder.getUnfilled();
 								}
-								
 
 								// Changing the order itself
 								order.setAverageFillPrice(orderExec.getLastPx());
@@ -443,23 +474,24 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 					Position validPosition = bmInstrument.getValidPosition();
 					updateValidPosition(validPosition, pos);
 					Log.info("NEW VAL" + validPosition.toString());
-					
+
 					BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
 
-					 StatusInfo info = new StatusInfo(validPosition.getSymbol(),
-					 (double) validPosition.getUnrealisedPnl()/(double) bmInstrument.getMultiplier(),
-					 (double) validPosition.getRealisedPnl()/(double) bmInstrument.getMultiplier(),
-					 validPosition.getCurrency(),
-					 (int) Math.round((double) (validPosition.getMarkValue() - validPosition.getUnrealisedPnl())/(double) bmInstrument.getMultiplier()),
-					 validPosition.getAvgEntryPrice(),
-					 bmInstrument.getExecutionsVolume(), //This one is arguable
-					 instr.getBuyOrdersCount(),
-					 instr.getSellOrdersCount()
-					 );
-					 
-					 Log.info(info.toString());
-					
-					 tradingListeners.forEach(l -> l.onStatus(info));
+					StatusInfo info = new StatusInfo(validPosition.getSymbol(),
+							(double) validPosition.getUnrealisedPnl() / (double) bmInstrument.getMultiplier(),
+							(double) validPosition.getRealisedPnl() / (double) bmInstrument.getMultiplier(),
+							validPosition.getCurrency(),
+							(int) Math.round((double) (validPosition.getMarkValue() - validPosition.getUnrealisedPnl())
+									/ (double) bmInstrument.getMultiplier()),
+							validPosition.getAvgEntryPrice(), bmInstrument.getExecutionsVolume(), // This
+																									// one
+																									// is
+																									// arguable
+							instr.getBuyOrdersCount(), instr.getSellOrdersCount());
+
+					Log.info(info.toString());
+
+					tradingListeners.forEach(l -> l.onStatus(info));
 					// *******************POSITION END
 
 					//
@@ -468,32 +500,31 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 		}
 	}
 
-	private void updateValidPosition(Position validPosition, Position pos){
-		if(validPosition.getAccount().equals(0L)){
-			if (pos.getAccount()!=null){
+	private void updateValidPosition(Position validPosition, Position pos) {
+		if (validPosition.getAccount().equals(0L)) {
+			if (pos.getAccount() != null) {
 				validPosition.setAccount(pos.getAccount());
-				}
 			}
-		if(validPosition.getSymbol().equals("") && pos.getSymbol()!=null){
+		}
+		if (validPosition.getSymbol().equals("") && pos.getSymbol() != null) {
 			validPosition.setSymbol(pos.getSymbol());
 		}
-		if(validPosition.getCurrency().equals("") && pos.getCurrency()!=null){
+		if (validPosition.getCurrency().equals("") && pos.getCurrency() != null) {
 			validPosition.setCurrency(pos.getCurrency());
 		}
-		if(pos.getMarkValue()!=null){
+		if (pos.getMarkValue() != null) {
 			validPosition.setMarkValue(pos.getMarkValue());
 		}
-		if(pos.getRealisedPnl()!=null){
+		if (pos.getRealisedPnl() != null) {
 			validPosition.setRealisedPnl(pos.getRealisedPnl());
 		}
-		if(pos.getUnrealisedPnl()!=null){
+		if (pos.getUnrealisedPnl() != null) {
 			validPosition.setUnrealisedPnl(pos.getUnrealisedPnl());
 		}
-		if(pos.getAvgEntryPrice()!=null){
+		if (pos.getAvgEntryPrice() != null) {
 			validPosition.setAvgEntryPrice(pos.getAvgEntryPrice());
 		}
 		Log.info("WTN MTH" + validPosition.toString());
 	}
-	
-	
+
 }
