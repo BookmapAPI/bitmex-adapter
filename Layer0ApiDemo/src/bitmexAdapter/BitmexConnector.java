@@ -22,6 +22,7 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.HttpsURLConnection;
 
 import velox.api.layer0.live.DemoExternalRealtimeTradingProvider_2;
+import velox.api.layer0.live.Provider;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.data.OrderUpdateParameters;
 
@@ -36,9 +37,10 @@ import bitmexAdapter.TradeConnector.GeneralType;
 import bitmexAdapter.TradeConnector.Method;
 
 public class BitmexConnector implements Runnable {
-//	private final String wssUrl = "wss://www.bitmex.com/realtime";
-//	private final String restApi = "https://www.bitmex.com/api/v1";
-//	private final String restActiveInstrUrl = "https://www.bitmex.com/api/v1/instrument/active";
+	// private final String wssUrl = "wss://www.bitmex.com/realtime";
+	// private final String restApi = "https://www.bitmex.com/api/v1";
+	// private final String restActiveInstrUrl =
+	// "https://www.bitmex.com/api/v1/instrument/active";
 	private final String wssUrl = "wss://testnet.bitmex.com/realtime";
 	private final String restApi = "https://testnet.bitmex.com/api/v1";
 	private final String restActiveInstrUrl = "https://testnet.bitmex.com/api/v1/instrument/active";
@@ -46,10 +48,13 @@ public class BitmexConnector implements Runnable {
 	private CountDownLatch webSocketStartingLatch = new CountDownLatch(1);
 	private ClientSocket socket;
 	public JsonParser parser = new JsonParser();
-//	КОСТЫЛЬ
-	public DemoExternalRealtimeTradingProvider_2 provider;
+
+	// КОСТЫЛИ
+	public Provider prov;
+//	public DemoExternalRealtimeTradingProvider_2 provider;
+
+
 	
-//	КОСТЫЛЬ
 	TradeConnector connr;
 
 	public TradeConnector getTrConn() {
@@ -59,10 +64,8 @@ public class BitmexConnector implements Runnable {
 	public void setTrConn(TradeConnector trConn) {
 		this.connr = trConn;
 	}
-//	END КОСТЫЛЬ
+	// END КОСТЫЛЬ
 
-	
-	
 	public CountDownLatch getWebSocketStartingLatch() {
 		return webSocketStartingLatch;
 	}
@@ -73,8 +76,8 @@ public class BitmexConnector implements Runnable {
 		}
 		return true;
 	}
-	
-	public ClientUpgradeRequest  wssAuth() {
+
+	public ClientUpgradeRequest wssAuth() {
 		ClientUpgradeRequest req = new ClientUpgradeRequest();
 		String method = "GET";
 		String subPath = "/realtime";
@@ -82,47 +85,49 @@ public class BitmexConnector implements Runnable {
 		String orderApiSecret = "xyMWpfSlONCWCwrntm0GotQN42ia291Vv2aWANlp-f0Kb5-I";
 		long moment = getMoment();
 		String data = "";
-		
-		try {	
+
+		try {
 			String messageBody = createMessageBody(method, subPath, data, moment);
 			String signature = generateSignature(orderApiSecret, messageBody);
-			
-			
+
 			req.setMethod(method);
-			
-//			req.setHeader("Content-Type", "application/json");
-//			req.setHeader("Accept", "application/json");
-			
+
+			// req.setHeader("Content-Type", "application/json");
+			// req.setHeader("Accept", "application/json");
+
 			req.setHeader("api-expires", Long.toString(moment));
-			req.setHeader("api-key", orderAPiKEy);//**************************
+			req.setHeader("api-key", orderAPiKEy);// **************************
 			req.setHeader("api-signature", signature);
-//			req.setHeader("Content-Length", Integer.toString(data.getBytes("UTF-8").length));
-//			System.out.println(Integer.toString(data.getBytes("UTF-8").length));
-		
-//		} catch (UnsupportedEncodingException | InvalidKeyException | NoSuchAlgorithmException e) {
+			// req.setHeader("Content-Length",
+			// Integer.toString(data.getBytes("UTF-8").length));
+			// System.out.println(Integer.toString(data.getBytes("UTF-8").length));
+
+			// } catch (UnsupportedEncodingException | InvalidKeyException |
+			// NoSuchAlgorithmException e) {
 		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		return req;
 	}
-	
+
 	public String wssAuthTwo() {
 		String method = "GET";
 		String subPath = "/realtime";
-//		String subPath = "";
+		// String subPath = "";
 		String orderAPiKEy = "PLc0jF_9Jh2-gYU6ye-6BS4q";
 		String orderApiSecret = "xyMWpfSlONCWCwrntm0GotQN42ia291Vv2aWANlp-f0Kb5-I";
 		long moment = getMoment();
 
 		String data = "";
 		String res = null;
-		
-		try {	
+
+		try {
 			String messageBody = createMessageBody(method, subPath, data, moment);
 			String signature = generateSignature(orderApiSecret, messageBody);
-//			res = "?api-nonce=" + moment + "&api-signature=" + signature + "&api-key=" + orderAPiKEy;
-			res = "{\"op\": \"authKey\", \"args\": [\"" + orderAPiKEy +"\", "+ moment + ", \"" + signature + "\"]}";
+			// res = "?api-nonce=" + moment + "&api-signature=" + signature +
+			// "&api-key=" + orderAPiKEy;
+			res = "{\"op\": \"authKey\", \"args\": [\"" + orderAPiKEy + "\", " + moment + ", \"" + signature + "\"]}";
 		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
 		}
 		return res;
@@ -137,43 +142,36 @@ public class BitmexConnector implements Runnable {
 			this.socket = socket;
 			this.parser.setActiveInstrumentsMap(Collections.unmodifiableMap(activeBmInstrumentsMap));
 			this.socket.setParser(parser);
+			
+//			**********передача парсеру провайдера
+			parser.prov = this.prov;
 
-			
-			
-			
 			client.start();
 			URI echoUri = new URI(wssUrl);
 			ClientUpgradeRequest request = new ClientUpgradeRequest();
-			
-//			АВТОРИЗАЦИЯ ВЕБСОКЕТ 1 
-//			request = wssAuth();
-//			Log.info("*********WSS AUTH");
-			
-			
-			
-			
+
+			// АВТОРИЗАЦИЯ ВЕБСОКЕТ 1
+			// request = wssAuth();
+			// Log.info("*********WSS AUTH");
+
 			client.connect(socket, echoUri, request);
 			this.socket.getOpeningLatch().await();
-			
-			
-//			АВТОРИЗАЦИЯ ВЕБСОКЕТ 1 
+
+			// АВТОРИЗАЦИЯ ВЕБСОКЕТ 1
 			String mes = wssAuthTwo();
 			Log.info("AUTH MESSAGE PASSED");
 			this.socket.sendMessage(mes);
-			this.socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"execution\"]}");
-			this.socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"position\"]}");
+//			this.socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"execution\"]}");
+//			this.socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"position\"]}");
 			Log.info("SENDING AUTH MESSAGE PASSED");
-			
+
 			this.webSocketStartingLatch.countDown();
-			
+
 			for (BmInstrument instr : activeBmInstrumentsMap.values()) {
 				if (instr.isSubscribed()) {
 					subscribe(instr);
 				}
 			}
-			
-			
-			
 
 			// WAITING FOR THE SOCKET TO CLOSE
 			socket.getClosingLatch().await();
@@ -190,13 +188,13 @@ public class BitmexConnector implements Runnable {
 			e.printStackTrace();
 			// Log.info("CONNECTOR: CONNECTION MUST BE LOST");
 		} catch (Exception | Error e) {
-//			Log.debug("CONNECTOR: THROWABLE THROWN FROM WEBSOCKET");
+			// Log.debug("CONNECTOR: THROWABLE THROWN FROM WEBSOCKET");
 			throw new RuntimeException();
 		} finally {
 			try {
 				client.stop();
 			} catch (Exception e) {
-//				Log.debug("CLIENT STOPPING TROUBLE");
+				// Log.debug("CLIENT STOPPING TROUBLE");
 				e.printStackTrace();
 				throw new RuntimeException();
 			}
@@ -221,7 +219,6 @@ public class BitmexConnector implements Runnable {
 			HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
 			conn.setRequestMethod("GET");
 			conn.setRequestProperty("Accept", "application/json");
-			
 
 			if (conn.getResponseCode() == 200) {
 				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
@@ -235,11 +232,11 @@ public class BitmexConnector implements Runnable {
 				response = sb.toString();
 			}
 		} catch (UnknownHostException | NoRouteToHostException e) {
-//			Log.info("NO RESPONSE FROM SERVER");
+			// Log.info("NO RESPONSE FROM SERVER");
 		} catch (java.net.SocketException e) {
-//			Log.info("NETWORK IS UNREACHABLE");
-		} catch (IOException e){
-//			Log.debug("BUFFER READING ERROR");
+			// Log.info("NETWORK IS UNREACHABLE");
+		} catch (IOException e) {
+			// Log.debug("BUFFER READING ERROR");
 			e.printStackTrace();
 		}
 		return response;
@@ -251,31 +248,13 @@ public class BitmexConnector implements Runnable {
 			if (str == null)
 				return;
 
-//			JsonObject json = new JsonObject();
-////			json.addProperty("ordStatus", "New");
-////			json.addProperty("side", side);
-////			json.addProperty("price", price);
-////			json.addProperty("orderQty", orderQty);
-////			json.addProperty("ordType", "Limit");
-////			String data = json.toString();
-//			String data = "";
-//			try {
-////				String st = trConn.require(GeneralType.execution, Method.GET, "?filter=%7B%22ordStatus%22%3A%20%22New%22%7D&count=100&reverse=false");
-//				String st = trConn.require0(GeneralType.execution, Method.GET, data);
-//				String st0 = trConn.require0(GeneralType.instrument, Method.GET, data);
-//				Log.info("NEW ORDERS SNAPSHOT " + st);
-//				Log.info("TEST " + st0);
-//			} catch (InvalidKeyException | NoSuchAlgorithmException e) {
-//				// TODO Auto-generated catch block
-//				e.printStackTrace();
-//			}
-			
+
 			BmInstrument[] instrs = JsonParser.getArrayFromJson(str, BmInstrument[].class);
 
 			for (BmInstrument instr : instrs) {
 				this.activeBmInstrumentsMap.put(instr.getSymbol(), instr);
 			}
-				
+
 			activeBmInstrumentsMap.notify();
 		}
 	}
@@ -285,64 +264,58 @@ public class BitmexConnector implements Runnable {
 	}
 
 	private void launchSnapshotTimer(BitmexConnector connector, BmInstrument instr) {
-//		TimerTask task = new TimerTask() {
-//			@Override
-//			public void run() {
-//				if (!instr.isFirstSnapshotParsed()) {
-//					connector.unSubscribe(instr);
-//					connector.subscribe(instr);
-//				}
-//			}
-//		};
-//
-//		Timer timer = new Timer();
-//		timer.schedule(task, 8000);
+		// TimerTask task = new TimerTask() {
+		// @Override
+		// public void run() {
+		// if (!instr.isFirstSnapshotParsed()) {
+		// connector.unSubscribe(instr);
+		// connector.subscribe(instr);
+		// }
+		// }
+		// };
+		//
+		// Timer timer = new Timer();
+		// timer.schedule(task, 8000);
 	}
 
 	public void subscribe(BmInstrument instr) {
 		instr.setSubscribed(true);
 		sendWebsocketMessage(instr.getSubscribeReq());
 		launchSnapshotTimer(this, instr);
-		
-		//getting open orders snapshot
+
+		// getting open orders snapshot
 		long moment = getMoment();
 		String data1 = "";
 		String data0 = "?filter=%7B%22open%22:true%7D";
-//		String addr = "/api/v1/order?filter=%7B%22open%22:true%7D";
-		String addr = "/api/v1/order?filter=%7B%22symbol%22%3A%22" + instr.getSymbol() + "%22%2C%22ordStatus%22%3A%22New%22%7D";
+		// String addr = "/api/v1/order?filter=%7B%22open%22:true%7D";
+		String addr = "/api/v1/order?filter=%7B%22symbol%22%3A%22" + instr.getSymbol()
+				+ "%22%2C%22ordStatus%22%3A%22New%22%7D";
 		String sign;
 		try {
-			sign = TradeConnector.generateSignature(connr.orderApiSecret, createMessageBody("GET", addr, data1, moment));
-			String st0 = connr.get("https://testnet.bitmex.com" + addr,
-					connr.orderApiKey, 
-					sign,
-					moment,
-					data0);
+			sign = TradeConnector.generateSignature(connr.orderApiSecret,
+					createMessageBody("GET", addr, data1, moment));
+			String st0 = connr.get("https://testnet.bitmex.com" + addr, connr.orderApiKey, sign, moment, data0);
 			Log.info("EXISTING ORDERS => " + st0);
 			BmOrder[] orders = JsonParser.getArrayFromJson(st0, BmOrder[].class);
-			for(BmOrder order : orders ){
+			for (BmOrder order : orders) {
 				order.setSnapshot(true);
 				instr.getExecutionQueue().add(order);
-				provider.createBookmapOrder(order);
+				prov.createBookmapOrder(order);
 			}
 		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
 			e.printStackTrace();
 		}
-		
+
 		instr.setExecutionsVolume(countExecutionsVolume(instr.getSymbol()));
-		
-		
+
 	}
 
 	public void unSubscribe(BmInstrument instr) {
 		instr.setSubscribed(false);
 		sendWebsocketMessage(instr.getUnSubscribeReq());
 	}
-	
-	
-	
-	
-	public static long getMoment(){
+
+	public static long getMoment() {
 		return System.currentTimeMillis() + 10000;
 	}
 
@@ -358,8 +331,6 @@ public class BitmexConnector implements Runnable {
 			result.append(Integer.toString((byt & 0xff) + 0x100, 16).substring(1));
 		return result.toString();
 	}
-	
-
 
 	public static String createMessageBody(String method, String path, String data, long moment) {
 		String messageBody = method + path + Long.toString(moment) + data;
@@ -377,21 +348,21 @@ public class BitmexConnector implements Runnable {
 		Log.info("signature\t" + check);
 		return check;
 	}
-	
-	private int countExecutionsVolume(String symbol){
+
+	private int countExecutionsVolume(String symbol) {
 		String z = MiscUtils.getDateTwentyFourHoursAgoAsUrlEncodedString();
 		System.out.println("Z = " + z);
 		int sum = 0;
 		long moment = connr.getMoment();
 		String data1 = "";
-		String addr = "/api/v1/execution?symbol=" + symbol + "&filter=%7B%22ordStatus%22%3A%22Filled%22%7D&count=100&reverse=false&startTime="
-				+ z;
+		String addr = "/api/v1/execution?symbol=" + symbol
+				+ "&filter=%7B%22ordStatus%22%3A%22Filled%22%7D&count=100&reverse=false&startTime=" + z;
 		String sign;
 		try {
 			sign = TradeConnector.generateSignature(connr.orderApiSecret,
 					connr.createMessageBody("GET", addr, data1, moment));
 			String st0 = connr.get("https://testnet.bitmex.com" + addr, connr.orderApiKey, sign, moment, "");
-			
+
 			BmOrder[] orders = TradeConnector.getArrayFromJson(st0, BmOrder[].class);
 			for (BmOrder order : orders) {
 				sum += order.getSimpleOrderQty();
@@ -401,12 +372,9 @@ public class BitmexConnector implements Runnable {
 		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
 			e.printStackTrace();
 		}
-		
+
 		return sum;
 	}
-	
-	
-	
 
 	@Override
 	public void run() {

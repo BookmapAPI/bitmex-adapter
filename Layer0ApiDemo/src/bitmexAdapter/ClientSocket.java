@@ -120,6 +120,7 @@ public class ClientSocket {
 	@OnWebSocketError
 	public void onError(Session session, Throwable error) throws Exception {
 		close();
+//		Log.info(error.toString());
 		error.printStackTrace();
 	}
 

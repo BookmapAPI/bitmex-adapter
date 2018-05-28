@@ -9,10 +9,13 @@ import java.util.Set;
 import java.util.TreeMap;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+
+import velox.api.layer0.live.Provider;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.layers.utils.OrderBook;
 
 public class JsonParser {
+	public Provider prov;
 
 	public static <T> T[] getArrayFromJson(String input, Class<T[]> cls) {
 		return (T[]) new Gson().fromJson(input, cls);
@@ -34,8 +37,9 @@ public class JsonParser {
 		// }
 
 		// skip messages if the action is not defined
-		if (msg == null || msg.action == null || msg.getTable() == null || msg.getTable() == "") {
-			Log.info(str);
+		if (msg == null || msg.action == null || msg.getTable() == null || msg.getTable() == "" || msg.getData() == null
+				|| msg.getData().size() == 0) {
+			Log.info("PARSER SKIPS " + str);
 			return;
 		}
 
@@ -47,17 +51,23 @@ public class JsonParser {
 		}
 
 		if (msg.getTable().equals("execution")) {
-			Log.info("WS EXECUTION" + str);
+			Log.info("WS EXECUTION " + str);
 			MessageExecution msgExec = (MessageExecution) gson.fromJson(str, MessageExecution.class);
 			processExecutionMessage(msgExec);
 			return;
 		}
 
 		if (msg.getTable().equals("position")) {
-			Log.info("WS EXECUTION" + str);
+			Log.info("WS POSITION " + str);
 			MessagePosition msgPos = (MessagePosition) gson.fromJson(str, MessagePosition.class);
 			processPositionMessage(msgPos);
 			return;
+		}
+
+		try {
+			BmInstrument instr = activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
+		} catch (IndexOutOfBoundsException e) {
+			Log.info("ERROR FOR " + str);
 		}
 
 		BmInstrument instr = activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
@@ -75,11 +85,15 @@ public class JsonParser {
 				}
 				processOrderMessage(msg);
 				msg.setData(putBestAskToTheHeadOfList(msg.getData()));
-				instr.getQueue().add(msg);
+				// instr.getQueue().add(msg);
+
+				// ***********
+				instr.setFirstSnapshotParsed(true);
+				prov.listenOrderOrTrade(msg);
 
 				// this is the signal for parser to start
 				// processing every message
-				instr.setFirstSnapshotParsed(true);
+//				instr.setFirstSnapshotParsed(true);
 			} else {
 				return; // otherwise wait for partial
 			}
@@ -90,7 +104,11 @@ public class JsonParser {
 			} else {
 				processOrderMessage(msg);
 			}
-			instr.getQueue().add(msg);
+			// instr.getQueue().add(msg);
+
+			// ***********
+			prov.listenOrderOrTrade(msg);
+
 		} else {// table = execution
 			MessageExecution msgExec = (MessageExecution) gson.fromJson(str, MessageExecution.class);
 			processExecutionMessage(msgExec);
@@ -117,6 +135,27 @@ public class JsonParser {
 		if (firstAskIndex != 0) {
 			Collections.swap(units, 0, firstAskIndex);
 		}
+		return units;
+	}
+
+	private ArrayList<DataUnit> reArrangeUnits(ArrayList<DataUnit> units) {
+		if (units.size() > 10) {
+			int firstAskIndex = 0;
+
+			for (int i = 0; i < units.size(); i++) {
+				if (units.get(i + 1).isBid()) {
+					firstAskIndex = i;
+					break;
+				}
+			}
+			
+			if (firstAskIndex < units.size() - 1){
+			Collections.swap(units, 0, firstAskIndex); 
+			Collections.swap(units, 1, firstAskIndex+1);
+			}
+			
+		}
+
 		return units;
 	}
 
@@ -175,25 +214,28 @@ public class JsonParser {
 
 		for (BmOrder order : msgExec.data) {
 			BmInstrument instr = activeInstrumentsMap.get(order.getSymbol());
-			//if the instrument is not subscribed
-			//the position info is simply a garbage
-			//and should be ignored
+			// if the instrument is not subscribed
+			// the position info is simply a garbage
+			// and should be ignored
 			if (instr.isSubscribed()) {
-				instr.getExecutionQueue().add(order);
+				// instr.getExecutionQueue().add(order);
+				prov.listenToExecution(order);
+
 			}
 
 		}
 	}
 
 	private void processPositionMessage(MessagePosition msgPos) {
-		Log.info("EXEC MSG PROCESSED");
+//		Log.info("EXEC MSG PROCESSED");
 
 		for (Position order : msgPos.data) {
 			BmInstrument instr = activeInstrumentsMap.get(order.getSymbol());
-			instr.getPositionQueue().add(order);
+			// instr.getPositionQueue().add(order);
+			prov.listenToPosition(order);
 		}
 
-		Log.info("EXEC MSG PROCESSED ADDED TO THE QUEUE");
+//		Log.info("EXEC MSG PROCESSED ADDED TO THE QUEUE");
 	}
 
 	/**
@@ -234,7 +276,8 @@ public class JsonParser {
 		units.add(new DataUnit(symbol, bestBid, true));
 
 		Message mess = new Message("orderBookL2", "delete", units);
-		instr.getQueue().add(mess);
+		prov.listenOrderOrTrade(mess);
+//		instr.getQueue().add(mess);
 	}
 
 	private void resetBmInstrumentOrderBook(BmInstrument instr) {

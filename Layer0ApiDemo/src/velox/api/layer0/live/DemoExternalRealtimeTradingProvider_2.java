@@ -20,10 +20,6 @@ import bitmexAdapter.Message;
 import bitmexAdapter.MessageExecution;
 import bitmexAdapter.MiscUtils;
 import bitmexAdapter.Position;
-import bitmexAdapter.TradeConnector;
-import bitmexAdapter.TradeConnector.GeneralType;
-import bitmexAdapter.TradeConnector.Method;
-import javafx.geometry.Pos;
 import velox.api.layer1.Layer1ApiDataListener;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.data.ExecutionInfo;
@@ -160,7 +156,7 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 		// First, since we are not going to emulate stop or market orders in
 		// this demo,
 		// let's reject anything except for Limit orders.
-		if (orderType == OrderType.STP || orderType == OrderType.LMT || orderType == OrderType.STP_LMT ) {
+		if (orderType == OrderType.STP || orderType == OrderType.LMT || orderType == OrderType.STP_LMT || orderType == OrderType.MKT) {
 //			rejectOrder(builder);
 //		} else if (orderType == OrderType.LMT) {
 
@@ -379,14 +375,14 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 				// report limit orders support, but no stop orders support
 				// If you actually need it, you can report stop orders support
 				// but reject stop orders when those are sent.
-				.setSupportedStopOrders(Arrays.asList(new OrderType[] { OrderType.LMT, OrderType.STP, OrderType.STP_LMT })).build();
+				.setSupportedStopOrders(Arrays.asList(new OrderType[] { OrderType.MKT, OrderType.LMT })).build();
 	}
 
 	@Override
 	protected void simulate() {
 		// Log.info("***simulate() started");
 		// Perform data changes simulation
-		this.connector.provider = this;
+//		this.connector.provider = this;
 		super.simulate();
 
 		simulateOrders();
@@ -405,11 +401,7 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 
 				for (OrderInfoBuilder order : workingOrders.values()) {
 					Instrument instrument = instruments.get(order.getInstrumentAlias());
-					// Instrument instrument =
-					// instruments.get(order.instrumentAlias);
-
-					// Log.info("***instrument = " + instrument.toString());
-
+					
 					// Only simulating if user is subscribed to instrument -
 					// this is because we do not generate data when there is no
 					// subscription

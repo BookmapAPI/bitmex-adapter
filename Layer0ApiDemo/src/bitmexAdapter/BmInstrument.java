@@ -70,11 +70,13 @@ public class BmInstrument {
 	}
 
 	public String getSubscribeReq() {
-		return "{\"op\":\"subscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\"]}";
+//		return "{\"op\":\"subscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\"]}";
+		return "{\"op\":\"subscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\",\"execution:" + this.symbol + "\",\"position:" + this.symbol + "\"]}";
 	}
 
 	public String getUnSubscribeReq() {
-		return "{\"op\":\"unsubscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\"]}";
+//		return "{\"op\":\"unsubscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\"]}";
+		return "{\"op\":\"unsubscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\",\"execution:" + this.symbol + "\",\"position:" + this.symbol + "\"]}";
 	}
 
 	public String getSymbol() {
