@@ -47,19 +47,26 @@ public class JsonParser {
 		if (!msg.getTable().equals("orderBookL2") && !msg.getTable().equals("trade")
 				&& !msg.getTable().equals("execution") && !msg.getTable().equals("position")) {
 			Log.info(msg.getTable());
-			Log.info(str);
+			Log.info("PARSER orderBookL2 " + str);
 			return;
 		}
 
 		if (msg.getTable().equals("execution")) {
-			Log.info("WS EXECUTION " + str);
+			Log.info("PARSER WS EXECUTION " + str);
 			MessageExecution msgExec = (MessageExecution) gson.fromJson(str, MessageExecution.class);
 			processExecutionMessage(msgExec);
 			return;
 		}
 
 		if (msg.getTable().equals("position")) {
-			Log.info("WS POSITION " + str);
+			Log.info("PARSER WS POSITION " + str);
+			MessagePosition msgPos = (MessagePosition) gson.fromJson(str, MessagePosition.class);
+			processPositionMessage(msgPos);
+			return;
+		}
+		
+		if (msg.getTable().equals("order")) {
+			Log.info("PARSER WS ORDER " + str);
 			MessagePosition msgPos = (MessagePosition) gson.fromJson(str, MessagePosition.class);
 			processPositionMessage(msgPos);
 			return;
@@ -68,7 +75,7 @@ public class JsonParser {
 		try {
 			BmInstrument instr = activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
 		} catch (IndexOutOfBoundsException e) {
-			Log.info("ERROR FOR " + str);
+			Log.info("PARSER ERROR FOR " + str);
 		}
 
 		BmInstrument instr = activeInstrumentsMap.get(msg.getData().get(0).getSymbol());

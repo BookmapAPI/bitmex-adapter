@@ -303,19 +303,22 @@ public class TradeConnector {
 		return sb.toString();
 	}
 
-	public BmOrder processNewOrder(SimpleOrderSendParameters params, OrderType orderType) {
+	public void processNewOrder(SimpleOrderSendParameters params, OrderType orderType, String tempOrderId) {
 
 		String symbol = isolateSymbol(params.alias);
 		String side = params.isBuy ? "Buy" : "Sell";
 		Log.info("****SIDE = " + side);
 		double price = params.limitPrice;
 		double orderQty = params.size;
+		
 
 		JsonObject json = new JsonObject();
 		json.addProperty("symbol", symbol);
 		json.addProperty("side", side);
 //		json.addProperty("simpleOrderQty", orderQty);
 		json.addProperty("orderQty", orderQty);
+		json.addProperty("orderQty", orderQty);
+		json.addProperty("text", tempOrderId);
 		
 		/* https://www.bitmex.com/api/explorer/#!/Order/Order_new Send a
 		 * simpleOrderQty instead of an orderQty to create an order denominated
@@ -389,11 +392,11 @@ public class TradeConnector {
 			//
 
 //			return (BmOrder) gson.fromJson(res, BmOrder.class);
-			return (BmOrder) gson.fromJson(res, BmOrder.class);
+//			return (BmOrder) gson.fromJson(res, BmOrder.class);
 		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
 			e.printStackTrace();
 		}
-		return null;
+//		return null;
 	}
 
 	public BmOrder cancelOrder(String orderId) {

@@ -45,6 +45,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	public TradeConnector connr = new TradeConnector();
 	private String tempClientId;
 	private HashMap<String, OrderInfoBuilder> workingOrders = new HashMap<>();
+	private long orderCount = 0;
 
 	protected class Instrument {
 
@@ -210,9 +211,11 @@ public class Provider extends ExternalLiveBaseProvider {
 		// Detecting order type
 		OrderType orderType = OrderType.getTypeFromPrices(simpleParameters.stopPrice, simpleParameters.limitPrice);
 		Log.info("***orderType = " + orderType.toString());
+		
+		String tempOrderId = "temp" + orderCount++;
 
 		final OrderInfoBuilder builder = new OrderInfoBuilder(simpleParameters.alias,
-				"temp" + System.currentTimeMillis(), simpleParameters.isBuy, orderType, simpleParameters.clientId,
+				tempOrderId, simpleParameters.isBuy, orderType, simpleParameters.clientId,
 				simpleParameters.doNotIncrease);
 
 		// You need to set these fields, otherwise Bookmap might not handle
@@ -234,34 +237,36 @@ public class Provider extends ExternalLiveBaseProvider {
 			Log.info("***Order gets sent to BitMex");
 			
 			
-			BmOrder ord = connr.processNewOrder(simpleParameters, orderType);
+			workingOrders.put(builder.getOrderId(), builder); //still Pending, yet not Working
+			connr.processNewOrder(simpleParameters, orderType, tempOrderId);
+//			BmOrder ord = connr.processNewOrder(simpleParameters, orderType, tempOrderId);
 //			Answer ord = connr.processNewOrder(simpleParameters, orderType);
 			
 			
-			if (ord == null) {
-				rejectOrder(builder);
-			} else if (ord.getOrdStatus().equals("Rejected")) {
-				rejectOrder(builder, ord.getOrdRejReason());
-			} else {
-				String bmId = ord.getOrderID();
-				Log.info("BM_ID " + bmId);
-				// ****************** TO BITMEX ENDS
-				BmInstrument instr = connector.getActiveInstrumentsMap().get(ord.getSymbol());
-				if (simpleParameters.isBuy) {
-					instr.setBuyOrdersCount(instr.getBuyOrdersCount() + simpleParameters.size);
-				} else {
-					instr.setSellOrdersCount(instr.getSellOrdersCount() + simpleParameters.size);
-				}
-
-				builder.setOrderId(bmId);
-				builder.setStatus(OrderStatus.WORKING);
-				tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
-				builder.markAllUnchanged();
-
-				synchronized (workingOrders) {
-					workingOrders.put(builder.getOrderId(), builder);
-				}
-			}
+//			if (ord == null) {
+//				rejectOrder(builder);
+//			} else if (ord.getOrdStatus().equals("Rejected")) {
+//				rejectOrder(builder, ord.getOrdRejReason());
+//			} else {
+//				String bmId = ord.getOrderID();
+//				Log.info("BM_ID " + bmId);
+//				// ****************** TO BITMEX ENDS
+//				BmInstrument instr = connector.getActiveInstrumentsMap().get(ord.getSymbol());
+//				if (simpleParameters.isBuy) {
+//					instr.setBuyOrdersCount(instr.getBuyOrdersCount() + simpleParameters.size);
+//				} else {
+//					instr.setSellOrdersCount(instr.getSellOrdersCount() + simpleParameters.size);
+//				}
+//
+//				builder.setOrderId(bmId);
+//				builder.setStatus(OrderStatus.WORKING);
+//				tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
+//				builder.markAllUnchanged();
+//
+//				synchronized (workingOrders) {
+//					workingOrders.put(builder.getOrderId(), builder);
+//				}
+//			}
 
 		} else {
 			rejectOrder(builder);
@@ -321,19 +326,19 @@ public class Provider extends ExternalLiveBaseProvider {
 				OrderCancelParameters orderCancelParameters = (OrderCancelParameters) orderUpdateParameters;
 				connr.cancelOrder(orderCancelParameters.orderId);
 
-				OrderInfoBuilder builder = workingOrders.get(orderCancelParameters.orderId);
-
-				String symbol = connr.isolateSymbol(builder.getInstrumentAlias());
-				BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
-				if (builder.isBuy()) {
-					instr.setBuyOrdersCount(instr.getBuyOrdersCount() - builder.getUnfilled());
-				} else {
-					instr.setSellOrdersCount(instr.getSellOrdersCount() - builder.getUnfilled());
-				}
-
-				OrderInfoBuilder order = workingOrders.remove(orderCancelParameters.orderId);
-				order.setStatus(OrderStatus.CANCELLED);
-				tradingListeners.forEach(l -> l.onOrderUpdated(order.build()));
+//				OrderInfoBuilder builder = workingOrders.get(orderCancelParameters.orderId);
+//
+//				String symbol = connr.isolateSymbol(builder.getInstrumentAlias());
+//				BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
+//				if (builder.isBuy()) {
+//					instr.setBuyOrdersCount(instr.getBuyOrdersCount() - builder.getUnfilled());
+//				} else {
+//					instr.setSellOrdersCount(instr.getSellOrdersCount() - builder.getUnfilled());
+//				}
+//
+//				OrderInfoBuilder order = workingOrders.remove(orderCancelParameters.orderId);
+//				order.setStatus(OrderStatus.CANCELLED);
+//				tradingListeners.forEach(l -> l.onOrderUpdated(order.build()));
 
 			} else if (orderUpdateParameters.getClass() == OrderResizeParameters.class) {
 
@@ -433,31 +438,10 @@ public class Provider extends ExternalLiveBaseProvider {
 		thread.setName("->BitmexAdapter: connector");
 		thread.start();
 
-		// Generate some events each second
-		// while (!Thread.interrupted()) {
-
-		// Generate some data changes
-		// simulate();
-		// }
-		// } else {
-		// // Report failed login
-		// adminListeners.forEach(l ->
-		// l.onLoginFailed(LoginFailedReason.WRONG_CREDENTIALS,
-		// "This provider only acepts following credentials:\n" + "username:
-		// user\n" + "password: pass\n"
-		// + "is demo: checked"));
-		// }
+		
 	}
 
-	// protected void simulate() {
-	// // Generating some data for each of the instruments
-	// synchronized (instruments) {
-	// // instruments.values().forEach(Instrument::generateData);
-	// for (Instrument instrument : instruments.values()) {
-	// instrument.generateData(instrument.alias);
-	// }
-	// }
-	// }
+
 
 	public void listenOrderOrTrade(Message message) {
 		// Log.info("LISTENER USED");
@@ -495,9 +479,52 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	public void listenToExecution(BmOrder orderExec) {
-		OrderInfoBuilder builder = workingOrders.get(orderExec.getOrderID());
+		String realOrderId = orderExec.getOrderID();
+		OrderInfoBuilder builder = workingOrders.get(realOrderId);
+		
+//		if (orderExec == null) {//temp solution
+//			rejectOrder(builder);
+//		} else 
 		if (orderExec.getOrdStatus().equals("Rejected")) {
-//			rejectOrder(builder, orderExec.getOrdRejReason());
+			rejectOrder(builder, orderExec.getOrdRejReason());
+		}  else if (orderExec.getOrdStatus().equals("Canceled")){
+			
+			String symbol = connr.isolateSymbol(builder.getInstrumentAlias());
+			BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
+			if (builder.isBuy()) {
+				instr.setBuyOrdersCount(instr.getBuyOrdersCount() - builder.getUnfilled());
+			} else {
+				instr.setSellOrdersCount(instr.getSellOrdersCount() - builder.getUnfilled());
+			}
+
+			OrderInfoBuilder order = workingOrders.remove(realOrderId);
+			order.setStatus(OrderStatus.CANCELLED);
+			tradingListeners.forEach(l -> l.onOrderUpdated(order.build()));
+			
+		} else if (orderExec.getOrdStatus().equals("New")){
+			String tempOrderId = orderExec.getText();
+			OrderInfoBuilder buildertemp = workingOrders.get(tempOrderId);
+			//there will be either new id if the order is accepted
+			//or the order will be rejected so no need to keep it in the map
+			workingOrders.remove(tempOrderId);
+			
+			Log.info("BM_ID " + realOrderId);
+			// ****************** TO BITMEX ENDS
+			BmInstrument instr = connector.getActiveInstrumentsMap().get(orderExec.getSymbol());
+			if ( buildertemp.isBuy()) {
+				instr.setBuyOrdersCount(instr.getBuyOrdersCount() + buildertemp.getUnfilled());
+			} else {
+				instr.setSellOrdersCount(instr.getSellOrdersCount() + buildertemp.getUnfilled());
+			}
+
+			buildertemp.setOrderId(realOrderId);
+			buildertemp.setStatus(OrderStatus.WORKING);
+			tradingListeners.forEach(l -> l.onOrderUpdated(buildertemp.build()));
+			buildertemp.markAllUnchanged();
+
+			synchronized (workingOrders) {
+				workingOrders.put(buildertemp.getOrderId(), buildertemp);
+			}
 		} else {
 
 			String symbol = orderExec.getSymbol();
