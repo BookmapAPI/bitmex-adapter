@@ -100,6 +100,10 @@ public class Position {
 	private double lastPrice;
 	private long lastValue;
 	
+private String execType;//no such in spec
+	
+	
+	
 	public Position(Long account, String symbol, String currency, Long markValue, Long realisedPnl, Long unrealisedPnl,
 			Double avgEntryPrice) {
 		super();
@@ -661,6 +665,13 @@ public class Position {
 	}
 	public void setLastValue(long lastValue) {
 		this.lastValue = lastValue;
+	}
+	
+	public String getExecType() {
+		return execType;
+	}
+	public void setExecType(String execType) {
+		this.execType = execType;
 	}
 
 	@Override

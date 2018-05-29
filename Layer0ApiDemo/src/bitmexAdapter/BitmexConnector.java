@@ -365,7 +365,8 @@ public class BitmexConnector implements Runnable {
 
 			BmOrder[] orders = TradeConnector.getArrayFromJson(st0, BmOrder[].class);
 			for (BmOrder order : orders) {
-				sum += order.getSimpleOrderQty();
+//				sum += order.getSimpleOrderQty();
+				sum += order.getOrderQty();
 			}
 
 			System.out.println("=> " + st0);

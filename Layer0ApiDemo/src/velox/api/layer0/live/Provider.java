@@ -56,42 +56,44 @@ public class Provider extends ExternalLiveBaseProvider {
 			this.pips = pips;
 		}
 
-//		public void generateData(String symbol) {
-//			BmInstrument bmInstrument = connector.getActiveInstrumentsMap().get(symbol);
-//
-//			if (!bmInstrument.isFirstSnapshotParsed()) {
-//				return;
-//			}
-//			BlockingQueue<Message> messages = bmInstrument.getQueue();
-//
-//			if (!messages.isEmpty()) {
-//				Message message = messages.poll();
-//
-//				// if (message == null || message.getAction() == null ||
-//				// message.getData() == null) {
-//				// Log.info("***********NULL POINTER AT MESSAGE " + message);
-//				// }
-//
-//				List<DataUnit> units = message.data;
-//
-//				if (message.table.equals("orderBookL2")) {
-//					for (DataUnit unit : units) {
-//						for (Layer1ApiDataListener listener : dataListeners) {
-//							listener.onDepth(symbol, unit.isBid(), unit.getIntPrice(), (int) unit.getSize());
-//						}
-//					}
-//				} else {
-//					for (DataUnit unit : units) {
-//						for (Layer1ApiDataListener listener : dataListeners) {
-//							final boolean isOtc = false;
-//							listener.onTrade(symbol, unit.getIntPrice(), (int) unit.getSize(),
-//									new TradeInfo(isOtc, unit.isBid()));
-//						}
-//					}
-//				}
-//			}
-//
-//		}
+		// public void generateData(String symbol) {
+		// BmInstrument bmInstrument =
+		// connector.getActiveInstrumentsMap().get(symbol);
+		//
+		// if (!bmInstrument.isFirstSnapshotParsed()) {
+		// return;
+		// }
+		// BlockingQueue<Message> messages = bmInstrument.getQueue();
+		//
+		// if (!messages.isEmpty()) {
+		// Message message = messages.poll();
+		//
+		// // if (message == null || message.getAction() == null ||
+		// // message.getData() == null) {
+		// // Log.info("***********NULL POINTER AT MESSAGE " + message);
+		// // }
+		//
+		// List<DataUnit> units = message.data;
+		//
+		// if (message.table.equals("orderBookL2")) {
+		// for (DataUnit unit : units) {
+		// for (Layer1ApiDataListener listener : dataListeners) {
+		// listener.onDepth(symbol, unit.isBid(), unit.getIntPrice(), (int)
+		// unit.getSize());
+		// }
+		// }
+		// } else {
+		// for (DataUnit unit : units) {
+		// for (Layer1ApiDataListener listener : dataListeners) {
+		// final boolean isOtc = false;
+		// listener.onTrade(symbol, unit.getIntPrice(), (int) unit.getSize(),
+		// new TradeInfo(isOtc, unit.isBid()));
+		// }
+		// }
+		// }
+		// }
+		//
+		// }
 	}
 
 	protected HashMap<String, Instrument> instruments = new HashMap<>();
@@ -209,10 +211,8 @@ public class Provider extends ExternalLiveBaseProvider {
 		OrderType orderType = OrderType.getTypeFromPrices(simpleParameters.stopPrice, simpleParameters.limitPrice);
 		Log.info("***orderType = " + orderType.toString());
 
-		final OrderInfoBuilder builder = new OrderInfoBuilder(simpleParameters.alias, 
-				"temp" + System.currentTimeMillis(), 
-				simpleParameters.isBuy,
-				orderType, simpleParameters.clientId, 
+		final OrderInfoBuilder builder = new OrderInfoBuilder(simpleParameters.alias,
+				"temp" + System.currentTimeMillis(), simpleParameters.isBuy, orderType, simpleParameters.clientId,
 				simpleParameters.doNotIncrease);
 
 		// You need to set these fields, otherwise Bookmap might not handle
@@ -232,9 +232,16 @@ public class Provider extends ExternalLiveBaseProvider {
 			String tempClientId = simpleParameters.clientId;
 			Log.info("CLIENT ID " + tempClientId);
 			Log.info("***Order gets sent to BitMex");
+			
+			
 			BmOrder ord = connr.processNewOrder(simpleParameters, orderType);
+//			Answer ord = connr.processNewOrder(simpleParameters, orderType);
+			
+			
 			if (ord == null) {
 				rejectOrder(builder);
+			} else if (ord.getOrdStatus().equals("Rejected")) {
+				rejectOrder(builder, ord.getOrdRejReason());
 			} else {
 				String bmId = ord.getOrderID();
 				Log.info("BM_ID " + bmId);
@@ -272,11 +279,27 @@ public class Provider extends ExternalLiveBaseProvider {
 		builder.markAllUnchanged();
 
 		// Provider can complain to user here explaining what was done wrong
-		adminListeners.forEach(l -> l.onSystemTextMessage("The order was rejected",
+		adminListeners.forEach(l -> l.onSystemTextMessage("The order was rejected :(",
 				// adminListeners.forEach(l -> l.onSystemTextMessage("This
 				// provider only supports limit orders",
 				SystemTextMessageType.ORDER_FAILURE));
 	}
+
+	private void rejectOrder(OrderInfoBuilder builder, String reason) {
+		Log.info("***Order gets REJECTED");
+		// Necessary fields are already populated, so just change status to
+		// rejected and send
+		builder.setStatus(OrderStatus.REJECTED);
+		tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
+		builder.markAllUnchanged();
+
+		// Provider can complain to user here explaining what was done wrong
+		adminListeners.forEach(l -> l.onSystemTextMessage(reason,
+				// adminListeners.forEach(l -> l.onSystemTextMessage("This
+				// provider only supports limit orders",
+				SystemTextMessageType.ORDER_FAILURE));
+	}
+
 	@Override
 	public void updateOrder(OrderUpdateParameters orderUpdateParameters) {
 
@@ -426,15 +449,15 @@ public class Provider extends ExternalLiveBaseProvider {
 		// }
 	}
 
-//	protected void simulate() {
-//		// Generating some data for each of the instruments
-//		synchronized (instruments) {
-//			// instruments.values().forEach(Instrument::generateData);
-//			for (Instrument instrument : instruments.values()) {
-//				instrument.generateData(instrument.alias);
-//			}
-//		}
-//	}
+	// protected void simulate() {
+	// // Generating some data for each of the instruments
+	// synchronized (instruments) {
+	// // instruments.values().forEach(Instrument::generateData);
+	// for (Instrument instrument : instruments.values()) {
+	// instrument.generateData(instrument.alias);
+	// }
+	// }
+	// }
 
 	public void listenOrderOrTrade(Message message) {
 		// Log.info("LISTENER USED");
@@ -471,41 +494,56 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	}
 
-	public void listenToExecution(BmOrder orderExec){
-		String symbol = orderExec.getSymbol();
-		BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
-		
-		if (orderExec.getOrdStatus().equals("Filled")) {
-			final long executionTime = System.currentTimeMillis();
-			int filled = (int) Math.round(orderExec.getCumQty() / instr.getTickSize());
-			ExecutionInfo executionInfo = new ExecutionInfo(orderExec.getOrderID(), filled,
-					orderExec.getLastPx(), orderExec.getExecID(), executionTime);
+	public void listenToExecution(BmOrder orderExec) {
+		OrderInfoBuilder builder = workingOrders.get(orderExec.getOrderID());
+		if (orderExec.getOrdStatus().equals("Rejected")) {
+//			rejectOrder(builder, orderExec.getOrdRejReason());
+		} else {
 
-			tradingListeners.forEach(l -> l.onOrderExecuted(executionInfo));
+			String symbol = orderExec.getSymbol();
+			BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
 
-			OrderInfoBuilder builder = workingOrders.get(orderExec.getOrderID());
-			// updating filled orders volume
-			instr.setExecutionsVolume(
-					instr.getExecutionsVolume() + (int) orderExec.getSimpleCumQty());
-			if (builder.isBuy()) {
-				instr.setBuyOrdersCount(instr.getBuyOrdersCount() - builder.getUnfilled());
-				// buyOrdersCount -= builder.getUnfilled();
-			} else {
-				instr.setSellOrdersCount(instr.getSellOrdersCount() - builder.getUnfilled());
-				// sellOrdersCount -= builder.getUnfilled();
+			// if unfilled value has changed
+			if (builder.getUnfilled() != orderExec.getLeavesQty()) {
+				int unfilledChangedBy = (int) (builder.getUnfilled() - orderExec.getLeavesQty());
+				// if (orderExec.getOrdStatus().equals("Filled")) {
+				final long executionTime = System.currentTimeMillis();
+
+				int filled;
+				if (orderExec.getLeavesQty() == 0) {
+					filled = (int) orderExec.getOrderQty();
+				} else {
+					filled = (int) orderExec.getCumQty();
+				}
+
+				filled = (int) Math.round(filled / instr.getTickSize());
+				ExecutionInfo executionInfo = new ExecutionInfo(orderExec.getOrderID(), filled, orderExec.getLastPx(),
+						orderExec.getExecID(), executionTime);
+
+				tradingListeners.forEach(l -> l.onOrderExecuted(executionInfo));
+
+				// updating filled orders volume
+				instr.setExecutionsVolume(instr.getExecutionsVolume() + unfilledChangedBy);
+				if (builder.isBuy()) {
+					instr.setBuyOrdersCount(instr.getBuyOrdersCount() - builder.getUnfilled());
+					// buyOrdersCount -= builder.getUnfilled();
+				} else {
+					instr.setSellOrdersCount(instr.getSellOrdersCount() - builder.getUnfilled());
+					// sellOrdersCount -= builder.getUnfilled();
+				}
+
+				// Changing the order itself
+				OrderInfoBuilder order = workingOrders.get(orderExec.getOrderID());
+				order.setAverageFillPrice(orderExec.getLastPx());
+				order.setUnfilled(0);
+				order.setFilled(filled);
+				order.setStatus(OrderStatus.FILLED);
+				tradingListeners.forEach(l -> l.onOrderUpdated(order.build()));
+				order.markAllUnchanged();
 			}
-
-			// Changing the order itself
-			OrderInfoBuilder order = workingOrders.get(orderExec.getOrderID());
-			order.setAverageFillPrice(orderExec.getLastPx());
-			order.setUnfilled(0);
-			order.setFilled(filled);
-			order.setStatus(OrderStatus.FILLED);
-			tradingListeners.forEach(l -> l.onOrderUpdated(order.build()));
-			order.markAllUnchanged();
 		}
 	}
-	
+
 	public void listenToPosition(Position pos) {
 
 		String symbol = pos.getSymbol();
@@ -517,22 +555,31 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
 
+		// public StatusInfo(java.lang.String instrumentAlias,
+		// double unrealizedPnl,
+		// double realizedPnl,
+		// java.lang.String currency,
+		// int position,
+		// double averagePrice,
+		// int volume,
+		// int workingBuys,
+		// int workingSells)
+
 		StatusInfo info = new StatusInfo(validPosition.getSymbol(),
 				(double) validPosition.getUnrealisedPnl() / (double) bmInstrument.getMultiplier(),
 				(double) validPosition.getRealisedPnl() / (double) bmInstrument.getMultiplier(),
 				validPosition.getCurrency(),
 				(int) Math.round((double) (validPosition.getMarkValue() - validPosition.getUnrealisedPnl())
 						/ (double) bmInstrument.getMultiplier()),
-				validPosition.getAvgEntryPrice(), 
-				bmInstrument.getExecutionsVolume(),
-				instr.getBuyOrdersCount(), instr.getSellOrdersCount());
+				validPosition.getAvgEntryPrice(), bmInstrument.getExecutionsVolume(), instr.getBuyOrdersCount(),
+				instr.getSellOrdersCount());
 
 		Log.info(info.toString());
 
 		tradingListeners.forEach(l -> l.onStatus(info));
 
 	}
-	
+
 	private void updateValidPosition(Position validPosition, Position pos) {
 		if (validPosition.getAccount().equals(0L)) {
 			if (pos.getAccount() != null) {
@@ -559,7 +606,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		}
 		Log.info("WTN MTH" + validPosition.toString());
 	}
-	
+
 	public void createBookmapOrder(BmOrder order) {
 		String symbol = order.getSymbol();
 		String orderId = order.getOrderID();
@@ -631,7 +678,5 @@ public class Provider extends ExternalLiveBaseProvider {
 		// Stop events generation
 		connectionThread.interrupt();
 	}
-	
-	
 
 }

@@ -32,7 +32,8 @@ public class JsonParser {
 		Message msg = (Message) gson.fromJson(str, Message.class);
 
 		// if (msg.action == null) {
-		// Log.info(str);
+//		Log.info("AAAAAAAAAAAARGH");
+//		 Log.info(str);
 		// return;
 		// }
 
@@ -138,26 +139,26 @@ public class JsonParser {
 		return units;
 	}
 
-	private ArrayList<DataUnit> reArrangeUnits(ArrayList<DataUnit> units) {
-		if (units.size() > 10) {
-			int firstAskIndex = 0;
-
-			for (int i = 0; i < units.size(); i++) {
-				if (units.get(i + 1).isBid()) {
-					firstAskIndex = i;
-					break;
-				}
-			}
-			
-			if (firstAskIndex < units.size() - 1){
-			Collections.swap(units, 0, firstAskIndex); 
-			Collections.swap(units, 1, firstAskIndex+1);
-			}
-			
-		}
-
-		return units;
-	}
+//	private ArrayList<DataUnit> reArrangeUnits(ArrayList<DataUnit> units) {
+//		if (units.size() > 10) {
+//			int firstAskIndex = 0;
+//
+//			for (int i = 0; i < units.size(); i++) {
+//				if (units.get(i + 1).isBid()) {
+//					firstAskIndex = i;
+//					break;
+//				}
+//			}
+//			
+//			if (firstAskIndex < units.size() - 1){
+//			Collections.swap(units, 0, firstAskIndex); 
+//			Collections.swap(units, 1, firstAskIndex+1);
+//			}
+//			
+//		}
+//
+//		return units;
+//	}
 
 	/*
 	 * setting missing values for dataunits' fields adding missing prices to
