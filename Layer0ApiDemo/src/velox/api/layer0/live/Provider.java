@@ -5,7 +5,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.BlockingQueue;
 
 import velox.api.layer1.Layer1ApiAdminListener;
 import velox.api.layer1.Layer1ApiDataListener;
@@ -56,45 +55,6 @@ public class Provider extends ExternalLiveBaseProvider {
 			this.alias = alias;
 			this.pips = pips;
 		}
-
-		// public void generateData(String symbol) {
-		// BmInstrument bmInstrument =
-		// connector.getActiveInstrumentsMap().get(symbol);
-		//
-		// if (!bmInstrument.isFirstSnapshotParsed()) {
-		// return;
-		// }
-		// BlockingQueue<Message> messages = bmInstrument.getQueue();
-		//
-		// if (!messages.isEmpty()) {
-		// Message message = messages.poll();
-		//
-		// // if (message == null || message.getAction() == null ||
-		// // message.getData() == null) {
-		// // Log.info("***********NULL POINTER AT MESSAGE " + message);
-		// // }
-		//
-		// List<DataUnit> units = message.data;
-		//
-		// if (message.table.equals("orderBookL2")) {
-		// for (DataUnit unit : units) {
-		// for (Layer1ApiDataListener listener : dataListeners) {
-		// listener.onDepth(symbol, unit.isBid(), unit.getIntPrice(), (int)
-		// unit.getSize());
-		// }
-		// }
-		// } else {
-		// for (DataUnit unit : units) {
-		// for (Layer1ApiDataListener listener : dataListeners) {
-		// final boolean isOtc = false;
-		// listener.onTrade(symbol, unit.getIntPrice(), (int) unit.getSize(),
-		// new TradeInfo(isOtc, unit.isBid()));
-		// }
-		// }
-		// }
-		// }
-		//
-		// }
 	}
 
 	protected HashMap<String, Instrument> instruments = new HashMap<>();
@@ -212,7 +172,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		OrderType orderType = OrderType.getTypeFromPrices(simpleParameters.stopPrice, simpleParameters.limitPrice);
 		Log.info("***orderType = " + orderType.toString());
 		
-		String tempOrderId = "temp" + orderCount++;
+		String tempOrderId = "temp" + System.currentTimeMillis() + orderCount++;
 
 		final OrderInfoBuilder builder = new OrderInfoBuilder(simpleParameters.alias,
 				tempOrderId, simpleParameters.isBuy, orderType, simpleParameters.clientId,
@@ -232,41 +192,11 @@ public class Provider extends ExternalLiveBaseProvider {
 		if (orderType == OrderType.STP || orderType == OrderType.LMT || orderType == OrderType.STP_LMT
 				|| orderType == OrderType.MKT) {
 			// ****************** TO BITMEX
-			String tempClientId = simpleParameters.clientId;
-			Log.info("CLIENT ID " + tempClientId);
-			Log.info("***Order gets sent to BitMex");
-			
-			
+//			String tempClientId = simpleParameters.clientId;
+//			Log.info("CLIENT ID " + tempClientId);
+			Log.info("***Order gets sent to BitMex");	
 			workingOrders.put(builder.getOrderId(), builder); //still Pending, yet not Working
 			connr.processNewOrder(simpleParameters, orderType, tempOrderId);
-//			BmOrder ord = connr.processNewOrder(simpleParameters, orderType, tempOrderId);
-//			Answer ord = connr.processNewOrder(simpleParameters, orderType);
-			
-			
-//			if (ord == null) {
-//				rejectOrder(builder);
-//			} else if (ord.getOrdStatus().equals("Rejected")) {
-//				rejectOrder(builder, ord.getOrdRejReason());
-//			} else {
-//				String bmId = ord.getOrderID();
-//				Log.info("BM_ID " + bmId);
-//				// ****************** TO BITMEX ENDS
-//				BmInstrument instr = connector.getActiveInstrumentsMap().get(ord.getSymbol());
-//				if (simpleParameters.isBuy) {
-//					instr.setBuyOrdersCount(instr.getBuyOrdersCount() + simpleParameters.size);
-//				} else {
-//					instr.setSellOrdersCount(instr.getSellOrdersCount() + simpleParameters.size);
-//				}
-//
-//				builder.setOrderId(bmId);
-//				builder.setStatus(OrderStatus.WORKING);
-//				tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
-//				builder.markAllUnchanged();
-//
-//				synchronized (workingOrders) {
-//					workingOrders.put(builder.getOrderId(), builder);
-//				}
-//			}
 
 		} else {
 			rejectOrder(builder);
@@ -284,13 +214,14 @@ public class Provider extends ExternalLiveBaseProvider {
 		builder.markAllUnchanged();
 
 		// Provider can complain to user here explaining what was done wrong
-		adminListeners.forEach(l -> l.onSystemTextMessage("The order was rejected :(",
+		adminListeners.forEach(l -> l.onSystemTextMessage("The order was rejected",
 				// adminListeners.forEach(l -> l.onSystemTextMessage("This
 				// provider only supports limit orders",
 				SystemTextMessageType.ORDER_FAILURE));
 	}
 
-	private void rejectOrder(OrderInfoBuilder builder, String reason) {
+	private void rejectOrder(OrderInfoBuilder builder, String reas) {
+		String reason = "The order was rejected: \n" + reas;
 		Log.info("***Order gets REJECTED");
 		// Necessary fields are already populated, so just change status to
 		// rejected and send
@@ -321,24 +252,8 @@ public class Provider extends ExternalLiveBaseProvider {
 			if (orderUpdateParameters.getClass() == OrderCancelParameters.class) {
 
 				Log.info("***order with provided ID gets CANCELLED");
-
-				// Cancel order with provided ID
 				OrderCancelParameters orderCancelParameters = (OrderCancelParameters) orderUpdateParameters;
 				connr.cancelOrder(orderCancelParameters.orderId);
-
-//				OrderInfoBuilder builder = workingOrders.get(orderCancelParameters.orderId);
-//
-//				String symbol = connr.isolateSymbol(builder.getInstrumentAlias());
-//				BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
-//				if (builder.isBuy()) {
-//					instr.setBuyOrdersCount(instr.getBuyOrdersCount() - builder.getUnfilled());
-//				} else {
-//					instr.setSellOrdersCount(instr.getSellOrdersCount() - builder.getUnfilled());
-//				}
-//
-//				OrderInfoBuilder order = workingOrders.remove(orderCancelParameters.orderId);
-//				order.setStatus(OrderStatus.CANCELLED);
-//				tradingListeners.forEach(l -> l.onOrderUpdated(order.build()));
 
 			} else if (orderUpdateParameters.getClass() == OrderResizeParameters.class) {
 
@@ -365,15 +280,6 @@ public class Provider extends ExternalLiveBaseProvider {
 				} else {
 					instr.setSellOrdersCount(instr.getSellOrdersCount() + newSize - oldSize);
 				}
-
-				// if (workingOrders.get(orderResizeParameters.orderId).isBuy())
-				// {
-				// buyOrdersCount += orderResizeParameters.size -
-				// builder.getUnfilled();
-				// } else {
-				// sellOrdersCount += orderResizeParameters.size -
-				// builder.getUnfilled();
-				// }
 
 				builder.setUnfilled(orderResizeParameters.size);
 				tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
@@ -486,6 +392,9 @@ public class Provider extends ExternalLiveBaseProvider {
 //			rejectOrder(builder);
 //		} else 
 		if (orderExec.getOrdStatus().equals("Rejected")) {
+			if(builder == null){
+				builder = workingOrders.get(orderExec.getClOrdID());
+			}
 			rejectOrder(builder, orderExec.getOrdRejReason());
 		}  else if (orderExec.getOrdStatus().equals("Canceled")){
 			
@@ -502,7 +411,7 @@ public class Provider extends ExternalLiveBaseProvider {
 			tradingListeners.forEach(l -> l.onOrderUpdated(order.build()));
 			
 		} else if (orderExec.getOrdStatus().equals("New")){
-			String tempOrderId = orderExec.getText();
+			String tempOrderId = orderExec.getClOrdID();
 			OrderInfoBuilder buildertemp = workingOrders.get(tempOrderId);
 			//there will be either new id if the order is accepted
 			//or the order will be rejected so no need to keep it in the map

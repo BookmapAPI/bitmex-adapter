@@ -318,7 +318,7 @@ public class TradeConnector {
 //		json.addProperty("simpleOrderQty", orderQty);
 		json.addProperty("orderQty", orderQty);
 		json.addProperty("orderQty", orderQty);
-		json.addProperty("text", tempOrderId);
+		json.addProperty("clOrdID", tempOrderId);
 		
 		/* https://www.bitmex.com/api/explorer/#!/Order/Order_new Send a
 		 * simpleOrderQty instead of an orderQty to create an order denominated
