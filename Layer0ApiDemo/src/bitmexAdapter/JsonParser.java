@@ -31,11 +31,7 @@ public class JsonParser {
 	public void parse(String str) {
 		Message msg = (Message) gson.fromJson(str, Message.class);
 
-		// if (msg.action == null) {
-//		Log.info("AAAAAAAAAAAARGH");
-//		 Log.info(str);
-		// return;
-		// }
+//		Log.info(str);
 
 		// skip messages if the action is not defined
 		if (msg == null || msg.action == null || msg.getTable() == null || msg.getTable() == "" || msg.getData() == null
@@ -47,7 +43,7 @@ public class JsonParser {
 		if (!msg.getTable().equals("orderBookL2") && !msg.getTable().equals("trade")
 				&& !msg.getTable().equals("execution") && !msg.getTable().equals("position")) {
 			Log.info(msg.getTable());
-			Log.info("PARSER orderBookL2 " + str);
+//			Log.info("PARSER orderBookL2 " + str);
 			return;
 		}
 
@@ -59,14 +55,14 @@ public class JsonParser {
 		}
 
 		if (msg.getTable().equals("position")) {
-			Log.info("PARSER WS POSITION " + str);
+//			Log.info("PARSER WS POSITION " + str);
 			MessagePosition msgPos = (MessagePosition) gson.fromJson(str, MessagePosition.class);
 			processPositionMessage(msgPos);
 			return;
 		}
 		
 		if (msg.getTable().equals("order")) {
-			Log.info("PARSER WS ORDER " + str);
+//			Log.info("PARSER WS ORDER " + str);
 			MessagePosition msgPos = (MessagePosition) gson.fromJson(str, MessagePosition.class);
 			processPositionMessage(msgPos);
 			return;
@@ -97,11 +93,10 @@ public class JsonParser {
 
 				// ***********
 				instr.setFirstSnapshotParsed(true);
-				prov.listenOrderOrTrade(msg);
-
-				// this is the signal for parser to start
+				// this is the trigger for parser to start
 				// processing every message
-//				instr.setFirstSnapshotParsed(true);
+				
+				prov.listenOrderOrTrade(msg);
 			} else {
 				return; // otherwise wait for partial
 			}
@@ -227,7 +222,7 @@ public class JsonParser {
 			// and should be ignored
 			if (instr.isSubscribed()) {
 				// instr.getExecutionQueue().add(order);
-				prov.listenToExecution(order);
+				prov.listenToExecution((Execution) order);
 
 			}
 

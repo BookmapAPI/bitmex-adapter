@@ -5,9 +5,9 @@ import java.util.ArrayList;
 public class MessageExecution {
 	public String table;
 	public String action;
-	public ArrayList<BmOrder> data = new ArrayList<>();
+	public ArrayList<Execution> data = new ArrayList<>();
 
-	public MessageExecution(String table, String action, ArrayList<BmOrder> data) {
+	public MessageExecution(String table, String action, ArrayList<Execution> data) {
 		super();
 		this.table = table;
 		this.action = action;
@@ -34,11 +34,11 @@ public class MessageExecution {
 		this.action = action;
 	}
 
-	public void setData(ArrayList<BmOrder> data) {
+	public void setData(ArrayList<Execution> data) {
 		this.data = data;
 	}
 
-	public ArrayList<BmOrder> getData() {
+	public ArrayList<Execution> getData() {
 		return data;
 	}
 

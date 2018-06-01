@@ -12,14 +12,14 @@ public class BmOrder {
 	private String symbol;
 	private String side;
 	
-	private String execType;//no such in spec
+	
 	
 		private double simpleOrderQty; // or int?
 	private long orderQty;// ot int?
-	private double price;
-	private double lastPx;//from Execution
+	private double price = Double.NaN;
+	
 	private long displayQty;
-	private double stopPx;
+	private double stopPx = Double.NaN;
 	private double pegOffsetValue;
 	
 	private String pegPriceType;
@@ -257,12 +257,7 @@ public class BmOrder {
 	public void setExecID(String execID) {
 		this.execID = execID;
 	}
-	public double getLastPx() {
-		return lastPx;
-	}
-	public void setLastPx(double lastPx) {
-		this.lastPx = lastPx;
-	}
+
 
 	public String getClientId() {
 		return clientId;
@@ -271,10 +266,5 @@ public class BmOrder {
 		this.clientId = clientId;
 	}
 
-	public String getExecType() {
-		return execType;
-	}
-	public void setExecType(String execType) {
-		this.execType = execType;
-	}
+	
 }

@@ -21,7 +21,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.HttpsURLConnection;
 
-import velox.api.layer0.live.DemoExternalRealtimeTradingProvider_2;
+//import velox.api.layer0.live.DemoExternalRealtimeTradingProvider_2;
 import velox.api.layer0.live.Provider;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.data.OrderUpdateParameters;
@@ -363,10 +363,11 @@ public class BitmexConnector implements Runnable {
 					connr.createMessageBody("GET", addr, data1, moment));
 			String st0 = connr.get("https://testnet.bitmex.com" + addr, connr.orderApiKey, sign, moment, "");
 
-			BmOrder[] orders = TradeConnector.getArrayFromJson(st0, BmOrder[].class);
+			BmOrder[] orders = JsonParser.getArrayFromJson(st0, BmOrder[].class);
 			for (BmOrder order : orders) {
 //				sum += order.getSimpleOrderQty();
 				sum += order.getOrderQty();
+//				Log.info("VOLUME ELEMENT " + order.getOrderQty());
 			}
 
 			System.out.println("=> " + st0);

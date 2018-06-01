@@ -34,6 +34,8 @@ import com.google.gson.JsonObject;
 import bitmexAdapter.TradeConnector.GeneralType;
 import bitmexAdapter.TradeConnector.Method;
 import velox.api.layer1.common.Log;
+import velox.api.layer1.data.OrderInfoBuilder;
+import velox.api.layer1.data.OrderMoveParameters;
 import velox.api.layer1.data.OrderType;
 import velox.api.layer1.data.SimpleOrderSendParameters;
 
@@ -75,11 +77,6 @@ public class TradeConnector {
 	public final String restApi = "https://testnet.bitmex.com";
 
 	private Map<String, TradeConnector.Key> keys = new HashMap<String, TradeConnector.Key>();
-
-	@SuppressWarnings("unchecked")
-	public static <T> T[] getArrayFromJson(String input, Class<T[]> cls) {
-		return (T[]) new Gson().fromJson(input, cls);
-	}
 
 	public enum GeneralType {
 		order, instrument, execution, position;
@@ -290,7 +287,8 @@ public class TradeConnector {
 		StringBuilder sb = new StringBuilder();
 		sb.append("");
 
-		for (int i = 0; i < symbData.length && symbData[i] >= 'A' && symbData[i] <= 'Z';) {
+		for (int i = 0; i < symbData.length
+				&& (symbData[i] >= 'A' && symbData[i] <= 'Z' || symbData[i] >= '0' && symbData[i] <= '9');) {
 			sb.append(symbData[i++]);
 		}
 		// for (int i = 0; i < symbData.length; i++){
@@ -310,17 +308,17 @@ public class TradeConnector {
 		Log.info("****SIDE = " + side);
 		double price = params.limitPrice;
 		double orderQty = params.size;
-		
 
 		JsonObject json = new JsonObject();
 		json.addProperty("symbol", symbol);
 		json.addProperty("side", side);
-//		json.addProperty("simpleOrderQty", orderQty);
+		// json.addProperty("simpleOrderQty", orderQty);
 		json.addProperty("orderQty", orderQty);
 		json.addProperty("orderQty", orderQty);
 		json.addProperty("clOrdID", tempOrderId);
-		
-		/* https://www.bitmex.com/api/explorer/#!/Order/Order_new Send a
+
+		/*
+		 * https://www.bitmex.com/api/explorer/#!/Order/Order_new Send a
 		 * simpleOrderQty instead of an orderQty to create an order denominated
 		 * in the underlying currency. This is useful for opening up a position
 		 * with 1 XBT of exposure without having to calculate how many contracts
@@ -330,17 +328,18 @@ public class TradeConnector {
 		if (orderType == OrderType.LMT) {
 			json.addProperty("ordType", "Limit");
 			json.addProperty("price", price);
-		} else if (orderType == OrderType.MKT){//StopMarket
+		} else if (orderType == OrderType.STP) {// StopMarket
 			json.addProperty("ordType", "Stop");
 			json.addProperty("stopPx", params.stopPrice);
-		} else if (orderType == OrderType.STP_LMT){
+		} else if (orderType == OrderType.STP_LMT) {
 			json.addProperty("ordType", "StopLimit");
 			json.addProperty("stopPx", params.stopPrice);
 			json.addProperty("price", price);
 		}
-		
+
 		String data = json.toString();
-		Log.info("NEW ORDER" + data);
+		Log.info("ORDER TYPE " + orderType.toString());
+		Log.info("NEW ORDER TR " + data);
 
 		try {
 			String res = require(GeneralType.order, Method.POST, data);
@@ -391,12 +390,12 @@ public class TradeConnector {
 			Log.info("NEW ORDER EXEC " + st0);
 			//
 
-//			return (BmOrder) gson.fromJson(res, BmOrder.class);
-//			return (BmOrder) gson.fromJson(res, BmOrder.class);
+			// return (BmOrder) gson.fromJson(res, BmOrder.class);
+			// return (BmOrder) gson.fromJson(res, BmOrder.class);
 		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
 			e.printStackTrace();
 		}
-//		return null;
+		// return null;
 	}
 
 	public BmOrder cancelOrder(String orderId) {
@@ -408,7 +407,7 @@ public class TradeConnector {
 		try {
 			String res = require(GeneralType.order, Method.DELETE, data);
 			Log.info(res);
-			BmOrder[] cancelledOrders = getArrayFromJson(res, BmOrder[].class);
+			BmOrder[] cancelledOrders = JsonParser.getArrayFromJson(res, BmOrder[].class);
 			return cancelledOrders[0];
 		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
 			e.printStackTrace();
@@ -420,8 +419,8 @@ public class TradeConnector {
 
 		JsonObject json = new JsonObject();
 		json.addProperty("orderID", orderId);
-		 json.addProperty("orderQty", orderQty);
-//		json.addProperty("simpleOrderQty", orderQty);
+		json.addProperty("orderQty", orderQty);
+		// json.addProperty("simpleOrderQty", orderQty);
 		String data = json.toString();
 
 		try {
@@ -434,11 +433,12 @@ public class TradeConnector {
 		return null;
 	}
 
-	public BmOrder moveOrder(String orderId, double price) {
+	public BmOrder resizePartiallyFilledOrder(String orderId, long orderQty) {
 
 		JsonObject json = new JsonObject();
 		json.addProperty("orderID", orderId);
-		json.addProperty("price", price);
+		json.addProperty("leavesQty", orderQty);
+		// json.addProperty("simpleOrderQty", orderQty);
 		String data = json.toString();
 
 		try {
@@ -449,6 +449,40 @@ public class TradeConnector {
 			e.printStackTrace();
 		}
 		return null;
+	}
+
+	public void moveOrder(OrderMoveParameters params, boolean isStopTriggered) {
+		// public void moveOrder(String orderId, OrderMoveParameters params) {
+		OrderType orderType = OrderType.getTypeFromPrices(params.stopPrice, params.limitPrice);
+		JsonObject json = new JsonObject();
+		json.addProperty("orderID", params.orderId);
+		if (orderType == OrderType.LMT) {
+			// json.addProperty("ordType", "Limit");
+			json.addProperty("price", params.limitPrice);
+		} else if (orderType == OrderType.STP) {// StopMarket
+			// json.addProperty("ordType", "Stop");
+			json.addProperty("stopPx", params.stopPrice);
+		} else if (orderType == OrderType.STP_LMT) {
+			// json.addProperty("ordType", "StopLimit");
+			if (!isStopTriggered) {
+				json.addProperty("stopPx", params.stopPrice);
+			}
+			json.addProperty("price", params.limitPrice);
+		}
+
+		// JsonObject json = new JsonObject();
+		// json.addProperty("orderID", orderId);
+		// json.addProperty("price", price);
+		String data = json.toString();
+
+		try {
+			String res = require(GeneralType.order, Method.PUT, data);
+			Log.info(res);
+			// return (BmOrder) gson.fromJson(res, BmOrder.class);
+		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		}
+		// return null;
 	}
 
 	public String require(GeneralType genType, Method method, String data)
@@ -602,7 +636,7 @@ public class TradeConnector {
 					sb.append(output);
 				}
 
-				System.out.println(sb.toString());
+				// System.out.println(sb.toString());
 			}
 		} catch (UnknownHostException | NoRouteToHostException e) {
 			// Log.info("NO RESPONSE FROM SERVER");
@@ -614,7 +648,5 @@ public class TradeConnector {
 		}
 		return response;
 	}
-
-	
 
 }

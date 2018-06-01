@@ -6,9 +6,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import velox.api.layer0.annotations.Layer0LiveModule;
 import velox.api.layer1.Layer1ApiAdminListener;
 import velox.api.layer1.Layer1ApiDataListener;
 import velox.api.layer1.common.Log;
+import velox.api.layer1.data.BalanceInfo;
 import velox.api.layer1.data.ExecutionInfo;
 import velox.api.layer1.data.InstrumentInfo;
 import velox.api.layer1.data.InstrumentInfoCrypto;
@@ -32,12 +34,13 @@ import velox.api.layer1.data.UserPasswordDemoLoginData;
 
 import bitmexAdapter.BitmexConnector;
 import bitmexAdapter.DataUnit;
+import bitmexAdapter.Execution;
 import bitmexAdapter.Message;
 import bitmexAdapter.Position;
 import bitmexAdapter.TradeConnector;
 import bitmexAdapter.BmInstrument;
 import bitmexAdapter.BmOrder;
-
+//@Layer0LiveModule
 public class Provider extends ExternalLiveBaseProvider {
 
 	public BitmexConnector connector = new BitmexConnector();
@@ -171,12 +174,11 @@ public class Provider extends ExternalLiveBaseProvider {
 		// Detecting order type
 		OrderType orderType = OrderType.getTypeFromPrices(simpleParameters.stopPrice, simpleParameters.limitPrice);
 		Log.info("***orderType = " + orderType.toString());
-		
-		String tempOrderId = "temp" + System.currentTimeMillis() + orderCount++;
 
-		final OrderInfoBuilder builder = new OrderInfoBuilder(simpleParameters.alias,
-				tempOrderId, simpleParameters.isBuy, orderType, simpleParameters.clientId,
-				simpleParameters.doNotIncrease);
+		String tempOrderId = System.currentTimeMillis() + "-temp-" + orderCount++;
+
+		final OrderInfoBuilder builder = new OrderInfoBuilder(simpleParameters.alias, tempOrderId,
+				simpleParameters.isBuy, orderType, simpleParameters.clientId, simpleParameters.doNotIncrease);
 
 		// You need to set these fields, otherwise Bookmap might not handle
 		// order correctly
@@ -192,10 +194,13 @@ public class Provider extends ExternalLiveBaseProvider {
 		if (orderType == OrderType.STP || orderType == OrderType.LMT || orderType == OrderType.STP_LMT
 				|| orderType == OrderType.MKT) {
 			// ****************** TO BITMEX
-//			String tempClientId = simpleParameters.clientId;
-//			Log.info("CLIENT ID " + tempClientId);
-			Log.info("***Order gets sent to BitMex");	
-			workingOrders.put(builder.getOrderId(), builder); //still Pending, yet not Working
+			// String tempClientId = simpleParameters.clientId;
+			// Log.info("CLIENT ID " + tempClientId);
+			Log.info("***Order gets sent to BitMex");
+			workingOrders.put(builder.getOrderId(), builder); // still Pending,
+																// yet not
+																// Working
+
 			connr.processNewOrder(simpleParameters, orderType, tempOrderId);
 
 		} else {
@@ -258,31 +263,21 @@ public class Provider extends ExternalLiveBaseProvider {
 			} else if (orderUpdateParameters.getClass() == OrderResizeParameters.class) {
 
 				Log.info("***order with provided ID gets RESIZED");
+				OrderResizeParameters params = (OrderResizeParameters) orderUpdateParameters;
 
 				// Resize order with provided ID
 				OrderResizeParameters orderResizeParameters = (OrderResizeParameters) orderUpdateParameters;
 				Log.info("RESIZE ORDER BY " + orderResizeParameters.size);
 
 				int newSize = orderResizeParameters.size;
-				BmOrder ord = connr.resizeOrder(orderResizeParameters.orderId, newSize);
-
 				OrderInfoBuilder builder = workingOrders.get(orderResizeParameters.orderId);
 
-				if (builder == null) {
-					Log.info("ORDER IS NULL");
+				if (builder.getFilled() == 0) {// unfilled order
+					connr.resizeOrder(orderResizeParameters.orderId, newSize);
+				} else {// partially filled order
+					connr.resizePartiallyFilledOrder(orderResizeParameters.orderId, newSize);
 				}
-				int oldSize = builder.getUnfilled();
-
-				String symbol = connr.isolateSymbol(ord.getSymbol());
-				BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
-				if (builder.isBuy()) {
-					instr.setBuyOrdersCount(instr.getBuyOrdersCount() + newSize - oldSize);
-				} else {
-					instr.setSellOrdersCount(instr.getSellOrdersCount() + newSize - oldSize);
-				}
-
-				builder.setUnfilled(orderResizeParameters.size);
-				tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
+				connr.resizeOrder(orderResizeParameters.orderId, newSize);
 
 			} else if (orderUpdateParameters.getClass() == OrderMoveParameters.class) {
 
@@ -291,20 +286,14 @@ public class Provider extends ExternalLiveBaseProvider {
 				// Change stop/limit prices of an order with provided ID
 				OrderMoveParameters orderMoveParameters = (OrderMoveParameters) orderUpdateParameters;
 
-				connr.moveOrder(orderMoveParameters.orderId, orderMoveParameters.limitPrice);
-				OrderInfoBuilder order = workingOrders.get(orderMoveParameters.orderId);
-				// No need to update stop price as this demo only supports limit
-				// orders
+				Log.info("LimP " + Double.toString(orderMoveParameters.limitPrice) + "\tStP "
+						+ Double.toString(orderMoveParameters.stopPrice));
 
-				if (order == null) {
-					Log.info("ORDER IS NULL");
-				}
+				//
 
-				order.setLimitPrice(orderMoveParameters.limitPrice);
-				tradingListeners.forEach(l -> l.onOrderUpdated(order.build()));
-
-				// New price might trigger execution
-				// simulateOrders();
+				connr.moveOrder(orderMoveParameters, workingOrders.get(orderMoveParameters.orderId).isStopTriggered());
+				// connr.moveOrder(orderMoveParameters.orderId,
+				// orderMoveParameters.limitPrice);
 
 			} else {
 				throw new UnsupportedOperationException("Unsupported order type");
@@ -344,10 +333,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		thread.setName("->BitmexAdapter: connector");
 		thread.start();
 
-		
 	}
-
-
 
 	public void listenOrderOrTrade(Message message) {
 		// Log.info("LISTENER USED");
@@ -367,11 +353,13 @@ public class Provider extends ExternalLiveBaseProvider {
 		List<DataUnit> units = message.data;
 
 		if (message.table.equals("orderBookL2")) {
-			for (DataUnit unit : units) {
-				for (Layer1ApiDataListener listener : dataListeners) {
-					listener.onDepth(symbol, unit.isBid(), unit.getIntPrice(), (int) unit.getSize());
+//			if (bmInstrument.isFirstSnapshotParsed()) {//!!!!!!!!
+				for (DataUnit unit : units) {
+					for (Layer1ApiDataListener listener : dataListeners) {
+						listener.onDepth(symbol, unit.isBid(), unit.getIntPrice(), (int) unit.getSize());
+					}
 				}
-			}
+//			}
 		} else {
 			for (DataUnit unit : units) {
 				for (Layer1ApiDataListener listener : dataListeners) {
@@ -384,47 +372,46 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	}
 
-	public void listenToExecution(BmOrder orderExec) {
+	public void listenToExecution(Execution orderExec) {
 		String realOrderId = orderExec.getOrderID();
 		OrderInfoBuilder builder = workingOrders.get(realOrderId);
-		
-//		if (orderExec == null) {//temp solution
-//			rejectOrder(builder);
-//		} else 
-		if (orderExec.getOrdStatus().equals("Rejected")) {
-			if(builder == null){
+
+		if (builder == null) {
+			Log.info("BUILDER IS NULL (LISTEN TO EXEC");
+		}
+
+		if (orderExec.getExecType().equals("TriggeredOrActivatedBySystem")) {
+			Log.info("****LISTEN EXEC - TRIGGERED");
+			// if(orderExec.getTriggered().equals(arg0))
+			builder.setStopTriggered(true);
+			final OrderInfoBuilder finBuilder = builder;
+			tradingListeners.forEach(l -> l.onOrderUpdated(finBuilder.build()));
+
+		} else if (orderExec.getExecType().equals("Rejected")) {
+			Log.info("****LISTEN EXEC - REJECTED");
+			if (builder == null) {
 				builder = workingOrders.get(orderExec.getClOrdID());
 			}
 			rejectOrder(builder, orderExec.getOrdRejReason());
-		}  else if (orderExec.getOrdStatus().equals("Canceled")){
-			
-			String symbol = connr.isolateSymbol(builder.getInstrumentAlias());
-			BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
-			if (builder.isBuy()) {
-				instr.setBuyOrdersCount(instr.getBuyOrdersCount() - builder.getUnfilled());
-			} else {
-				instr.setSellOrdersCount(instr.getSellOrdersCount() - builder.getUnfilled());
-			}
+		} else if (orderExec.getExecType().equals("Canceled")) {
+			Log.info("****LISTEN EXEC - CANCELED");
+			updateOrdersCount(builder, -builder.getUnfilled());
 
-			OrderInfoBuilder order = workingOrders.remove(realOrderId);
-			order.setStatus(OrderStatus.CANCELLED);
-			tradingListeners.forEach(l -> l.onOrderUpdated(order.build()));
-			
-		} else if (orderExec.getOrdStatus().equals("New")){
+			OrderInfoBuilder canceledBuilder = workingOrders.remove(realOrderId);
+			canceledBuilder.setStatus(OrderStatus.CANCELLED);
+			tradingListeners.forEach(l -> l.onOrderUpdated(canceledBuilder.build()));
+
+		} else if (orderExec.getExecType().equals("New")) {
+			Log.info("****LISTEN EXEC - NEW");
 			String tempOrderId = orderExec.getClOrdID();
 			OrderInfoBuilder buildertemp = workingOrders.get(tempOrderId);
-			//there will be either new id if the order is accepted
-			//or the order will be rejected so no need to keep it in the map
+			// there will be either new id if the order is accepted
+			// or the order will be rejected so no need to keep it in the map
 			workingOrders.remove(tempOrderId);
-			
+
 			Log.info("BM_ID " + realOrderId);
 			// ****************** TO BITMEX ENDS
-			BmInstrument instr = connector.getActiveInstrumentsMap().get(orderExec.getSymbol());
-			if ( buildertemp.isBuy()) {
-				instr.setBuyOrdersCount(instr.getBuyOrdersCount() + buildertemp.getUnfilled());
-			} else {
-				instr.setSellOrdersCount(instr.getSellOrdersCount() + buildertemp.getUnfilled());
-			}
+			updateOrdersCount(buildertemp, buildertemp.getUnfilled());
 
 			buildertemp.setOrderId(realOrderId);
 			buildertemp.setStatus(OrderStatus.WORKING);
@@ -434,62 +421,106 @@ public class Provider extends ExternalLiveBaseProvider {
 			synchronized (workingOrders) {
 				workingOrders.put(buildertemp.getOrderId(), buildertemp);
 			}
-		} else {
+		} else if (orderExec.getExecType().equals("Replaced")) {
+
+			// quantity was changed
+			if (orderExec.getText().equals("Amended orderQty: Amended via API.\nSubmitted via API.")) {
+				Log.info("****LISTEN EXEC - REPLACED QUANTITY");
+				int oldSize = builder.getUnfilled();
+				int newSize = (int) orderExec.getOrderQty();
+				Log.info("****oldSize " + oldSize + "   newSize " + newSize);
+
+				updateOrdersCount(builder, newSize - oldSize);
+
+				builder.setUnfilled(newSize);
+				final OrderInfoBuilder finBuilder = builder;
+				tradingListeners.forEach(l -> l.onOrderUpdated(finBuilder.build()));
+				Log.info("*********RESIZED*********");
+			} else if (orderExec.getText().equals("Amended price: Amended via API.\nSubmitted via API.")) {
+				Log.info("****LISTEN EXEC - REPLACED PRICE");
+				// price was changed
+				OrderInfoBuilder order = workingOrders.get(builder.getOrderId());
+				order.setLimitPrice(orderExec.getPrice());
+				tradingListeners.forEach(l -> l.onOrderUpdated(order.build()));
+
+			} else if (orderExec.getText().equals("Amended stopPx: Amended via API.\nSubmitted via API.")) {
+				Log.info("****LISTEN EXEC - REPLACED STOP PRICE");
+				// price was changed
+				OrderInfoBuilder order = workingOrders.get(builder.getOrderId());
+				order.setStopPrice(orderExec.getStopPx());
+				tradingListeners.forEach(l -> l.onOrderUpdated(order.build()));
+			} else if (orderExec.getText().equals("Amended price stopPx: Amended via API.\nSubmitted via API.")) {
+				Log.info("****LISTEN EXEC - REPLACED STOP AND LIMIT PRICE");
+				// price was changed
+				OrderInfoBuilder order = workingOrders.get(builder.getOrderId());
+				order.setStopPrice(orderExec.getStopPx());
+				order.setLimitPrice(orderExec.getPrice());
+				tradingListeners.forEach(l -> l.onOrderUpdated(order.build()));
+			}
+
+		} else if (orderExec.getOrdStatus().equals("PartiallyFilled") || orderExec.getOrdStatus().equals("Filled")) {
+			Log.info("****LISTEN EXEC - (PARTIALLY) FILLED");
 
 			String symbol = orderExec.getSymbol();
 			BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
 
 			// if unfilled value has changed
 			if (builder.getUnfilled() != orderExec.getLeavesQty()) {
-				int unfilledChangedBy = (int) (builder.getUnfilled() - orderExec.getLeavesQty());
+				Execution exec = (Execution) orderExec;
+				int filled = (int) Math.abs(exec.getForeignNotional());
+				Log.info("FILLED " + filled);
 				// if (orderExec.getOrdStatus().equals("Filled")) {
 				final long executionTime = System.currentTimeMillis();
 
-				int filled;
-				if (orderExec.getLeavesQty() == 0) {
-					filled = (int) orderExec.getOrderQty();
-				} else {
-					filled = (int) orderExec.getCumQty();
-				}
-
-				filled = (int) Math.round(filled / instr.getTickSize());
-				ExecutionInfo executionInfo = new ExecutionInfo(orderExec.getOrderID(), filled, orderExec.getLastPx(),
+				// filled = (int) Math.round(filled / instr.getTickSize());
+				ExecutionInfo executionInfo = new ExecutionInfo(orderExec.getOrderID(), filled, exec.getLastPx(),
 						orderExec.getExecID(), executionTime);
 
 				tradingListeners.forEach(l -> l.onOrderExecuted(executionInfo));
 
 				// updating filled orders volume
-				instr.setExecutionsVolume(instr.getExecutionsVolume() + unfilledChangedBy);
-				if (builder.isBuy()) {
-					instr.setBuyOrdersCount(instr.getBuyOrdersCount() - builder.getUnfilled());
-					// buyOrdersCount -= builder.getUnfilled();
-				} else {
-					instr.setSellOrdersCount(instr.getSellOrdersCount() - builder.getUnfilled());
-					// sellOrdersCount -= builder.getUnfilled();
-				}
+				instr.setExecutionsVolume(instr.getExecutionsVolume() + filled);
+				updateOrdersCount(builder, -filled);
 
 				// Changing the order itself
 				OrderInfoBuilder order = workingOrders.get(orderExec.getOrderID());
-				order.setAverageFillPrice(orderExec.getLastPx());
-				order.setUnfilled(0);
-				order.setFilled(filled);
-				order.setStatus(OrderStatus.FILLED);
+				order.setAverageFillPrice(orderExec.getAvgPx());
+
+				if (orderExec.getOrdStatus().equals("Filled")) {
+					order.setUnfilled(0);
+					order.setFilled((int) exec.getCumQty());
+					order.setStatus(OrderStatus.FILLED);
+				} else {
+					order.setUnfilled((int) orderExec.getLeavesQty());
+					order.setFilled((int) orderExec.getCumQty());
+					// Log.info("setUnfilled " + (int)
+					// orderExec.getLeavesQty());
+					// Log.info("setFilled" + (int) orderExec.getCumQty());
+				}
+
 				tradingListeners.forEach(l -> l.onOrderUpdated(order.build()));
 				order.markAllUnchanged();
 			}
 		}
 	}
 
-	public void listenToPosition(Position pos) {
-
-		String symbol = pos.getSymbol();
-		BmInstrument bmInstrument = connector.getActiveInstrumentsMap().get(symbol);
-
-		Position validPosition = bmInstrument.getValidPosition();
-		updateValidPosition(validPosition, pos);
-		Log.info("NEW VAL" + validPosition.toString());
-
+	private void updateOrdersCount(OrderInfoBuilder builder, int changes) {
+		Log.info("****ORDER COUNT UPD " + changes);
+		String symbol = connr.isolateSymbol(builder.getInstrumentAlias());
 		BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
+		if (builder.isBuy()) {
+			instr.setBuyOrdersCount(instr.getBuyOrdersCount() + changes);
+		} else {
+			instr.setSellOrdersCount(instr.getSellOrdersCount() + changes);
+		}
+	}
+
+	public void listenToPosition(Position pos) {
+		String symbol = pos.getSymbol();
+		BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
+		Position validPosition = instr.getValidPosition();
+		updateValidPosition(validPosition, pos);
+		// Log.info("NEW VAL" + validPosition.toString());
 
 		// public StatusInfo(java.lang.String instrumentAlias,
 		// double unrealizedPnl,
@@ -500,14 +531,14 @@ public class Provider extends ExternalLiveBaseProvider {
 		// int volume,
 		// int workingBuys,
 		// int workingSells)
+//		BalanceInfo info = new BalanceInfo();
 
 		StatusInfo info = new StatusInfo(validPosition.getSymbol(),
-				(double) validPosition.getUnrealisedPnl() / (double) bmInstrument.getMultiplier(),
-				(double) validPosition.getRealisedPnl() / (double) bmInstrument.getMultiplier(),
-				validPosition.getCurrency(),
+				(double) validPosition.getUnrealisedPnl() / (double) instr.getMultiplier(),
+				(double) validPosition.getRealisedPnl() / (double) instr.getMultiplier(), validPosition.getCurrency(),
 				(int) Math.round((double) (validPosition.getMarkValue() - validPosition.getUnrealisedPnl())
-						/ (double) bmInstrument.getMultiplier()),
-				validPosition.getAvgEntryPrice(), bmInstrument.getExecutionsVolume(), instr.getBuyOrdersCount(),
+						/ (double) instr.getMultiplier()),
+				validPosition.getAvgEntryPrice(), instr.getExecutionsVolume(), instr.getBuyOrdersCount(),
 				instr.getSellOrdersCount());
 
 		Log.info(info.toString());
@@ -540,32 +571,39 @@ public class Provider extends ExternalLiveBaseProvider {
 		if (pos.getAvgEntryPrice() != null) {
 			validPosition.setAvgEntryPrice(pos.getAvgEntryPrice());
 		}
-		Log.info("WTN MTH" + validPosition.toString());
+		// Log.info("WTN MTH" + validPosition.toString());
 	}
 
 	public void createBookmapOrder(BmOrder order) {
 		String symbol = order.getSymbol();
 		String orderId = order.getOrderID();
 		boolean isBuy = order.getSide().equals("Buy") ? true : false;
-		OrderType type = order.getOrdType().equals("Limit") ? OrderType.LMT : OrderType.STP;
+		// OrderType type = order.getOrdType().equals("Limit") ? OrderType.LMT :
+		// OrderType.STP;
+		OrderType type = OrderType.getTypeFromPrices(order.getStopPx(), order.getPrice());
+		Log.info("+++++  " + type.toString());
 		// String clientId =order.getClientId();//this field is being left blank
 		// so far
 		String clientId = tempClientId;
-		Log.info("To BM CLIENT ID " + tempClientId);
+		// Log.info("To BM CLIENT ID " + tempClientId);
 
 		boolean doNotIncrease = true;// this field is being left true so far
 
-		double stopPrice = type.equals(OrderType.STP) ? order.getPrice() : Double.NaN;
-		double limitPrice = type.equals(OrderType.LMT) ? order.getPrice() : Double.NaN;
+		// double stopPrice = type.equals(OrderType.STP) ? order.getPrice() :
+		// Double.NaN;
+		// double limitPrice = type.equals(OrderType.LMT) ? order.getPrice() :
+		// Double.NaN;
 		// int size = (int) order.getLeavesQty();
-		int size = (int) order.getSimpleLeavesQty();
-		Log.info("SIMPLE LEAVES QTY = " + size);
+		// int size = (int) order.getSimpleLeavesQty();
+		// Log.info("SIMPLE LEAVES QTY = " + size);
 
 		final OrderInfoBuilder builder = new OrderInfoBuilder(symbol, orderId, isBuy, type, clientId, doNotIncrease);
 
 		// You need to set these fields, otherwise Bookmap might not handle
 		// order correctly
-		builder.setStopPrice(stopPrice).setLimitPrice(limitPrice).setUnfilled(size).setDuration(OrderDuration.GTC)
+		// builder.setStopPrice(order.getStopPx()).setLimitPrice(order.getPrice()).setUnfilled(size).setDuration(OrderDuration.GTC)
+		builder.setStopPrice(order.getStopPx()).setLimitPrice(order.getPrice()).setUnfilled((int) order.getLeavesQty())
+				.setFilled((int) order.getCumQty()).setDuration(OrderDuration.GTC)
 				.setStatus(OrderStatus.PENDING_SUBMIT);
 		tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
 		builder.markAllUnchanged();
@@ -574,14 +612,16 @@ public class Provider extends ExternalLiveBaseProvider {
 		tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
 		builder.markAllUnchanged();
 
-		BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
-		if (isBuy) {
-			instr.setBuyOrdersCount(instr.getBuyOrdersCount() + size);
-			// buyOrdersCount += simpleParameters.size;
-		} else {
-			instr.setSellOrdersCount(instr.getSellOrdersCount() + size);
-			// sellOrdersCount += simpleParameters.size;
-		}
+		// BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
+
+		updateOrdersCount(builder, (int) order.getLeavesQty());
+		// if (isBuy) {
+		// instr.setBuyOrdersCount(instr.getBuyOrdersCount() + size);
+		// // buyOrdersCount += simpleParameters.size;
+		// } else {
+		// instr.setSellOrdersCount(instr.getSellOrdersCount() + size);
+		// // sellOrdersCount += simpleParameters.size;
+		// }
 
 		synchronized (workingOrders) {
 			// workingOrders.put(builder.orderId, builder);
@@ -599,7 +639,7 @@ public class Provider extends ExternalLiveBaseProvider {
 				// report limit orders support, but no stop orders support
 				// If you actually need it, you can report stop orders support
 				// but reject stop orders when those are sent.
-				.setSupportedStopOrders(Arrays.asList(new OrderType[] { OrderType.LMT, OrderType.STP })).build();
+				.setSupportedStopOrders(Arrays.asList(new OrderType[] { OrderType.LMT, OrderType.MKT })).build();
 	}
 
 	@Override
