@@ -1,5 +1,6 @@
 package bitmexAdapter;
 
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -9,6 +10,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
 
 import velox.api.layer0.live.Provider;
 import velox.api.layer1.common.Log;
@@ -28,10 +30,11 @@ public class JsonParser {
 		this.activeInstrumentsMap = activeInstrumentsMap;
 	}
 
+	@SuppressWarnings("unchecked")
 	public void parse(String str) {
-		Message msg = (Message) gson.fromJson(str, Message.class);
+		// Log.info(str);
 
-//		Log.info(str);
+		Message msg = (Message) gson.fromJson(str, Message.class);
 
 		// skip messages if the action is not defined
 		if (msg == null || msg.action == null || msg.getTable() == null || msg.getTable() == "" || msg.getData() == null
@@ -41,30 +44,45 @@ public class JsonParser {
 		}
 
 		if (!msg.getTable().equals("orderBookL2") && !msg.getTable().equals("trade")
-				&& !msg.getTable().equals("execution") && !msg.getTable().equals("position")) {
-			Log.info(msg.getTable());
-//			Log.info("PARSER orderBookL2 " + str);
+				&& !msg.getTable().equals("execution") && !msg.getTable().equals("position")
+				&& !msg.getTable().equals("wallet") && !msg.getTable().equals("order")) {
+//			Log.info("PARSER WS TABLE = " + msg.getTable());
+			return;
+		}
+		
+		if (msg.getTable().equals("wallet")) {
+			Type type = new TypeToken<MessageGeneric<Wallet>>(){}.getType();
+			Log.info(str);
+			@SuppressWarnings("unchecked")
+			MessageGeneric<Wallet> msg0 =  gson.fromJson(str, type);
+//			Log.info(msg0.toString());
+			processWalletMessage(msg0);
 			return;
 		}
 
 		if (msg.getTable().equals("execution")) {
-			Log.info("PARSER WS EXECUTION " + str);
+			// Log.info("PARSER WS EXECUTION " + str);
 			MessageExecution msgExec = (MessageExecution) gson.fromJson(str, MessageExecution.class);
 			processExecutionMessage(msgExec);
 			return;
 		}
 
 		if (msg.getTable().equals("position")) {
-//			Log.info("PARSER WS POSITION " + str);
+			 Log.info("PARSER WS POSITION " + str);
 			MessagePosition msgPos = (MessagePosition) gson.fromJson(str, MessagePosition.class);
 			processPositionMessage(msgPos);
 			return;
 		}
-		
+
 		if (msg.getTable().equals("order")) {
-//			Log.info("PARSER WS ORDER " + str);
+			 Log.info("PARSER WS ORDER " + str);
 			MessagePosition msgPos = (MessagePosition) gson.fromJson(str, MessagePosition.class);
 			processPositionMessage(msgPos);
+			return;
+		}
+
+		if (msg.getTable().equals("wallet")) {
+//			Log.info("PARSER WS WALLET " + str);
 			return;
 		}
 
@@ -95,7 +113,7 @@ public class JsonParser {
 				instr.setFirstSnapshotParsed(true);
 				// this is the trigger for parser to start
 				// processing every message
-				
+
 				prov.listenOrderOrTrade(msg);
 			} else {
 				return; // otherwise wait for partial
@@ -141,26 +159,26 @@ public class JsonParser {
 		return units;
 	}
 
-//	private ArrayList<DataUnit> reArrangeUnits(ArrayList<DataUnit> units) {
-//		if (units.size() > 10) {
-//			int firstAskIndex = 0;
-//
-//			for (int i = 0; i < units.size(); i++) {
-//				if (units.get(i + 1).isBid()) {
-//					firstAskIndex = i;
-//					break;
-//				}
-//			}
-//			
-//			if (firstAskIndex < units.size() - 1){
-//			Collections.swap(units, 0, firstAskIndex); 
-//			Collections.swap(units, 1, firstAskIndex+1);
-//			}
-//			
-//		}
-//
-//		return units;
-//	}
+	// private ArrayList<DataUnit> reArrangeUnits(ArrayList<DataUnit> units) {
+	// if (units.size() > 10) {
+	// int firstAskIndex = 0;
+	//
+	// for (int i = 0; i < units.size(); i++) {
+	// if (units.get(i + 1).isBid()) {
+	// firstAskIndex = i;
+	// break;
+	// }
+	// }
+	//
+	// if (firstAskIndex < units.size() - 1){
+	// Collections.swap(units, 0, firstAskIndex);
+	// Collections.swap(units, 1, firstAskIndex+1);
+	// }
+	//
+	// }
+	//
+	// return units;
+	// }
 
 	/*
 	 * setting missing values for dataunits' fields adding missing prices to
@@ -213,6 +231,15 @@ public class JsonParser {
 		}
 	}
 
+	private void processWalletMessage(MessageGeneric<Wallet> msg0) {
+		ArrayList<Wallet> arr = (ArrayList<Wallet>) msg0.getData();
+//		LinkedTreeMap <Wallet> arr = msg0.getData();
+
+		for (Wallet wallet : arr) {
+			prov.listenToWallet((Wallet) wallet);
+		}
+	}
+	
 	private void processExecutionMessage(MessageExecution msgExec) {
 
 		for (BmOrder order : msgExec.data) {
@@ -230,15 +257,15 @@ public class JsonParser {
 	}
 
 	private void processPositionMessage(MessagePosition msgPos) {
-//		Log.info("EXEC MSG PROCESSED");
+		// Log.info("EXEC MSG PROCESSED");
 
 		for (Position order : msgPos.data) {
-			BmInstrument instr = activeInstrumentsMap.get(order.getSymbol());
+//			BmInstrument instr = activeInstrumentsMap.get(order.getSymbol());
 			// instr.getPositionQueue().add(order);
 			prov.listenToPosition(order);
 		}
 
-//		Log.info("EXEC MSG PROCESSED ADDED TO THE QUEUE");
+		// Log.info("EXEC MSG PROCESSED ADDED TO THE QUEUE");
 	}
 
 	/**
@@ -280,7 +307,7 @@ public class JsonParser {
 
 		Message mess = new Message("orderBookL2", "delete", units);
 		prov.listenOrderOrTrade(mess);
-//		instr.getQueue().add(mess);
+		// instr.getQueue().add(mess);
 	}
 
 	private void resetBmInstrumentOrderBook(BmInstrument instr) {

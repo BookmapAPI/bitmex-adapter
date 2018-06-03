@@ -16,6 +16,9 @@ public class BmInstrument {
 	private String symbol;
 	private double tickSize;
 	private long multiplier;
+	private long underlyingToSettleMultiplier;
+
+	
 
 	private boolean isSubscribed = false;
 	private boolean isFirstSnapshotParsed = false;
@@ -71,12 +74,12 @@ public class BmInstrument {
 
 	public String getSubscribeReq() {
 //		return "{\"op\":\"subscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\"]}";
-		return "{\"op\":\"subscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\",\"order:" + this.symbol + "\",\"execution:" + this.symbol + "\",\"position:" + this.symbol + "\"]}";
+		return "{\"op\":\"subscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\",\"order:" + this.symbol + "\",\"execution:" + this.symbol + "\"]}";
 	}
 
 	public String getUnSubscribeReq() {
 //		return "{\"op\":\"unsubscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\"]}";
-		return "{\"op\":\"unsubscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\", \"order:" + this.symbol + "\",\"execution:" + this.symbol + "\",\"position:" + this.symbol + "\"]}";
+		return "{\"op\":\"unsubscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\",\"order:" + this.symbol + "\",\"execution:" + this.symbol + "\"]}";
 	}
 
 	public String getSymbol() {
@@ -165,6 +168,13 @@ public class BmInstrument {
 		this.buyOrdersCount = buyOrdersCount;
 	}
 	
+	public long getUnderlyingToSettleMultiplier() {
+		return underlyingToSettleMultiplier;
+	}
+
+	public void setUnderlyingToSettleMultiplier(long underlyingToSettleMultiplier) {
+		this.underlyingToSettleMultiplier = underlyingToSettleMultiplier;
+	}
 	
 	
 }

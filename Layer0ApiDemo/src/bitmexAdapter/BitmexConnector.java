@@ -161,8 +161,9 @@ public class BitmexConnector implements Runnable {
 			String mes = wssAuthTwo();
 			Log.info("AUTH MESSAGE PASSED");
 			this.socket.sendMessage(mes);
-//			this.socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"execution\"]}");
-//			this.socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"position\"]}");
+			socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"position\"]}");
+			socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"wallet\"]}");
+
 			Log.info("SENDING AUTH MESSAGE PASSED");
 
 			this.webSocketStartingLatch.countDown();
@@ -282,6 +283,8 @@ public class BitmexConnector implements Runnable {
 		instr.setSubscribed(true);
 		sendWebsocketMessage(instr.getSubscribeReq());
 		launchSnapshotTimer(this, instr);
+//		socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"position\"]}");
+//		socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"wallet\"]}");
 
 		// getting open orders snapshot
 		long moment = getMoment();
@@ -353,14 +356,14 @@ public class BitmexConnector implements Runnable {
 		String z = MiscUtils.getDateTwentyFourHoursAgoAsUrlEncodedString();
 		System.out.println("Z = " + z);
 		int sum = 0;
-		long moment = connr.getMoment();
+		long moment = TradeConnector.getMoment();
 		String data1 = "";
 		String addr = "/api/v1/execution?symbol=" + symbol
 				+ "&filter=%7B%22ordStatus%22%3A%22Filled%22%7D&count=100&reverse=false&startTime=" + z;
 		String sign;
 		try {
 			sign = TradeConnector.generateSignature(connr.orderApiSecret,
-					connr.createMessageBody("GET", addr, data1, moment));
+					TradeConnector.createMessageBody("GET", addr, data1, moment));
 			String st0 = connr.get("https://testnet.bitmex.com" + addr, connr.orderApiKey, sign, moment, "");
 
 			BmOrder[] orders = JsonParser.getArrayFromJson(st0, BmOrder[].class);
