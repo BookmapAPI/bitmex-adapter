@@ -28,10 +28,10 @@ public class Position {
 	private long openingQty;
 	private long openingCost;
 	private long openingComm;
-	private long openOrderBuyQty;
+	private Long openOrderBuyQty;
 	private long openOrderBuyCost;
 	private long openOrderBuyPremium;
-	private long openOrderSellQty;
+	private Long openOrderSellQty;
 	private long openOrderSellCost;
 	private long openOrderSellPremium;
 	private long execBuyQty;
@@ -180,7 +180,7 @@ private String execType;//no such in spec
 	public long getOpeningComm() {
 		return openingComm;
 	}
-	public long getOpenOrderBuyQty() {
+	public Long getOpenOrderBuyQty() {
 		return openOrderBuyQty;
 	}
 	public long getOpenOrderBuyCost() {
@@ -189,7 +189,7 @@ private String execType;//no such in spec
 	public long getOpenOrderBuyPremium() {
 		return openOrderBuyPremium;
 	}
-	public long getOpenOrderSellQty() {
+	public Long getOpenOrderSellQty() {
 		return openOrderSellQty;
 	}
 	public long getOpenOrderSellCost() {

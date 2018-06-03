@@ -1,8 +1,12 @@
 package velox.api.layer0.live;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
@@ -11,6 +15,7 @@ import velox.api.layer1.Layer1ApiAdminListener;
 import velox.api.layer1.Layer1ApiDataListener;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.data.BalanceInfo;
+import velox.api.layer1.data.BalanceInfo.a;
 import velox.api.layer1.data.ExecutionInfo;
 import velox.api.layer1.data.InstrumentInfo;
 import velox.api.layer1.data.InstrumentInfoCrypto;
@@ -38,8 +43,11 @@ import bitmexAdapter.Execution;
 import bitmexAdapter.Message;
 import bitmexAdapter.Position;
 import bitmexAdapter.TradeConnector;
+import bitmexAdapter.Wallet;
+import java_.lang.reflect.Field_;
 import bitmexAdapter.BmInstrument;
 import bitmexAdapter.BmOrder;
+
 //@Layer0LiveModule
 public class Provider extends ExternalLiveBaseProvider {
 
@@ -48,6 +56,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	private String tempClientId;
 	private HashMap<String, OrderInfoBuilder> workingOrders = new HashMap<>();
 	private long orderCount = 0;
+	private Wallet validWallet = new Wallet();
 
 	protected class Instrument {
 
@@ -353,13 +362,13 @@ public class Provider extends ExternalLiveBaseProvider {
 		List<DataUnit> units = message.data;
 
 		if (message.table.equals("orderBookL2")) {
-//			if (bmInstrument.isFirstSnapshotParsed()) {//!!!!!!!!
-				for (DataUnit unit : units) {
-					for (Layer1ApiDataListener listener : dataListeners) {
-						listener.onDepth(symbol, unit.isBid(), unit.getIntPrice(), (int) unit.getSize());
-					}
+			// if (bmInstrument.isFirstSnapshotParsed()) {//!!!!!!!!
+			for (DataUnit unit : units) {
+				for (Layer1ApiDataListener listener : dataListeners) {
+					listener.onDepth(symbol, unit.isBid(), unit.getIntPrice(), (int) unit.getSize());
 				}
-//			}
+			}
+			// }
 		} else {
 			for (DataUnit unit : units) {
 				for (Layer1ApiDataListener listener : dataListeners) {
@@ -505,14 +514,14 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	private void updateOrdersCount(OrderInfoBuilder builder, int changes) {
-		Log.info("****ORDER COUNT UPD " + changes);
-		String symbol = connr.isolateSymbol(builder.getInstrumentAlias());
-		BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
-		if (builder.isBuy()) {
-			instr.setBuyOrdersCount(instr.getBuyOrdersCount() + changes);
-		} else {
-			instr.setSellOrdersCount(instr.getSellOrdersCount() + changes);
-		}
+		// Log.info("****ORDER COUNT UPD " + changes);
+		// String symbol = connr.isolateSymbol(builder.getInstrumentAlias());
+		// BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
+		// if (builder.isBuy()) {
+		// instr.setBuyOrdersCount(instr.getBuyOrdersCount() + changes);
+		// } else {
+		// instr.setSellOrdersCount(instr.getSellOrdersCount() + changes);
+		// }
 	}
 
 	public void listenToPosition(Position pos) {
@@ -531,19 +540,109 @@ public class Provider extends ExternalLiveBaseProvider {
 		// int volume,
 		// int workingBuys,
 		// int workingSells)
-//		BalanceInfo info = new BalanceInfo();
+		// BalanceInfo info = new BalanceInfo();
 
 		StatusInfo info = new StatusInfo(validPosition.getSymbol(),
 				(double) validPosition.getUnrealisedPnl() / (double) instr.getMultiplier(),
 				(double) validPosition.getRealisedPnl() / (double) instr.getMultiplier(), validPosition.getCurrency(),
-				(int) Math.round((double) (validPosition.getMarkValue() - validPosition.getUnrealisedPnl())
-						/ (double) instr.getMultiplier()),
-				validPosition.getAvgEntryPrice(), instr.getExecutionsVolume(), instr.getBuyOrdersCount(),
-				instr.getSellOrdersCount());
+				(int) Math.round(
+						(double) (validPosition.getMarkValue()) / (double) instr.getUnderlyingToSettleMultiplier()),
+				// (int) Math.round((double) (validPosition.getMarkValue() -
+				// validPosition.getUnrealisedPnl())
+				// / (double) instr.getMultiplier()),
+				validPosition.getAvgEntryPrice(), instr.getExecutionsVolume(),
+				// instr.getBuyOrdersCount(),
+				// instr.getSellOrdersCount());
+				validPosition.getOpenOrderBuyQty().intValue(), 
+				validPosition.getOpenOrderSellQty().intValue());
 
 		Log.info(info.toString());
 
 		tradingListeners.forEach(l -> l.onStatus(info));
+
+	}
+
+	public void listenToWallet(Wallet wallet) {
+
+		updateValidWallet(wallet);
+
+		// public BalanceInCurrency(double balance,
+		// double realizedPnl,
+		// double unrealizedPnl,
+		// double previousDayBalance,
+		// double netLiquidityValue,
+		// java.lang.String currency,
+		// java.lang.Double rateToBase)
+		// BalanceInfo info = new BalanceInfo(null);
+		List<a> list = new LinkedList<>();
+		a bica = new a(validWallet.getAmount(), 0.0, 0.0, validWallet.getPrevAmount(), 0.0, validWallet.getCurrency(),
+				0.0);
+		list.add(bica);
+		BalanceInfo info = new BalanceInfo(list);
+
+		// Class<?> [] inCls = BalanceInfo.class.getDeclaredClasses();
+		// Class<?> bic = inCls[0];
+		// Constructor[] constr = bic.getConstructors();
+		// try {
+		// Object obj = bic.getConstructors()[0].newInstance(0L, 0L);
+		// } catch (InstantiationException | IllegalAccessException |
+		// IllegalArgumentException | InvocationTargetException
+		// | SecurityException e) {
+		// // TODO Auto-generated catch block
+		// e.printStackTrace();
+		// }
+
+		// Field field = bic.getField("balancesInCurrency");
+		// bic.getI balInCur = new bic.getClass();
+		//
+		//
+		//
+		// Field[] fields = cls.getDeclaredFields();
+		// for (Field field : fields){
+		// Log.info("field " + field.toString());
+		// try {
+		// field.setAccessible(true);
+		// if(field.get(wallet)!=null){
+		//
+		// BalanceInfo info = new BalanceInfo(new
+		// List<BalanceInfo.BalanceInCurrency> );
+		//
+
+		// StatusInfo info = new StatusInfo(validPosition.getSymbol(),
+		// (double) validPosition.getUnrealisedPnl() / (double)
+		// instr.getMultiplier(),
+		// (double) validPosition.getRealisedPnl() / (double)
+		// instr.getMultiplier(), validPosition.getCurrency(),
+		// (int) Math.round((double) (validPosition.getMarkValue() -
+		// validPosition.getUnrealisedPnl())
+		// / (double) instr.getMultiplier()),
+		// validPosition.getAvgEntryPrice(), instr.getExecutionsVolume(),
+		// instr.getBuyOrdersCount(),
+		// instr.getSellOrdersCount());
+		//
+		// Log.info(info.toString());
+		//
+		// tradingListeners.forEach(l -> l.onStatus(info));
+
+		tradingListeners.forEach(l -> l.onBalance(info));
+		Log.info(info.toString());
+
+	}
+
+	private void updateValidWallet(Wallet wallet) {
+		Class<?> cls = wallet.getClass();
+		Field[] fields = cls.getDeclaredFields();
+		for (Field field : fields) {
+			// Log.info("field " + field.toString());
+			try {
+				field.setAccessible(true);
+				if (field.get(wallet) != null) {
+					field.set(validWallet, field.get(wallet));
+				}
+			} catch (IllegalArgumentException | IllegalAccessException e) {
+				e.printStackTrace();
+			}
+		}
 
 	}
 
@@ -570,6 +669,12 @@ public class Provider extends ExternalLiveBaseProvider {
 		}
 		if (pos.getAvgEntryPrice() != null) {
 			validPosition.setAvgEntryPrice(pos.getAvgEntryPrice());
+		}
+		if (pos.getOpenOrderBuyQty() != null) {
+			validPosition.setOpenOrderBuyQty(pos.getOpenOrderBuyQty());
+		}
+		if (pos.getOpenOrderSellQty() != null) {
+			validPosition.setOpenOrderSellQty(pos.getOpenOrderSellQty());
 		}
 		// Log.info("WTN MTH" + validPosition.toString());
 	}
