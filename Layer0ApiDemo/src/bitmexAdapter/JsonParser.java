@@ -68,14 +68,14 @@ public class JsonParser {
 		}
 
 		if (msg.getTable().equals("position")) {
-			 Log.info("PARSER WS POSITION " + str);
+//			 Log.info("PARSER WS POSITION " + str);
 			MessagePosition msgPos = (MessagePosition) gson.fromJson(str, MessagePosition.class);
 			processPositionMessage(msgPos);
 			return;
 		}
 
 		if (msg.getTable().equals("order")) {
-			 Log.info("PARSER WS ORDER " + str);
+//			 Log.info("PARSER WS ORDER " + str);
 			MessagePosition msgPos = (MessagePosition) gson.fromJson(str, MessagePosition.class);
 			processPositionMessage(msgPos);
 			return;

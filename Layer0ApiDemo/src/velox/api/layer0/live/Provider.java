@@ -18,7 +18,6 @@ import velox.api.layer1.Layer1ApiAdminListener;
 import velox.api.layer1.Layer1ApiDataListener;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.data.BalanceInfo;
-import velox.api.layer1.data.BalanceInfo.a;
 import velox.api.layer1.data.ExecutionInfo;
 import velox.api.layer1.data.InstrumentInfo;
 import velox.api.layer1.data.InstrumentInfoCrypto;
@@ -564,27 +563,38 @@ public class Provider extends ExternalLiveBaseProvider {
 				// instr.getSellOrdersCount());
 				validPosition.getOpenOrderBuyQty().intValue(), validPosition.getOpenOrderSellQty().intValue());
 
-		Log.info(info.toString());
+//		Log.info(info.toString());
 
 		tradingListeners.forEach(l -> l.onStatus(info));
 
 	}
 
 	public void listenToWallet(Wallet wallet) {
+		long tempMultiplier = 100000000;
 
-		updateValidWallet(wallet);
+//		updateValidWallet(wallet);
+//		Long realizedPnl 
 
-		List<a> list = new LinkedList<>();
-		for (Wallet validWallet : validWallets.values()) {
-			a bica = new a(validWallet.getAmount(), 
-					realizedPnlByCurrencies.get(wallet.getCurrency()) == null? 0.0 : realizedPnlByCurrencies.get(wallet.getCurrency()), 
-					unrealizedPnlByCurrencies.get(wallet.getCurrency()) == null? 0.0 : unrealizedPnlByCurrencies.get(wallet.getCurrency()),  
-					validWallet.getPrevAmount(), 
-					0.0,
-					validWallet.getCurrency(), 
-					null);
-			list.add(bica);
-		}
+		List<BalanceInfo.BalanceInCurrency> list = new LinkedList<>();
+		
+		BalanceInfo.BalanceInCurrency bic = new BalanceInfo.BalanceInCurrency (100.0, 
+				100.0, 
+				100.0,  
+				100.0, 
+				100.0,
+				"XBt", 
+				100.0);
+		
+//		for (Wallet validWallet : validWallets.values()) {
+//			BalanceInfo.BalanceInCurrency bic = new BalanceInfo.BalanceInCurrency (validWallet.getAmount(), 
+//					realizedPnlByCurrencies.get(wallet.getCurrency()) == null? 0.0 : realizedPnlByCurrencies.get(wallet.getCurrency())/tempMultiplier, 
+//					unrealizedPnlByCurrencies.get(wallet.getCurrency()) == null? 0.0 : unrealizedPnlByCurrencies.get(wallet.getCurrency())/tempMultiplier,  
+//					validWallet.getPrevAmount(), 
+//					0.0,
+//					validWallet.getCurrency(), 
+//					null);
+			list.add(bic);
+//		}
 
 		// public BalanceInCurrency(double balance,
 		// double realizedPnl,
@@ -637,6 +647,7 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	private void updateValidWallet(Wallet wallet) {
 		Wallet validWallet = validWallets.get(wallet.getCurrency());
+		
 		if (validWallet == null) {
 			validWallets.put(wallet.getCurrency(), wallet);
 		} else {
@@ -698,13 +709,14 @@ public class Provider extends ExternalLiveBaseProvider {
 		}
 		
 		if (pos.getUnrealisedPnl() != null) {
-			//updating position
+			//updating position	
 			Long oldPosPnl = validPosition.getUnrealisedPnl();
 			Long newPosPnl = pos.getUnrealisedPnl();
 			validPosition.setUnrealisedPnl(newPosPnl);
 			
 			//updating pnlByCurrencies which is needed for Balance
 			String currency = pos.getCurrency();
+			
 			Long accumulatedPnlByCurrency = unrealizedPnlByCurrencies.get(currency);
 			if (accumulatedPnlByCurrency == null) {
 				//pnlByCurrency gets initialized
