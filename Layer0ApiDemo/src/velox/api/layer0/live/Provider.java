@@ -8,7 +8,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+
+import org.apache.commons.lang3.StringUtils;
 
 import velox.api.layer0.annotations.Layer0LiveModule;
 import velox.api.layer1.Layer1ApiAdminListener;
@@ -56,7 +59,12 @@ public class Provider extends ExternalLiveBaseProvider {
 	private String tempClientId;
 	private HashMap<String, OrderInfoBuilder> workingOrders = new HashMap<>();
 	private long orderCount = 0;
-	private Wallet validWallet = new Wallet();
+	// private Wallet validWallet = new Wallet();
+	private Map<String, Wallet> validWallets = new HashMap<>();// by currencies
+	private Map<String, Long> unrealizedPnlByCurrencies = new HashMap<>();// by
+																			// currencies
+	private Map<String, Long> realizedPnlByCurrencies = new HashMap<>();// by
+																			// currencies
 
 	protected class Instrument {
 
@@ -272,7 +280,8 @@ public class Provider extends ExternalLiveBaseProvider {
 			} else if (orderUpdateParameters.getClass() == OrderResizeParameters.class) {
 
 				Log.info("***order with provided ID gets RESIZED");
-				OrderResizeParameters params = (OrderResizeParameters) orderUpdateParameters;
+				// OrderResizeParameters params = (OrderResizeParameters)
+				// orderUpdateParameters;
 
 				// Resize order with provided ID
 				OrderResizeParameters orderResizeParameters = (OrderResizeParameters) orderUpdateParameters;
@@ -553,8 +562,7 @@ public class Provider extends ExternalLiveBaseProvider {
 				validPosition.getAvgEntryPrice(), instr.getExecutionsVolume(),
 				// instr.getBuyOrdersCount(),
 				// instr.getSellOrdersCount());
-				validPosition.getOpenOrderBuyQty().intValue(), 
-				validPosition.getOpenOrderSellQty().intValue());
+				validPosition.getOpenOrderBuyQty().intValue(), validPosition.getOpenOrderSellQty().intValue());
 
 		Log.info(info.toString());
 
@@ -566,18 +574,33 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		updateValidWallet(wallet);
 
+		List<a> list = new LinkedList<>();
+		for (Wallet validWallet : validWallets.values()) {
+			a bica = new a(validWallet.getAmount(), 
+					realizedPnlByCurrencies.get(wallet.getCurrency()) == null? 0.0 : realizedPnlByCurrencies.get(wallet.getCurrency()), 
+					unrealizedPnlByCurrencies.get(wallet.getCurrency()) == null? 0.0 : unrealizedPnlByCurrencies.get(wallet.getCurrency()),  
+					validWallet.getPrevAmount(), 
+					0.0,
+					validWallet.getCurrency(), 
+					null);
+			list.add(bica);
+		}
+
 		// public BalanceInCurrency(double balance,
 		// double realizedPnl,
 		// double unrealizedPnl,
 		// double previousDayBalance,
-		// double netLiquidityValue,
+		// double netLiquidityValue, ??????????????
 		// java.lang.String currency,
-		// java.lang.Double rateToBase)
+		// java.lang.Double rateToBase) ??????????????
 		// BalanceInfo info = new BalanceInfo(null);
-		List<a> list = new LinkedList<>();
-		a bica = new a(validWallet.getAmount(), 0.0, 0.0, validWallet.getPrevAmount(), 0.0, validWallet.getCurrency(),
-				0.0);
-		list.add(bica);
+
+		// List<a> list = new LinkedList<>();
+		// a bica = new a(validWallet.getAmount(), 0.0, 0.0,
+		// validWallet.getPrevAmount(), 0.0, validWallet.getCurrency(),
+		// 0.0);
+		// list.add(bica);
+
 		BalanceInfo info = new BalanceInfo(list);
 
 		// Class<?> [] inCls = BalanceInfo.class.getDeclaredClasses();
@@ -606,23 +629,6 @@ public class Provider extends ExternalLiveBaseProvider {
 		//
 		// BalanceInfo info = new BalanceInfo(new
 		// List<BalanceInfo.BalanceInCurrency> );
-		//
-
-		// StatusInfo info = new StatusInfo(validPosition.getSymbol(),
-		// (double) validPosition.getUnrealisedPnl() / (double)
-		// instr.getMultiplier(),
-		// (double) validPosition.getRealisedPnl() / (double)
-		// instr.getMultiplier(), validPosition.getCurrency(),
-		// (int) Math.round((double) (validPosition.getMarkValue() -
-		// validPosition.getUnrealisedPnl())
-		// / (double) instr.getMultiplier()),
-		// validPosition.getAvgEntryPrice(), instr.getExecutionsVolume(),
-		// instr.getBuyOrdersCount(),
-		// instr.getSellOrdersCount());
-		//
-		// Log.info(info.toString());
-		//
-		// tradingListeners.forEach(l -> l.onStatus(info));
 
 		tradingListeners.forEach(l -> l.onBalance(info));
 		Log.info(info.toString());
@@ -630,28 +636,41 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	private void updateValidWallet(Wallet wallet) {
-		Class<?> cls = wallet.getClass();
-		Field[] fields = cls.getDeclaredFields();
-		for (Field field : fields) {
-			// Log.info("field " + field.toString());
-			try {
-				field.setAccessible(true);
-				if (field.get(wallet) != null) {
-					field.set(validWallet, field.get(wallet));
+		Wallet validWallet = validWallets.get(wallet.getCurrency());
+		if (validWallet == null) {
+			validWallets.put(wallet.getCurrency(), wallet);
+		} else {
+
+			Class<?> cls = wallet.getClass();
+			Field[] fields = cls.getDeclaredFields();
+			for (Field field : fields) {
+				// Log.info("field " + field.toString());
+				try {
+					field.setAccessible(true);
+					if (field.get(wallet) != null) {
+						field.set(validWallet, field.get(wallet));
+					}
+				} catch (IllegalArgumentException | IllegalAccessException e) {
+					e.printStackTrace();
 				}
-			} catch (IllegalArgumentException | IllegalAccessException e) {
-				e.printStackTrace();
 			}
 		}
 
 	}
 
 	private void updateValidPosition(Position validPosition, Position pos) {
+
 		if (validPosition.getAccount().equals(0L)) {
 			if (pos.getAccount() != null) {
 				validPosition.setAccount(pos.getAccount());
 			}
 		}
+		// if (StringUtils.isEmpty(cs)
+		//
+		//
+		// validPosition.getSymbol().equals("") && pos.getSymbol() != null) {
+		// validPosition.setSymbol(pos.getSymbol());
+		// }
 		if (validPosition.getSymbol().equals("") && pos.getSymbol() != null) {
 			validPosition.setSymbol(pos.getSymbol());
 		}
@@ -662,10 +681,40 @@ public class Provider extends ExternalLiveBaseProvider {
 			validPosition.setMarkValue(pos.getMarkValue());
 		}
 		if (pos.getRealisedPnl() != null) {
-			validPosition.setRealisedPnl(pos.getRealisedPnl());
+			//updating position
+			Long oldPosPnl = validPosition.getRealisedPnl();
+			Long newPosPnl = pos.getRealisedPnl();
+			validPosition.setRealisedPnl(newPosPnl);
+
+			//updating pnlByCurrencies which is needed for Balance
+			String currency = pos.getCurrency();
+			Long accumulatedPnlByCurrency = realizedPnlByCurrencies.get(currency);
+			if (accumulatedPnlByCurrency == null) {
+				//pnlByCurrency gets initialized
+				realizedPnlByCurrencies.put(currency, newPosPnl);
+			} else {
+				realizedPnlByCurrencies.put(currency, accumulatedPnlByCurrency + newPosPnl - oldPosPnl);
+			}
 		}
+		
 		if (pos.getUnrealisedPnl() != null) {
-			validPosition.setUnrealisedPnl(pos.getUnrealisedPnl());
+			//updating position
+			Long oldPosPnl = validPosition.getUnrealisedPnl();
+			Long newPosPnl = pos.getUnrealisedPnl();
+			validPosition.setUnrealisedPnl(newPosPnl);
+			
+			//updating pnlByCurrencies which is needed for Balance
+			String currency = pos.getCurrency();
+			Long accumulatedPnlByCurrency = unrealizedPnlByCurrencies.get(currency);
+			if (accumulatedPnlByCurrency == null) {
+				//pnlByCurrency gets initialized
+				unrealizedPnlByCurrencies.put(currency, newPosPnl);
+			} else {
+				unrealizedPnlByCurrencies.put(currency, accumulatedPnlByCurrency + newPosPnl - oldPosPnl);
+			}
+			
+			
+			
 		}
 		if (pos.getAvgEntryPrice() != null) {
 			validPosition.setAvgEntryPrice(pos.getAvgEntryPrice());
@@ -676,6 +725,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		if (pos.getOpenOrderSellQty() != null) {
 			validPosition.setOpenOrderSellQty(pos.getOpenOrderSellQty());
 		}
+
 		// Log.info("WTN MTH" + validPosition.toString());
 	}
 

@@ -17,6 +17,7 @@ public class BmInstrument {
 	private double tickSize;
 	private long multiplier;
 	private long underlyingToSettleMultiplier;
+	private String settlCurrency;
 
 	
 
@@ -174,6 +175,14 @@ public class BmInstrument {
 
 	public void setUnderlyingToSettleMultiplier(long underlyingToSettleMultiplier) {
 		this.underlyingToSettleMultiplier = underlyingToSettleMultiplier;
+	}
+
+	public String getSettlCurrency() {
+		return settlCurrency;
+	}
+
+	public void setSettlCurrency(String settlCurrency) {
+		this.settlCurrency = settlCurrency;
 	}
 	
 	

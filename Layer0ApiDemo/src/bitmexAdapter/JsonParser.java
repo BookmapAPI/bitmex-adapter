@@ -52,7 +52,7 @@ public class JsonParser {
 		
 		if (msg.getTable().equals("wallet")) {
 			Type type = new TypeToken<MessageGeneric<Wallet>>(){}.getType();
-			Log.info(str);
+			Log.info("PARSER WS WALLET " + str);
 			@SuppressWarnings("unchecked")
 			MessageGeneric<Wallet> msg0 =  gson.fromJson(str, type);
 //			Log.info(msg0.toString());
@@ -81,10 +81,9 @@ public class JsonParser {
 			return;
 		}
 
-		if (msg.getTable().equals("wallet")) {
-//			Log.info("PARSER WS WALLET " + str);
-			return;
-		}
+//		if (msg.getTable().equals("wallet")) {
+//			return;
+//		}
 
 		try {
 			BmInstrument instr = activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
