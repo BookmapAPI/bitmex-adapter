@@ -161,8 +161,9 @@ public class BitmexConnector implements Runnable {
 			String mes = wssAuthTwo();
 			Log.info("AUTH MESSAGE PASSED");
 			this.socket.sendMessage(mes);
-			socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"position\"]}");
-			socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"wallet\"]}");
+			socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"position\",\"wallet\",\"margin\",\"execution\",\"order\"]}");
+//			socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"position\",\"wallet\",\"margin\"]}");
+
 
 			Log.info("SENDING AUTH MESSAGE PASSED");
 
@@ -290,7 +291,6 @@ public class BitmexConnector implements Runnable {
 		long moment = getMoment();
 		String data1 = "";
 		String data0 = "?filter=%7B%22open%22:true%7D";
-		// String addr = "/api/v1/order?filter=%7B%22open%22:true%7D";
 		String addr = "/api/v1/order?filter=%7B%22symbol%22%3A%22" + instr.getSymbol()
 				+ "%22%2C%22ordStatus%22%3A%22New%22%7D";
 		String sign;
@@ -302,7 +302,6 @@ public class BitmexConnector implements Runnable {
 			BmOrder[] orders = JsonParser.getArrayFromJson(st0, BmOrder[].class);
 			for (BmOrder order : orders) {
 				order.setSnapshot(true);
-				instr.getExecutionQueue().add(order);
 				prov.createBookmapOrder(order);
 			}
 		} catch (InvalidKeyException | NoSuchAlgorithmException e) {

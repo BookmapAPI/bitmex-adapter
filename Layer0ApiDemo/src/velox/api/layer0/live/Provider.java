@@ -3,6 +3,7 @@ package velox.api.layer0.live;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -18,10 +19,12 @@ import velox.api.layer1.Layer1ApiAdminListener;
 import velox.api.layer1.Layer1ApiDataListener;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.data.BalanceInfo;
+import velox.api.layer1.data.BalanceInfo.BalanceInCurrency;
 import velox.api.layer1.data.ExecutionInfo;
 import velox.api.layer1.data.InstrumentInfo;
 import velox.api.layer1.data.InstrumentInfoCrypto;
 import velox.api.layer1.data.Layer1ApiProviderSupportedFeatures;
+import velox.api.layer1.data.Layer1ApiProviderSupportedFeaturesBuilder;
 import velox.api.layer1.data.LoginData;
 import velox.api.layer1.data.LoginFailedReason;
 import velox.api.layer1.data.OrderCancelParameters;
@@ -42,28 +45,32 @@ import velox.api.layer1.data.UserPasswordDemoLoginData;
 import bitmexAdapter.BitmexConnector;
 import bitmexAdapter.DataUnit;
 import bitmexAdapter.Execution;
+import bitmexAdapter.Margin;
 import bitmexAdapter.Message;
 import bitmexAdapter.Position;
 import bitmexAdapter.TradeConnector;
 import bitmexAdapter.Wallet;
-import java_.lang.reflect.Field_;
 import bitmexAdapter.BmInstrument;
 import bitmexAdapter.BmOrder;
 
 //@Layer0LiveModule
 public class Provider extends ExternalLiveBaseProvider {
 
+	
 	public BitmexConnector connector = new BitmexConnector();
 	public TradeConnector connr = new TradeConnector();
 	private String tempClientId;
 	private HashMap<String, OrderInfoBuilder> workingOrders = new HashMap<>();
 	private long orderCount = 0;
-	// private Wallet validWallet = new Wallet();
-	private Map<String, Wallet> validWallets = new HashMap<>();// by currencies
-	private Map<String, Long> unrealizedPnlByCurrencies = new HashMap<>();// by
-																			// currencies
-	private Map<String, Long> realizedPnlByCurrencies = new HashMap<>();// by
-																			// currencies
+
+	private Map<String, BalanceInfo.BalanceInCurrency> balanceMap = new HashMap<>();
+	// private Map<String, Wallet> validWallets = new HashMap<>();// by
+	// currencies
+	// private Map<String, Long> unrealizedPnlByCurrencies = new HashMap<>();//
+	// by
+	// // currencies
+	// private Map<String, Long> realizedPnlByCurrencies = new HashMap<>();// by
+	// // currencies
 
 	protected class Instrument {
 
@@ -536,6 +543,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		String symbol = pos.getSymbol();
 		BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
 		Position validPosition = instr.getValidPosition();
+
 		updateValidPosition(validPosition, pos);
 		// Log.info("NEW VAL" + validPosition.toString());
 
@@ -549,6 +557,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		// int workingBuys,
 		// int workingSells)
 		// BalanceInfo info = new BalanceInfo();
+		try{
 
 		StatusInfo info = new StatusInfo(validPosition.getSymbol(),
 				(double) validPosition.getUnrealisedPnl() / (double) instr.getMultiplier(),
@@ -563,111 +572,85 @@ public class Provider extends ExternalLiveBaseProvider {
 				// instr.getSellOrdersCount());
 				validPosition.getOpenOrderBuyQty().intValue(), validPosition.getOpenOrderSellQty().intValue());
 
-//		Log.info(info.toString());
-
-		tradingListeners.forEach(l -> l.onStatus(info));
-
-	}
-
-	public void listenToWallet(Wallet wallet) {
-		long tempMultiplier = 100000000;
-
-//		updateValidWallet(wallet);
-//		Long realizedPnl 
-
-		List<BalanceInfo.BalanceInCurrency> list = new LinkedList<>();
-		
-		BalanceInfo.BalanceInCurrency bic = new BalanceInfo.BalanceInCurrency (100.0, 
-				100.0, 
-				100.0,  
-				100.0, 
-				100.0,
-				"XBt", 
-				100.0);
-		
-//		for (Wallet validWallet : validWallets.values()) {
-//			BalanceInfo.BalanceInCurrency bic = new BalanceInfo.BalanceInCurrency (validWallet.getAmount(), 
-//					realizedPnlByCurrencies.get(wallet.getCurrency()) == null? 0.0 : realizedPnlByCurrencies.get(wallet.getCurrency())/tempMultiplier, 
-//					unrealizedPnlByCurrencies.get(wallet.getCurrency()) == null? 0.0 : unrealizedPnlByCurrencies.get(wallet.getCurrency())/tempMultiplier,  
-//					validWallet.getPrevAmount(), 
-//					0.0,
-//					validWallet.getCurrency(), 
-//					null);
-			list.add(bic);
-//		}
-
-		// public BalanceInCurrency(double balance,
-		// double realizedPnl,
-		// double unrealizedPnl,
-		// double previousDayBalance,
-		// double netLiquidityValue, ??????????????
-		// java.lang.String currency,
-		// java.lang.Double rateToBase) ??????????????
-		// BalanceInfo info = new BalanceInfo(null);
-
-		// List<a> list = new LinkedList<>();
-		// a bica = new a(validWallet.getAmount(), 0.0, 0.0,
-		// validWallet.getPrevAmount(), 0.0, validWallet.getCurrency(),
-		// 0.0);
-		// list.add(bica);
-
-		BalanceInfo info = new BalanceInfo(list);
-
-		// Class<?> [] inCls = BalanceInfo.class.getDeclaredClasses();
-		// Class<?> bic = inCls[0];
-		// Constructor[] constr = bic.getConstructors();
-		// try {
-		// Object obj = bic.getConstructors()[0].newInstance(0L, 0L);
-		// } catch (InstantiationException | IllegalAccessException |
-		// IllegalArgumentException | InvocationTargetException
-		// | SecurityException e) {
-		// // TODO Auto-generated catch block
-		// e.printStackTrace();
-		// }
-
-		// Field field = bic.getField("balancesInCurrency");
-		// bic.getI balInCur = new bic.getClass();
-		//
-		//
-		//
-		// Field[] fields = cls.getDeclaredFields();
-		// for (Field field : fields){
-		// Log.info("field " + field.toString());
-		// try {
-		// field.setAccessible(true);
-		// if(field.get(wallet)!=null){
-		//
-		// BalanceInfo info = new BalanceInfo(new
-		// List<BalanceInfo.BalanceInCurrency> );
-
-		tradingListeners.forEach(l -> l.onBalance(info));
 		Log.info(info.toString());
 
-	}
-
-	private void updateValidWallet(Wallet wallet) {
-		Wallet validWallet = validWallets.get(wallet.getCurrency());
-		
-		if (validWallet == null) {
-			validWallets.put(wallet.getCurrency(), wallet);
-		} else {
-
-			Class<?> cls = wallet.getClass();
-			Field[] fields = cls.getDeclaredFields();
-			for (Field field : fields) {
-				// Log.info("field " + field.toString());
-				try {
-					field.setAccessible(true);
-					if (field.get(wallet) != null) {
-						field.set(validWallet, field.get(wallet));
-					}
-				} catch (IllegalArgumentException | IllegalAccessException e) {
-					e.printStackTrace();
-				}
-			}
+		tradingListeners.forEach(l -> l.onStatus(info));
+		} catch (Exception e){
+			Log.info("***Valid POS EXC " + validPosition.toString());
+			Log.info("***POS EXC " + pos.toString());
+			e.printStackTrace();
 		}
 
 	}
+
+	
+
+	public void listenToWallet(Wallet wallet) {
+		// BalanceInCurrency(double balance,
+		// double realizedPnl,
+		// double unrealizedPnl,
+		// double previousDayBalance,
+		// double netLiquidityValue,
+		// java.lang.String currency,
+		// java.lang.Double rateToBase)
+		
+		long tempMultiplier = 100000000;// temp
+
+		Long balance = Math.round((double) wallet.getAmount() / tempMultiplier);
+		// PNLs and NetLiquidityValue are taken from Margin topic
+		Long previousDayBalance =Math.round((double) wallet.getPrevAmount() / tempMultiplier);
+		Double netLiquidityValue = 0.0;// to be calculated
+		String currency = wallet.getCurrency();
+		Double rateToBase = null;
+		
+		BalanceInfo.BalanceInCurrency currentBic = balanceMap.get(wallet.getCurrency());
+		BalanceInfo.BalanceInCurrency newBic;
+		if (currentBic == null) {// no current balance balance
+			newBic = new BalanceInfo.BalanceInCurrency(balance, 0.0, 0.0, previousDayBalance, netLiquidityValue,
+					currency, rateToBase);
+		} else {
+			newBic = new BalanceInfo.BalanceInCurrency(balance == null ? currentBic.balance : balance,
+					currentBic.realizedPnl, currentBic.unrealizedPnl,
+					previousDayBalance == null ? currentBic.previousDayBalance : previousDayBalance,
+					netLiquidityValue == null ? currentBic.netLiquidityValue : netLiquidityValue, currentBic.currency,
+					rateToBase == null ? currentBic.rateToBase : rateToBase);
+
+		}
+		
+		balanceMap.remove(currency);
+		balanceMap.put(currency, newBic);
+		BalanceInfo info = new BalanceInfo(new ArrayList<BalanceInfo.BalanceInCurrency>(balanceMap.values()));
+		tradingListeners.forEach(l -> l.onBalance(info));
+//		 Log.info(info.toString());
+
+	}
+
+	public void listenToMargin(Margin margin) {
+		 long tempMultiplier = 100000000;// temp
+		 String currency = margin.getCurrency();
+		 BalanceInfo.BalanceInCurrency currentBic = balanceMap.get(margin.getCurrency());
+		 BalanceInfo.BalanceInCurrency newBic;
+			if (currentBic == null) {// no current balance balance
+				newBic = new BalanceInfo.BalanceInCurrency(0.0, 0.0, 0.0, 0.0, 0.0,
+						margin.getCurrency(), null);
+			} else {
+				newBic = new BalanceInfo.BalanceInCurrency(currentBic.balance,
+						margin.getRealisedPnl() == null? currentBic.realizedPnl : (double) margin.getRealisedPnl()/tempMultiplier, 
+						margin.getUnrealisedPnl() == null? currentBic.unrealizedPnl : (double) margin.getUnrealisedPnl()/tempMultiplier,
+						currentBic.previousDayBalance, 
+						margin.getAvailableMargin() == null? currentBic.netLiquidityValue : (double) margin.getAvailableMargin()/tempMultiplier,  
+						currency, currentBic.rateToBase);
+
+			}
+			
+			balanceMap.remove(currency);
+			balanceMap.put(currency, newBic);
+			BalanceInfo info = new BalanceInfo(new ArrayList<BalanceInfo.BalanceInCurrency>(balanceMap.values()));
+			tradingListeners.forEach(l -> l.onBalance(info));
+//			Log.info(info.toString());
+
+	}
+
 
 	private void updateValidPosition(Position validPosition, Position pos) {
 
@@ -692,41 +675,11 @@ public class Provider extends ExternalLiveBaseProvider {
 			validPosition.setMarkValue(pos.getMarkValue());
 		}
 		if (pos.getRealisedPnl() != null) {
-			//updating position
-			Long oldPosPnl = validPosition.getRealisedPnl();
-			Long newPosPnl = pos.getRealisedPnl();
-			validPosition.setRealisedPnl(newPosPnl);
-
-			//updating pnlByCurrencies which is needed for Balance
-			String currency = pos.getCurrency();
-			Long accumulatedPnlByCurrency = realizedPnlByCurrencies.get(currency);
-			if (accumulatedPnlByCurrency == null) {
-				//pnlByCurrency gets initialized
-				realizedPnlByCurrencies.put(currency, newPosPnl);
-			} else {
-				realizedPnlByCurrencies.put(currency, accumulatedPnlByCurrency + newPosPnl - oldPosPnl);
-			}
+			validPosition.setRealisedPnl(pos.getRealisedPnl());
 		}
-		
+
 		if (pos.getUnrealisedPnl() != null) {
-			//updating position	
-			Long oldPosPnl = validPosition.getUnrealisedPnl();
-			Long newPosPnl = pos.getUnrealisedPnl();
-			validPosition.setUnrealisedPnl(newPosPnl);
-			
-			//updating pnlByCurrencies which is needed for Balance
-			String currency = pos.getCurrency();
-			
-			Long accumulatedPnlByCurrency = unrealizedPnlByCurrencies.get(currency);
-			if (accumulatedPnlByCurrency == null) {
-				//pnlByCurrency gets initialized
-				unrealizedPnlByCurrencies.put(currency, newPosPnl);
-			} else {
-				unrealizedPnlByCurrencies.put(currency, accumulatedPnlByCurrency + newPosPnl - oldPosPnl);
-			}
-			
-			
-			
+			validPosition.setUnrealisedPnl(pos.getUnrealisedPnl());
 		}
 		if (pos.getAvgEntryPrice() != null) {
 			validPosition.setAvgEntryPrice(pos.getAvgEntryPrice());
@@ -740,6 +693,12 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		// Log.info("WTN MTH" + validPosition.toString());
 	}
+
+	/**
+	 * must always be invokes before invoking updateCurrentPosition because it
+	 * needs not updated valid position
+	 */
+
 
 	public void createBookmapOrder(BmOrder order) {
 		String symbol = order.getSymbol();
@@ -779,16 +738,8 @@ public class Provider extends ExternalLiveBaseProvider {
 		tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
 		builder.markAllUnchanged();
 
-		// BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
 
 		updateOrdersCount(builder, (int) order.getLeavesQty());
-		// if (isBuy) {
-		// instr.setBuyOrdersCount(instr.getBuyOrdersCount() + size);
-		// // buyOrdersCount += simpleParameters.size;
-		// } else {
-		// instr.setSellOrdersCount(instr.getSellOrdersCount() + size);
-		// // sellOrdersCount += simpleParameters.size;
-		// }
 
 		synchronized (workingOrders) {
 			// workingOrders.put(builder.orderId, builder);
@@ -800,13 +751,25 @@ public class Provider extends ExternalLiveBaseProvider {
 	@Override
 	public Layer1ApiProviderSupportedFeatures getSupportedFeatures() {
 		// Expanding parent supported features, reporting basic trading support
-		return super.getSupportedFeatures().toBuilder().setTrading(true)
+		Layer1ApiProviderSupportedFeaturesBuilder a =  super.getSupportedFeatures().toBuilder().setTrading(true)
 				.setSupportedOrderDurations(Arrays.asList(new OrderDuration[] { OrderDuration.GTC }))
 				// At the moment of writing this method it was not possible to
 				// report limit orders support, but no stop orders support
 				// If you actually need it, you can report stop orders support
 				// but reject stop orders when those are sent.
-				.setSupportedStopOrders(Arrays.asList(new OrderType[] { OrderType.LMT, OrderType.MKT })).build();
+				.setSupportedStopOrders(Arrays.asList(new OrderType[] { OrderType.LMT, OrderType.MKT }));
+		
+		a.setBalanceSupported(true);
+		return a.build();
+				
+				
+//		return super.getSupportedFeatures().toBuilder().setTrading(true)
+//				.setSupportedOrderDurations(Arrays.asList(new OrderDuration[] { OrderDuration.GTC }))
+//				// At the moment of writing this method it was not possible to
+//				// report limit orders support, but no stop orders support
+//				// If you actually need it, you can report stop orders support
+//				// but reject stop orders when those are sent.
+//				.setSupportedStopOrders(Arrays.asList(new OrderType[] { OrderType.LMT, OrderType.MKT })).build();
 	}
 
 	@Override

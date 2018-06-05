@@ -74,13 +74,12 @@ public class BmInstrument {
 	}
 
 	public String getSubscribeReq() {
-//		return "{\"op\":\"subscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\"]}";
-		return "{\"op\":\"subscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\",\"order:" + this.symbol + "\",\"execution:" + this.symbol + "\"]}";
+		return "{\"op\":\"subscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\",\"order:" + this.symbol + "\"]}";
+//		return "{\"op\":\"subscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\",\"order:" + this.symbol + "\",\"execution:" + this.symbol + "\"]}";
 	}
 
 	public String getUnSubscribeReq() {
-//		return "{\"op\":\"unsubscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\"]}";
-		return "{\"op\":\"unsubscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\",\"order:" + this.symbol + "\",\"execution:" + this.symbol + "\"]}";
+		return "{\"op\":\"unsubscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\",\"order:" + this.symbol + "\"]}";
 	}
 
 	public String getSymbol() {
