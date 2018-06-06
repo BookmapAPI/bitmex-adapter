@@ -8,6 +8,18 @@ public class MessageGeneric<T> {
 	private Class <T> cls ;
 	private ArrayList<T> data = new ArrayList<>();
 	
+	public MessageGeneric(String table, String action, Class<T> cls, ArrayList<T> data) {
+		super();
+		this.table = table;
+		this.action = action;
+		this.cls = cls;
+		this.data = data;
+	}
+
+	public MessageGeneric() {
+		super();
+		// TODO Auto-generated constructor stub
+	}
 
 	public String getTable() {
 		return table;

@@ -47,9 +47,9 @@ public class DemoExternalRealtimeProviderTake_2 extends ExternalLiveBaseProvider
 		public void generateData(String symbol) {
 			BmInstrument bmInstrument = connector.getActiveInstrumentsMap().get(symbol);
 
-			if (!bmInstrument.isFirstSnapshotParsed()) {
-				return;
-			}
+//			if (!bmInstrument.isFirstSnapshotParsed()) {
+//				return;
+//			}
 			BlockingQueue<Message> messages = bmInstrument.getQueue();
 
 			if (!messages.isEmpty()) {

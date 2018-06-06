@@ -13,6 +13,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CountDownLatch;
@@ -178,7 +179,8 @@ public class BitmexConnector implements Runnable {
 			// WAITING FOR THE SOCKET TO CLOSE
 			socket.getClosingLatch().await();
 			for (BmInstrument instr : activeBmInstrumentsMap.values()) {
-				instr.setFirstSnapshotParsed(false);
+				instr.setInstrumentPartialsParsed(new HashMap<String, Boolean>());
+//				instr.setFirstSnapshotParsed(false);
 			}
 
 			this.socket = null;
@@ -288,25 +290,25 @@ public class BitmexConnector implements Runnable {
 //		socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"wallet\"]}");
 
 		// getting open orders snapshot
-		long moment = getMoment();
-		String data1 = "";
-		String data0 = "?filter=%7B%22open%22:true%7D";
-		String addr = "/api/v1/order?filter=%7B%22symbol%22%3A%22" + instr.getSymbol()
-				+ "%22%2C%22ordStatus%22%3A%22New%22%7D";
-		String sign;
-		try {
-			sign = TradeConnector.generateSignature(connr.orderApiSecret,
-					createMessageBody("GET", addr, data1, moment));
-			String st0 = connr.get("https://testnet.bitmex.com" + addr, connr.orderApiKey, sign, moment, data0);
-			Log.info("EXISTING ORDERS => " + st0);
-			BmOrder[] orders = JsonParser.getArrayFromJson(st0, BmOrder[].class);
-			for (BmOrder order : orders) {
-				order.setSnapshot(true);
-				prov.createBookmapOrder(order);
-			}
-		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
-			e.printStackTrace();
-		}
+//		long moment = getMoment();
+//		String data1 = "";
+//		String data0 = "?filter=%7B%22open%22:true%7D";
+//		String addr = "/api/v1/order?filter=%7B%22symbol%22%3A%22" + instr.getSymbol()
+//				+ "%22%2C%22ordStatus%22%3A%22New%22%7D";
+//		String sign;
+//		try {
+//			sign = TradeConnector.generateSignature(connr.orderApiSecret,
+//					createMessageBody("GET", addr, data1, moment));
+//			String st0 = connr.get("https://testnet.bitmex.com" + addr, connr.orderApiKey, sign, moment, data0);
+//			Log.info("EXISTING ORDERS => " + st0);
+//			BmOrder[] orders = JsonParser.getArrayFromJson(st0, BmOrder[].class);
+//			for (BmOrder order : orders) {
+//				order.setSnapshot(true);
+//				prov.createBookmapOrder(order);
+//			}
+//		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
+//			e.printStackTrace();
+//		}
 
 		instr.setExecutionsVolume(countExecutionsVolume(instr.getSymbol()));
 

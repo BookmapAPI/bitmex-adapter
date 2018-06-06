@@ -47,6 +47,7 @@ import bitmexAdapter.DataUnit;
 import bitmexAdapter.Execution;
 import bitmexAdapter.Margin;
 import bitmexAdapter.Message;
+import bitmexAdapter.MessageGeneric;
 import bitmexAdapter.Position;
 import bitmexAdapter.TradeConnector;
 import bitmexAdapter.Wallet;
@@ -359,24 +360,24 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	}
 
-	public void listenOrderOrTrade(Message message) {
+	public void listenOrderOrTrade(MessageGeneric<DataUnit> msg0) {
 		// Log.info("LISTENER USED");
 
-		if (message == null || message.getAction() == null || message.getData() == null) {
-			Log.info("***********NULL POINTER AT MESSAGE " + message);
+		if (msg0 == null || msg0.getAction() == null || msg0.getData() == null) {
+			Log.info("***********NULL POINTER AT MESSAGE " + msg0);
 		}
 
-		String symbol = message.data.get(0).getSymbol();
+		String symbol = msg0.getData().get(0).getSymbol();
 
 		BmInstrument bmInstrument = connector.getActiveInstrumentsMap().get(symbol);
 
-		if (!bmInstrument.isFirstSnapshotParsed()) {
-			return;
-		}
+//		if (!bmInstrument.isFirstSnapshotParsed()) {
+//			return;
+//		}
 
-		List<DataUnit> units = message.data;
+		List<DataUnit> units = msg0.getData();
 
-		if (message.table.equals("orderBookL2")) {
+		if (msg0.getTable().equals("orderBookL2")) {
 			// if (bmInstrument.isFirstSnapshotParsed()) {//!!!!!!!!
 			for (DataUnit unit : units) {
 				for (Layer1ApiDataListener listener : dataListeners) {
@@ -395,30 +396,67 @@ public class Provider extends ExternalLiveBaseProvider {
 		}
 
 	}
+	
+	public void listenOrderOrTrade(Message msg0) {
+		// Log.info("LISTENER USED");
+		
+		if (msg0 == null || msg0.getAction() == null || msg0.getData() == null) {
+			Log.info("***********NULL POINTER AT MESSAGE " + msg0);
+		}
+		
+		String symbol = msg0.getData().get(0).getSymbol();
+		
+		BmInstrument bmInstrument = connector.getActiveInstrumentsMap().get(symbol);
+		
+//		if (!bmInstrument.isFirstSnapshotParsed()) {
+//			return;
+//		}
+		
+		List<DataUnit> units = msg0.getData();
+		
+		if (msg0.getTable().equals("orderBookL2")) {
+			// if (bmInstrument.isFirstSnapshotParsed()) {//!!!!!!!!
+			for (DataUnit unit : units) {
+				for (Layer1ApiDataListener listener : dataListeners) {
+					listener.onDepth(symbol, unit.isBid(), unit.getIntPrice(), (int) unit.getSize());
+				}
+			}
+			// }
+		} else {
+			for (DataUnit unit : units) {
+				for (Layer1ApiDataListener listener : dataListeners) {
+					final boolean isOtc = false;
+					listener.onTrade(symbol, unit.getIntPrice(), (int) unit.getSize(),
+							new TradeInfo(isOtc, unit.isBid()));
+				}
+			}
+		}
+		
+	}
 
 	public void listenToExecution(Execution orderExec) {
 		String realOrderId = orderExec.getOrderID();
 		OrderInfoBuilder builder = workingOrders.get(realOrderId);
 
 		if (builder == null) {
-			Log.info("BUILDER IS NULL (LISTEN TO EXEC");
+			Log.info("PROVIDER: BUILDER IS NULL (LISTEN TO EXEC");
 		}
 
 		if (orderExec.getExecType().equals("TriggeredOrActivatedBySystem")) {
-			Log.info("****LISTEN EXEC - TRIGGERED");
+//			Log.info("****LISTEN EXEC - TRIGGERED");
 			// if(orderExec.getTriggered().equals(arg0))
 			builder.setStopTriggered(true);
 			final OrderInfoBuilder finBuilder = builder;
 			tradingListeners.forEach(l -> l.onOrderUpdated(finBuilder.build()));
 
 		} else if (orderExec.getExecType().equals("Rejected")) {
-			Log.info("****LISTEN EXEC - REJECTED");
+			Log.info("PROVIDER: ****LISTEN EXEC - REJECTED");
 			if (builder == null) {
 				builder = workingOrders.get(orderExec.getClOrdID());
 			}
 			rejectOrder(builder, orderExec.getOrdRejReason());
 		} else if (orderExec.getExecType().equals("Canceled")) {
-			Log.info("****LISTEN EXEC - CANCELED");
+			Log.info("PROVIDER: ****LISTEN EXEC - CANCELED");
 			updateOrdersCount(builder, -builder.getUnfilled());
 
 			OrderInfoBuilder canceledBuilder = workingOrders.remove(realOrderId);
@@ -426,7 +464,7 @@ public class Provider extends ExternalLiveBaseProvider {
 			tradingListeners.forEach(l -> l.onOrderUpdated(canceledBuilder.build()));
 
 		} else if (orderExec.getExecType().equals("New")) {
-			Log.info("****LISTEN EXEC - NEW");
+			Log.info("PROVIDER: ****LISTEN EXEC - NEW");
 			String tempOrderId = orderExec.getClOrdID();
 			OrderInfoBuilder buildertemp = workingOrders.get(tempOrderId);
 			// there will be either new id if the order is accepted
@@ -449,32 +487,32 @@ public class Provider extends ExternalLiveBaseProvider {
 
 			// quantity was changed
 			if (orderExec.getText().equals("Amended orderQty: Amended via API.\nSubmitted via API.")) {
-				Log.info("****LISTEN EXEC - REPLACED QUANTITY");
+				Log.info("PROVIDER: ****LISTEN EXEC - REPLACED QUANTITY");
 				int oldSize = builder.getUnfilled();
 				int newSize = (int) orderExec.getOrderQty();
-				Log.info("****oldSize " + oldSize + "   newSize " + newSize);
+				Log.info("PROVIDER: ****oldSize " + oldSize + "   newSize " + newSize);
 
 				updateOrdersCount(builder, newSize - oldSize);
 
 				builder.setUnfilled(newSize);
 				final OrderInfoBuilder finBuilder = builder;
 				tradingListeners.forEach(l -> l.onOrderUpdated(finBuilder.build()));
-				Log.info("*********RESIZED*********");
+				Log.info("PROVIDER: *********RESIZED*********");
 			} else if (orderExec.getText().equals("Amended price: Amended via API.\nSubmitted via API.")) {
-				Log.info("****LISTEN EXEC - REPLACED PRICE");
+				Log.info("PROVIDER: ****LISTEN EXEC - REPLACED PRICE");
 				// price was changed
 				OrderInfoBuilder order = workingOrders.get(builder.getOrderId());
 				order.setLimitPrice(orderExec.getPrice());
 				tradingListeners.forEach(l -> l.onOrderUpdated(order.build()));
 
 			} else if (orderExec.getText().equals("Amended stopPx: Amended via API.\nSubmitted via API.")) {
-				Log.info("****LISTEN EXEC - REPLACED STOP PRICE");
+				Log.info("PROVIDER: ****LISTEN EXEC - REPLACED STOP PRICE");
 				// price was changed
 				OrderInfoBuilder order = workingOrders.get(builder.getOrderId());
 				order.setStopPrice(orderExec.getStopPx());
 				tradingListeners.forEach(l -> l.onOrderUpdated(order.build()));
 			} else if (orderExec.getText().equals("Amended price stopPx: Amended via API.\nSubmitted via API.")) {
-				Log.info("****LISTEN EXEC - REPLACED STOP AND LIMIT PRICE");
+				Log.info("PROVIDER: ****LISTEN EXEC - REPLACED STOP AND LIMIT PRICE");
 				// price was changed
 				OrderInfoBuilder order = workingOrders.get(builder.getOrderId());
 				order.setStopPrice(orderExec.getStopPx());
@@ -483,7 +521,7 @@ public class Provider extends ExternalLiveBaseProvider {
 			}
 
 		} else if (orderExec.getOrdStatus().equals("PartiallyFilled") || orderExec.getOrdStatus().equals("Filled")) {
-			Log.info("****LISTEN EXEC - (PARTIALLY) FILLED");
+			Log.info("PROVIDER: ****LISTEN EXEC - (PARTIALLY) FILLED");
 
 			String symbol = orderExec.getSymbol();
 			BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
@@ -492,7 +530,7 @@ public class Provider extends ExternalLiveBaseProvider {
 			if (builder.getUnfilled() != orderExec.getLeavesQty()) {
 				Execution exec = (Execution) orderExec;
 				int filled = (int) Math.abs(exec.getForeignNotional());
-				Log.info("FILLED " + filled);
+				Log.info("PROVIDER: FILLED " + filled);
 				// if (orderExec.getOrdStatus().equals("Filled")) {
 				final long executionTime = System.currentTimeMillis();
 
@@ -596,9 +634,9 @@ public class Provider extends ExternalLiveBaseProvider {
 		
 		long tempMultiplier = 100000000;// temp
 
-		Long balance = Math.round((double) wallet.getAmount() / tempMultiplier);
+		Double balance = (double) wallet.getAmount() / tempMultiplier;
 		// PNLs and NetLiquidityValue are taken from Margin topic
-		Long previousDayBalance =Math.round((double) wallet.getPrevAmount() / tempMultiplier);
+		Double previousDayBalance =(double) wallet.getPrevAmount() /tempMultiplier;
 		Double netLiquidityValue = 0.0;// to be calculated
 		String currency = wallet.getCurrency();
 		Double rateToBase = null;
@@ -751,7 +789,8 @@ public class Provider extends ExternalLiveBaseProvider {
 	@Override
 	public Layer1ApiProviderSupportedFeatures getSupportedFeatures() {
 		// Expanding parent supported features, reporting basic trading support
-		Layer1ApiProviderSupportedFeaturesBuilder a =  super.getSupportedFeatures().toBuilder().setTrading(true)
+		Layer1ApiProviderSupportedFeaturesBuilder a =  super.getSupportedFeatures().toBuilder()
+				.setTrading(true)
 				.setSupportedOrderDurations(Arrays.asList(new OrderDuration[] { OrderDuration.GTC }))
 				// At the moment of writing this method it was not possible to
 				// report limit orders support, but no stop orders support

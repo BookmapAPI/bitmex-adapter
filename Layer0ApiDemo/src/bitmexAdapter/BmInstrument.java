@@ -3,6 +3,7 @@ package bitmexAdapter;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -23,6 +24,10 @@ public class BmInstrument {
 
 	private boolean isSubscribed = false;
 	private boolean isFirstSnapshotParsed = false;
+	
+	//this one is for 'orderBookL2 and for 'trade'
+	private Map<String, Boolean> instrumentPartialsParsed = new HashMap<>();
+	
 	private OrderBook orderBook = new OrderBook();
 	private BlockingQueue<Message> queue = new LinkedBlockingQueue<>();
 	private HashMap<Long, Integer> pricesMap = new HashMap<>();
@@ -182,6 +187,14 @@ public class BmInstrument {
 
 	public void setSettlCurrency(String settlCurrency) {
 		this.settlCurrency = settlCurrency;
+	}
+
+	public Map<String, Boolean> getInstrumentPartialsParsed() {
+		return instrumentPartialsParsed;
+	}
+
+	public void setInstrumentPartialsParsed(Map<String, Boolean> instrumentPartialsParsed) {
+		this.instrumentPartialsParsed = instrumentPartialsParsed;
 	}
 	
 	
