@@ -12,6 +12,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 
+import quickfix.RuntimeError;
 import velox.api.layer0.live.Provider;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.layers.utils.OrderBook;
@@ -23,67 +24,137 @@ public class JsonParser {
 		return (T[]) new Gson().fromJson(input, cls);
 	}
 
+	// public static <T> ArrayList<T> getGenericFromMessage(String input,
+	// Class<T> cls) {
+	// Type type = new TypeToken<MessageGeneric<T>>() {
+	// }.getType();
+	// MessageGeneric<T> msg0 = gson.fromJson(input, type);
+	// ArrayList<T> dataUnits = msg0.getData();
+	// return dataUnits;
+	// }
+
 	private static final Gson gson = new GsonBuilder().create();
+	private Map<String, Boolean> partialsParsed = new HashMap<>();
+
 	private Map<String, BmInstrument> activeInstrumentsMap = new HashMap<>();
 
 	public void setActiveInstrumentsMap(Map<String, BmInstrument> activeInstrumentsMap) {
 		this.activeInstrumentsMap = activeInstrumentsMap;
 	}
 
-	@SuppressWarnings("unchecked")
 	public void parse(String str) {
-		// Log.info(str);
+		Log.info(str);
+		// first let's find out what kind of object we have here
+		Answer answ = (Answer) gson.fromJson(str, Answer.class);
+		if (answ.getSuccess() == null && answ.getError() == null && answ.getTable() == null && answ.getInfo() == null) {
+			Log.info("PARSER FAILS TO PARSE " + str);
+			throw new RuntimeException();
+		}
 
+		if (answ.getSuccess() != null || answ.getInfo() != null) {
+			Log.info("PARSER service MSG " + str);
+			return;
+		}
+
+		if (answ.getError() != null) {
+			Log.info("PARSER ERROR MSG " + str);
+			return;
+		}
+
+		// Options 'No object', 'success' and 'error' are already excluded
+		// so only 'message' object (that contains 'data', an array of objects)
+		// stays
 		Message msg = (Message) gson.fromJson(str, Message.class);
 
-		// skip messages if the action is not defined
-		if (msg == null || msg.action == null || msg.getTable() == null || msg.getTable() == "" || msg.getData() == null
-				|| msg.getData().size() == 0) {
+		// skip a messages if it contains empty data
+		if (msg.getData() == null) {
 			Log.info("PARSER SKIPS " + str);
 			return;
 		}
+		// if (answ.getData() == null || answ.getData().equals("") ||
+		// answ.getData().equals("[]") ) {
+		// Log.info("PARSER SKIPS " + str);
+		// return;
+		// }
 
-		if (!msg.getTable().equals("orderBookL2") && !msg.getTable().equals("trade")
-				&& !msg.getTable().equals("execution") && !msg.getTable().equals("position")
-				&& !msg.getTable().equals("wallet") && !msg.getTable().equals("order")) {
-//			Log.info("PARSER WS TABLE = " + msg.getTable());
-			return;
-		}
-		
-		if (msg.getTable().equals("wallet")) {
-			Type type = new TypeToken<MessageGeneric<Wallet>>(){}.getType();
-			Log.info("PARSER WS WALLET " + str);
-			@SuppressWarnings("unchecked")
-			MessageGeneric<Wallet> msg0 =  gson.fromJson(str, type);
-//			Log.info(msg0.toString());
-			processWalletMessage(msg0);
+		// if (!msg.getTable().equals("orderBookL2") &&
+		// !msg.getTable().equals("trade")
+		// && !msg.getTable().equals("execution") &&
+		// !msg.getTable().equals("position")
+		// && !msg.getTable().equals("wallet") &&
+		// !msg.getTable().equals("order")
+		// && !msg.getTable().equals("margin")) {
+		// // Log.info("PARSER WS TABLE = " + msg.getTable());
+		// return;
+		// }
+
+		if (answ.getTable().equals("wallet")) {
+			if (answ.getAction().equals("partial")) {
+				partialsParsed.put("wallet", true);
+			}
+
+			if (partialsParsed.get("wallet") == true) {
+				Log.info("PARSER WS WALLET " + str);
+				Type type = new TypeToken<MessageGeneric<Wallet>>() {
+				}.getType();
+				MessageGeneric<Wallet> msg0 = gson.fromJson(str, type);
+				ArrayList<Wallet> wallets = msg0.getData();
+
+				if (wallets.size() > 0) {
+					for (Wallet wallet : wallets) {
+						prov.listenToWallet(wallet);
+					}
+				}
+				// processWalletMessage(wallets);
+			}
 			return;
 		}
 
 		if (msg.getTable().equals("execution")) {
 			// Log.info("PARSER WS EXECUTION " + str);
-			MessageExecution msgExec = (MessageExecution) gson.fromJson(str, MessageExecution.class);
-			processExecutionMessage(msgExec);
+			if (answ.getAction().equals("partial")) {
+				partialsParsed.put("execution", true);
+			}
+
+			if (partialsParsed.get("execution").equals(true)) {
+				Type type = new TypeToken<MessageGeneric<Execution>>() {
+				}.getType();
+				MessageGeneric<Execution> msg0 = gson.fromJson(str, type);
+				ArrayList<Execution> executions = msg0.getData();
+
+				if (executions.size() > 0) {
+					for (Execution execution : executions) {
+						prov.listenToExecution(execution);
+					}
+				}
+			}
+			return;
+		}
+
+		if (msg.getTable().equals("margin")) {
+			// Log.info("PARSER WS MARGIN " + str);
+			Type type = new TypeToken<MessageGeneric<Margin>>() {
+			}.getType();
+			@SuppressWarnings("unchecked")
+			MessageGeneric<Margin> msg0 = gson.fromJson(str, type);
+			processMarginMessage(msg0);
 			return;
 		}
 
 		if (msg.getTable().equals("position")) {
-//			 Log.info("PARSER WS POSITION " + str);
+			Log.info("PARSER WS POSITION " + str);
 			MessagePosition msgPos = (MessagePosition) gson.fromJson(str, MessagePosition.class);
 			processPositionMessage(msgPos);
 			return;
 		}
 
 		if (msg.getTable().equals("order")) {
-//			 Log.info("PARSER WS ORDER " + str);
-			MessagePosition msgPos = (MessagePosition) gson.fromJson(str, MessagePosition.class);
-			processPositionMessage(msgPos);
+			Log.info("PARSER WS ORDER " + str);
+			// MessagePosition msgPos = (MessagePosition) gson.fromJson(str,
+			// MessagePosition.class);
+			// processPositionMessage(msgPos);
 			return;
 		}
-
-//		if (msg.getTable().equals("wallet")) {
-//			return;
-//		}
 
 		try {
 			BmInstrument instr = activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
@@ -129,9 +200,10 @@ public class JsonParser {
 			// ***********
 			prov.listenOrderOrTrade(msg);
 
-		} else {// table = execution
-			MessageExecution msgExec = (MessageExecution) gson.fromJson(str, MessageExecution.class);
-			processExecutionMessage(msgExec);
+			// } else {// table = execution
+			// MessageExecution msgExec = (MessageExecution) gson.fromJson(str,
+			// MessageExecution.class);
+			// processExecutionMessage(msgExec);
 		}
 	}
 
@@ -144,6 +216,9 @@ public class JsonParser {
 	 * of the list
 	 **/
 	private ArrayList<DataUnit> putBestAskToTheHeadOfList(ArrayList<DataUnit> units) {
+		if (units.size() < 2)
+			return units;
+
 		int firstAskIndex = 0;
 
 		for (int i = 0; i < units.size(); i++) {
@@ -157,27 +232,6 @@ public class JsonParser {
 		}
 		return units;
 	}
-
-	// private ArrayList<DataUnit> reArrangeUnits(ArrayList<DataUnit> units) {
-	// if (units.size() > 10) {
-	// int firstAskIndex = 0;
-	//
-	// for (int i = 0; i < units.size(); i++) {
-	// if (units.get(i + 1).isBid()) {
-	// firstAskIndex = i;
-	// break;
-	// }
-	// }
-	//
-	// if (firstAskIndex < units.size() - 1){
-	// Collections.swap(units, 0, firstAskIndex);
-	// Collections.swap(units, 1, firstAskIndex+1);
-	// }
-	//
-	// }
-	//
-	// return units;
-	// }
 
 	/*
 	 * setting missing values for dataunits' fields adding missing prices to
@@ -230,41 +284,27 @@ public class JsonParser {
 		}
 	}
 
-	private void processWalletMessage(MessageGeneric<Wallet> msg0) {
-		ArrayList<Wallet> arr = (ArrayList<Wallet>) msg0.getData();
-//		LinkedTreeMap <Wallet> arr = msg0.getData();
 
-		for (Wallet wallet : arr) {
-			prov.listenToWallet((Wallet) wallet);
-		}
-	}
-	
-	private void processExecutionMessage(MessageExecution msgExec) {
-
-		for (BmOrder order : msgExec.data) {
-			BmInstrument instr = activeInstrumentsMap.get(order.getSymbol());
-			// if the instrument is not subscribed
-			// the position info is simply a garbage
-			// and should be ignored
-			if (instr.isSubscribed()) {
-				// instr.getExecutionQueue().add(order);
-				prov.listenToExecution((Execution) order);
-
-			}
-
-		}
-	}
 
 	private void processPositionMessage(MessagePosition msgPos) {
 		// Log.info("EXEC MSG PROCESSED");
 
-		for (Position order : msgPos.data) {
-//			BmInstrument instr = activeInstrumentsMap.get(order.getSymbol());
+		for (Position pos : msgPos.data) {
+			// BmInstrument instr = activeInstrumentsMap.get(order.getSymbol());
 			// instr.getPositionQueue().add(order);
-			prov.listenToPosition(order);
+			prov.listenToPosition(pos);
 		}
 
 		// Log.info("EXEC MSG PROCESSED ADDED TO THE QUEUE");
+	}
+
+	private void processMarginMessage(MessageGeneric<Margin> msg0) {
+		ArrayList<Margin> arr = (ArrayList<Margin>) msg0.getData();
+		// LinkedTreeMap <Wallet> arr = msg0.getData();
+
+		for (Margin marg : arr) {
+			prov.listenToMargin((Margin) marg);
+		}
 	}
 
 	/**

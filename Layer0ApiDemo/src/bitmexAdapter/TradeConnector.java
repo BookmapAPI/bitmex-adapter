@@ -387,7 +387,7 @@ public class TradeConnector {
 			addr = "/api/v1/order?filter=%7B%22open%22:true%7D";
 			sign = generateSignature(orderApiSecret, createMessageBody("GET", addr, data1, moment));
 			st0 = get("https://testnet.bitmex.com" + addr, orderApiKey, sign, moment, data0);
-			Log.info("NEW ORDER EXEC " + st0);
+			Log.info("TR_CONNR NEW ORDER EXEC " + st0);
 			//
 
 			// return (BmOrder) gson.fromJson(res, BmOrder.class);

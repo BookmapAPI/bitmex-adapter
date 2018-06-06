@@ -739,7 +739,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		builder.markAllUnchanged();
 
 
-		updateOrdersCount(builder, (int) order.getLeavesQty());
+//		updateOrdersCount(builder, (int) order.getLeavesQty());
 
 		synchronized (workingOrders) {
 			// workingOrders.put(builder.orderId, builder);
