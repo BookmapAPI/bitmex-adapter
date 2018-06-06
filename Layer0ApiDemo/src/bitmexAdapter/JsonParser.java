@@ -92,7 +92,7 @@ public class JsonParser {
 				partialsParsed.put("wallet", true);
 			}
 
-			if (partialsParsed.get("wallet") == true) {
+			if (partialsParsed.keySet().contains("wallet") && partialsParsed.get("wallet") == true) {
 				Log.info("PARSER WS WALLET " + str);
 				Type type = new TypeToken<MessageGeneric<Wallet>>() {
 				}.getType();
@@ -116,7 +116,7 @@ public class JsonParser {
 				partialsParsed.put("execution", true);
 			}
 
-			if (partialsParsed.get("execution").equals(true)) {
+			if (partialsParsed.keySet().contains("execution") && partialsParsed.get("execution").equals(true)) {
 				Type type = new TypeToken<MessageGeneric<Execution>>() {
 				}.getType();
 				MessageGeneric<Execution> msg0 = gson.fromJson(str, type);
@@ -137,7 +137,7 @@ public class JsonParser {
 				partialsParsed.put("margin", true);
 			}
 
-			if (partialsParsed.get("margin").equals(true)) {
+			if (partialsParsed.keySet().contains("margin") && partialsParsed.get("margin").equals(true)) {
 				Type type = new TypeToken<MessageGeneric<Margin>>() {
 				}.getType();
 				MessageGeneric<Margin> msg0 = gson.fromJson(str, type);
@@ -158,7 +158,7 @@ public class JsonParser {
 				partialsParsed.put("position", true);
 			}
 
-			if (partialsParsed.get("position").equals(true)) {
+			if (partialsParsed.keySet().contains("position") && partialsParsed.get("position").equals(true)) {
 				Type type = new TypeToken<MessageGeneric<Position>>() {
 				}.getType();
 				MessageGeneric<Position> msg0 = gson.fromJson(str, type);
@@ -178,7 +178,7 @@ public class JsonParser {
 			//We need only the snapshot to put
 			//existing orders to Bookmap.
 			//The rest of info comes from Execution. 
-			if (msg.getAction().equals("partial")) {
+			if (partialsParsed.keySet().contains("order") && msg.getAction().equals("partial")) {
 			
 				Type type = new TypeToken<MessageGeneric<BmOrder>>() {
 				}.getType();
