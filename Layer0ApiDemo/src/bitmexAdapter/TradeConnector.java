@@ -300,9 +300,8 @@ public class TradeConnector {
 		// }
 		return sb.toString();
 	}
-
-	public void processNewOrder(SimpleOrderSendParameters params, OrderType orderType, String tempOrderId) {
-
+	
+	public String createSendData(SimpleOrderSendParameters params, OrderType orderType, String tempOrderId, String clOrdLinkID, String contingencyType){
 		String symbol = isolateSymbol(params.alias);
 		String side = params.isBuy ? "Buy" : "Sell";
 		Log.info("****SIDE = " + side);
@@ -316,6 +315,8 @@ public class TradeConnector {
 		json.addProperty("orderQty", orderQty);
 		json.addProperty("orderQty", orderQty);
 		json.addProperty("clOrdID", tempOrderId);
+		json.addProperty("clOrdLinkID", clOrdLinkID);
+		json.addProperty("contingencyType", contingencyType);
 
 		/*
 		 * https://www.bitmex.com/api/explorer/#!/Order/Order_new Send a
@@ -338,6 +339,50 @@ public class TradeConnector {
 		}
 
 		String data = json.toString();
+		return data;
+	}
+
+	public void processNewOrder(SimpleOrderSendParameters params, OrderType orderType, String tempOrderId, String clOrdLinkID, String contingencyType) {
+
+		Log.info(tempOrderId);
+		String data = createSendData(params, orderType, tempOrderId, clOrdLinkID, contingencyType);
+//		String symbol = isolateSymbol(params.alias);
+//		String side = params.isBuy ? "Buy" : "Sell";
+//		Log.info("****SIDE = " + side);
+//		double price = params.limitPrice;
+//		double orderQty = params.size;
+//
+//		JsonObject json = new JsonObject();
+//		json.addProperty("symbol", symbol);
+//		json.addProperty("side", side);
+//		// json.addProperty("simpleOrderQty", orderQty);
+//		json.addProperty("orderQty", orderQty);
+//		json.addProperty("orderQty", orderQty);
+//		json.addProperty("clOrdID", tempOrderId);
+//		json.addProperty("clOrdLinkID", clOrdLinkID);
+//		json.addProperty("contingencyType", contingencyType);
+//
+//		/*
+//		 * https://www.bitmex.com/api/explorer/#!/Order/Order_new Send a
+//		 * simpleOrderQty instead of an orderQty to create an order denominated
+//		 * in the underlying currency. This is useful for opening up a position
+//		 * with 1 XBT of exposure without having to calculate how many contracts
+//		 * it is.
+//		 */
+//
+//		if (orderType == OrderType.LMT) {
+//			json.addProperty("ordType", "Limit");
+//			json.addProperty("price", price);
+//		} else if (orderType == OrderType.STP) {// StopMarket
+//			json.addProperty("ordType", "Stop");
+//			json.addProperty("stopPx", params.stopPrice);
+//		} else if (orderType == OrderType.STP_LMT) {
+//			json.addProperty("ordType", "StopLimit");
+//			json.addProperty("stopPx", params.stopPrice);
+//			json.addProperty("price", price);
+//		}
+//
+//		String data = json.toString();
 		Log.info("ORDER TYPE " + orderType.toString());
 		Log.info("NEW ORDER TR " + data);
 
@@ -350,37 +395,15 @@ public class TradeConnector {
 			// *********************************************
 			// Log.info("GET FROM HERE ON");
 			long moment = getMoment();
-			String adr = "/api/v1/execution";
+//			String adr = "/api/v1/execution";
 			String addr;
 			String data0;
 			String st0;
 			String sign;
 
-			// String data0 = "?ordStatus=New";
+			
 			String data1 = "";
-			// String addr = "/api/v1/execution?ordStatus=New";
-			// String sign = generateSignature(orderApiSecret,
-			// createMessageBody("GET", addr, data1, moment));
-			// Log.info("GET LAUNCHES");
-			// String st0 = get("https://testnet.bitmex.com" + addr,
-			// orderApiKey,
-			// sign,
-			// moment,
-			// data0);
-			// Log.info(st0);
-			//
-			//
-			//
-			// data0 = "?{\"ordStatus\":\"New\"}";
-			// addr = "/api/v1/execution?{\"ordStatus\":\"New\"}";
-			// sign = generateSignature(orderApiSecret, createMessageBody("GET",
-			// addr, data1, moment));
-			// st0 = get("https://testnet.bitmex.com" + addr,
-			// orderApiKey,
-			// sign,
-			// moment,
-			// data0);
-			// Log.info(st0);
+			
 
 			// WORKING
 			data0 = "?filter=%7B%22open%22:true%7D";

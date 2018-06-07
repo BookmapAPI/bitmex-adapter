@@ -27,6 +27,7 @@ import velox.api.layer1.data.Layer1ApiProviderSupportedFeatures;
 import velox.api.layer1.data.Layer1ApiProviderSupportedFeaturesBuilder;
 import velox.api.layer1.data.LoginData;
 import velox.api.layer1.data.LoginFailedReason;
+import velox.api.layer1.data.OcoOrderSendParameters;
 import velox.api.layer1.data.OrderCancelParameters;
 import velox.api.layer1.data.OrderDuration;
 import velox.api.layer1.data.OrderInfoBuilder;
@@ -63,6 +64,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	private String tempClientId;
 	private HashMap<String, OrderInfoBuilder> workingOrders = new HashMap<>();
 	private long orderCount = 0;
+	private long orderOcoCount = 0;
 
 	private Map<String, BalanceInfo.BalanceInCurrency> balanceMap = new HashMap<>();
 	// private Map<String, Wallet> validWallets = new HashMap<>();// by
@@ -193,11 +195,31 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	@Override
 	public void sendOrder(OrderSendParameters orderSendParameters) {
-		Log.info("*******sendOrder*******");
+		
+		
+		if(orderSendParameters.getClass()== OcoOrderSendParameters.class){
+			OcoOrderSendParameters ocoParams = (OcoOrderSendParameters) orderSendParameters;
+			String clOrdLinkID = System.currentTimeMillis() + "-OCO-" + orderOcoCount++;
+			String contingencyType = "OneCancelsTheOther";
+			for (SimpleOrderSendParameters simpleParams : ocoParams.orders){
+				sendSimpleOrder(simpleParams, clOrdLinkID, contingencyType);
+			}
+		} else {
+			sendSimpleOrder(orderSendParameters);
+		}
+
+	}
+
+	private void sendSimpleOrder(OrderSendParameters orderSendParameters){
+		sendSimpleOrder(orderSendParameters, null, null);
+	}
+	
+	private void sendSimpleOrder(OrderSendParameters orderSendParameters, String clOrdLinkID, String contingencyType ){
+//		Log.info("*******sendOrder*******");
 		SimpleOrderSendParameters simpleParameters = (SimpleOrderSendParameters) orderSendParameters;
 		// Detecting order type
 		OrderType orderType = OrderType.getTypeFromPrices(simpleParameters.stopPrice, simpleParameters.limitPrice);
-		Log.info("***orderType = " + orderType.toString());
+		Log.info("*** SEND orderType = " + orderType.toString());
 
 		String tempOrderId = System.currentTimeMillis() + "-temp-" + orderCount++;
 
@@ -225,13 +247,14 @@ public class Provider extends ExternalLiveBaseProvider {
 																// yet not
 																// Working
 
-			connr.processNewOrder(simpleParameters, orderType, tempOrderId);
+			connr.processNewOrder(simpleParameters, orderType, tempOrderId, clOrdLinkID, contingencyType);
 
 		} else {
 			rejectOrder(builder);
 		}
-
 	}
+	
+
 
 	private void rejectOrder(OrderInfoBuilder builder) {
 		Log.info("***Order gets REJECTED");
@@ -791,6 +814,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		// Expanding parent supported features, reporting basic trading support
 		Layer1ApiProviderSupportedFeaturesBuilder a =  super.getSupportedFeatures().toBuilder()
 				.setTrading(true)
+				.setOco(true)
 				.setSupportedOrderDurations(Arrays.asList(new OrderDuration[] { OrderDuration.GTC }))
 				// At the moment of writing this method it was not possible to
 				// report limit orders support, but no stop orders support
