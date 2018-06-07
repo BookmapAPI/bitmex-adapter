@@ -33,6 +33,7 @@ import com.google.gson.JsonObject;
 
 import bitmexAdapter.TradeConnector.GeneralType;
 import bitmexAdapter.TradeConnector.Method;
+import quickfix.RuntimeError;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.data.OrderInfoBuilder;
 import velox.api.layer1.data.OrderMoveParameters;
@@ -65,7 +66,7 @@ public class TradeConnector {
 	// LastPeg, MidPricePeg, MarketPeg, PrimaryPeg, TrailingStopPeg;
 	// }
 
-	private static final long requestTimeToLive = 10000;
+	private static final long requestTimeToLive = 1000000;
 	public final String orderApiKey = "PLc0jF_9Jh2-gYU6ye-6BS4q";
 	public final String orderApiSecret = "xyMWpfSlONCWCwrntm0GotQN42ia291Vv2aWANlp-f0Kb5-I";
 
@@ -79,12 +80,13 @@ public class TradeConnector {
 	private Map<String, TradeConnector.Key> keys = new HashMap<String, TradeConnector.Key>();
 
 	public enum GeneralType {
-		order, instrument, execution, position;
+		order, orderBulk, instrument, execution, position;
 	}
 
 	private EnumMap<GeneralType, String> subPaths = new EnumMap<GeneralType, String>(GeneralType.class);
 	{
 		subPaths.put(GeneralType.order, "/api/v1/order");
+		subPaths.put(GeneralType.orderBulk, "/api/v1/order/bulk");
 		subPaths.put(GeneralType.instrument, "/api/v1/instrument");
 		subPaths.put(GeneralType.execution, "/api/v1/execution");
 		subPaths.put(GeneralType.position, "/api/v1/position");
@@ -281,7 +283,7 @@ public class TradeConnector {
 		return response;
 	}
 
-	public String isolateSymbol(String alias) {
+	public static String isolateSymbol(String alias) {
 		// Log.info(alias);
 		char[] symbData = alias.toCharArray();
 		StringBuilder sb = new StringBuilder();
@@ -300,8 +302,9 @@ public class TradeConnector {
 		// }
 		return sb.toString();
 	}
-	
-	public String createSendData(SimpleOrderSendParameters params, OrderType orderType, String tempOrderId, String clOrdLinkID, String contingencyType){
+
+	public static JsonObject createSendData(SimpleOrderSendParameters params, OrderType orderType, String tempOrderId,
+			String clOrdLinkID, String contingencyType) {
 		String symbol = isolateSymbol(params.alias);
 		String side = params.isBuy ? "Buy" : "Sell";
 		Log.info("****SIDE = " + side);
@@ -338,87 +341,33 @@ public class TradeConnector {
 			json.addProperty("price", price);
 		}
 
-		String data = json.toString();
-		return data;
+		return json;
+		// String data = json.toString();
+		// return data;
 	}
 
-	public void processNewOrder(SimpleOrderSendParameters params, OrderType orderType, String tempOrderId, String clOrdLinkID, String contingencyType) {
+	public void createSendDataArray() {
 
-		Log.info(tempOrderId);
-		String data = createSendData(params, orderType, tempOrderId, clOrdLinkID, contingencyType);
-//		String symbol = isolateSymbol(params.alias);
-//		String side = params.isBuy ? "Buy" : "Sell";
-//		Log.info("****SIDE = " + side);
-//		double price = params.limitPrice;
-//		double orderQty = params.size;
-//
-//		JsonObject json = new JsonObject();
-//		json.addProperty("symbol", symbol);
-//		json.addProperty("side", side);
-//		// json.addProperty("simpleOrderQty", orderQty);
-//		json.addProperty("orderQty", orderQty);
-//		json.addProperty("orderQty", orderQty);
-//		json.addProperty("clOrdID", tempOrderId);
-//		json.addProperty("clOrdLinkID", clOrdLinkID);
-//		json.addProperty("contingencyType", contingencyType);
-//
-//		/*
-//		 * https://www.bitmex.com/api/explorer/#!/Order/Order_new Send a
-//		 * simpleOrderQty instead of an orderQty to create an order denominated
-//		 * in the underlying currency. This is useful for opening up a position
-//		 * with 1 XBT of exposure without having to calculate how many contracts
-//		 * it is.
-//		 */
-//
-//		if (orderType == OrderType.LMT) {
-//			json.addProperty("ordType", "Limit");
-//			json.addProperty("price", price);
-//		} else if (orderType == OrderType.STP) {// StopMarket
-//			json.addProperty("ordType", "Stop");
-//			json.addProperty("stopPx", params.stopPrice);
-//		} else if (orderType == OrderType.STP_LMT) {
-//			json.addProperty("ordType", "StopLimit");
-//			json.addProperty("stopPx", params.stopPrice);
-//			json.addProperty("price", price);
-//		}
-//
-//		String data = json.toString();
-		Log.info("ORDER TYPE " + orderType.toString());
-		Log.info("NEW ORDER TR " + data);
+	}
+
+	public void processNewOrder(String data) {
 
 		try {
 			String res = require(GeneralType.order, Method.POST, data);
-			// String st = require(GeneralType.execution, Method.GET, "");
 			Log.info(res);
-			// Log.info(st);
-
-			// *********************************************
-			// Log.info("GET FROM HERE ON");
-			long moment = getMoment();
-//			String adr = "/api/v1/execution";
-			String addr;
-			String data0;
-			String st0;
-			String sign;
-
-			
-			String data1 = "";
-			
-
-			// WORKING
-			data0 = "?filter=%7B%22open%22:true%7D";
-			addr = "/api/v1/order?filter=%7B%22open%22:true%7D";
-			sign = generateSignature(orderApiSecret, createMessageBody("GET", addr, data1, moment));
-			st0 = get("https://testnet.bitmex.com" + addr, orderApiKey, sign, moment, data0);
-			Log.info("TR_CONNR NEW ORDER EXEC " + st0);
-			//
-
-			// return (BmOrder) gson.fromJson(res, BmOrder.class);
-			// return (BmOrder) gson.fromJson(res, BmOrder.class);
 		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
-			e.printStackTrace();
+			throw new RuntimeException();
 		}
-		// return null;
+	}
+
+	public void processNewOrderBulk(String data) {
+
+		try {
+			String res = require(GeneralType.orderBulk, Method.POST, data);
+			Log.info(res);
+		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
+			throw new RuntimeException();
+		}
 	}
 
 	public BmOrder cancelOrder(String orderId) {
@@ -510,7 +459,7 @@ public class TradeConnector {
 
 	public String require(GeneralType genType, Method method, String data)
 			throws InvalidKeyException, NoSuchAlgorithmException {
-		// System.out.println("url\t" + address);
+
 		String subPath = subPaths.get(genType);
 		String path = this.restApi + subPath;
 		long moment = getMoment();
@@ -535,16 +484,22 @@ public class TradeConnector {
 			// subPath, data, moment);
 			// String signature = this.generateSignature(orderApiSecret,
 			// messageBody);
+			Log.info("TRCONN SIGNATURE:" + signature);
+			Log.info("TRCONN MOMENT:" + moment);
 
 			conn.setRequestMethod(methods.get(method));
 			Log.info(methods.get(method));
-			conn.setRequestProperty("Content-Type", "application/json");
+			if (genType.equals(GeneralType.orderBulk)) {
+				conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+			} else {
+				conn.setRequestProperty("Content-Type", "application/json");
+			}
 			conn.setRequestProperty("Accept", "application/json");
 			conn.setRequestProperty("api-expires", Long.toString(moment));
 			conn.setRequestProperty("api-key", orderApiKey);// **************************
 			conn.setRequestProperty("api-signature", signature);
 			conn.setRequestProperty("Content-Length", Integer.toString(data.getBytes("UTF-8").length));
-			System.out.println(Integer.toString(data.getBytes("UTF-8").length));
+			// System.out.println(Integer.toString(data.getBytes("UTF-8").length));
 
 			OutputStream os = conn.getOutputStream();
 			OutputStreamWriter osw = new OutputStreamWriter(os, "UTF-8");
@@ -558,7 +513,10 @@ public class TradeConnector {
 			// out.write(json.toString());
 			// out.close();
 
+			Log.info("TR CONN : require : " + path + "\t" + data);
+
 			if (conn.getResponseCode() == 200) {
+
 				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
 				StringBuilder sb = new StringBuilder("");
 				String output = null;
@@ -590,86 +548,91 @@ public class TradeConnector {
 		return response;
 	}
 
-	public String require0(GeneralType genType, Method method, String data)
-			throws InvalidKeyException, NoSuchAlgorithmException {
-		// System.out.println("url\t" + address);
-		String subPath = subPaths.get(genType);
-		String path = this.restApi + subPath;
-		long moment = getMoment();
-
-		String response = null;
-
-		try {
-			URL url = new URL(path);
-			HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
-
-			if (!method.equals(Method.GET)) {
-				// if (method.equals(Method.POST) || method.equals(Method.PUT)){
-				conn.setDoOutput(true);
-			}
-
-			// !!!!!!!!!1 КОСТЫЛЬ
-			conn.setDoOutput(true);
-
-			String messageBody = createMessageBody(methods.get(method), subPath, data, moment);
-			String signature = generateSignature(orderApiSecret, messageBody);
-			// String messageBody = this.createMessageBody(methods.get(method),
-			// subPath, data, moment);
-			// String signature = this.generateSignature(orderApiSecret,
-			// messageBody);
-
-			conn.setRequestMethod(methods.get(method));
-			Log.info(methods.get(method));
-			conn.setRequestProperty("Content-Type", "application/json");
-			conn.setRequestProperty("Accept", "application/json");
-			conn.setRequestProperty("api-expires", Long.toString(moment));
-			conn.setRequestProperty("api-key", orderApiKey);// **************************
-			conn.setRequestProperty("api-signature", signature);
-			conn.setRequestProperty("Content-Length", Integer.toString(data.getBytes("UTF-8").length));
-			System.out.println(Integer.toString(data.getBytes("UTF-8").length));
-
-			OutputStream os = conn.getOutputStream();
-			OutputStreamWriter osw = new OutputStreamWriter(os, "UTF-8");
-			osw.write(data);
-			osw.flush();
-			osw.close();
-
-			// BufferedWriter out =
-			// new BufferedWriter(new
-			// OutputStreamWriter(conn.getOutputStream()));
-			// out.write(json.toString());
-			// out.close();
-
-			if (conn.getResponseCode() == 200) {
-				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
-				StringBuilder sb = new StringBuilder("");
-				String output = null;
-
-				while ((output = br.readLine()) != null) {
-					sb.append(output);
-				}
-				conn.disconnect();
-				response = sb.toString();
-			} else {
-				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getErrorStream())));
-				StringBuilder sb = new StringBuilder("");
-				String output = null;
-
-				while ((output = br.readLine()) != null) {
-					sb.append(output);
-				}
-
-				// System.out.println(sb.toString());
-			}
-		} catch (UnknownHostException | NoRouteToHostException e) {
-			// Log.info("NO RESPONSE FROM SERVER");
-		} catch (java.net.SocketException e) {
-			// Log.info("NETWORK IS UNREACHABLE");
-		} catch (IOException e) {
-			// Log.debug("BUFFER READING ERROR");
-			e.printStackTrace();
-		}
-		return response;
-	}
+	// public String require0(GeneralType genType, Method method, String data)
+	// throws InvalidKeyException, NoSuchAlgorithmException {
+	// // System.out.println("url\t" + address);
+	// String subPath = subPaths.get(genType);
+	// String path = this.restApi + subPath;
+	// long moment = getMoment();
+	//
+	// String response = null;
+	//
+	// try {
+	// URL url = new URL(path);
+	// HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
+	//
+	// if (!method.equals(Method.GET)) {
+	// // if (method.equals(Method.POST) || method.equals(Method.PUT)){
+	// conn.setDoOutput(true);
+	// }
+	//
+	// // !!!!!!!!!1 КОСТЫЛЬ
+	// conn.setDoOutput(true);
+	//
+	// String messageBody = createMessageBody(methods.get(method), subPath,
+	// data, moment);
+	// String signature = generateSignature(orderApiSecret, messageBody);
+	// // String messageBody = this.createMessageBody(methods.get(method),
+	// // subPath, data, moment);
+	// // String signature = this.generateSignature(orderApiSecret,
+	// // messageBody);
+	//
+	// conn.setRequestMethod(methods.get(method));
+	// Log.info(methods.get(method));
+	// conn.setRequestProperty("Content-Type", "application/json");
+	// conn.setRequestProperty("Accept", "application/json");
+	// conn.setRequestProperty("api-expires", Long.toString(moment));
+	// conn.setRequestProperty("api-key", orderApiKey);//
+	// **************************
+	// conn.setRequestProperty("api-signature", signature);
+	// conn.setRequestProperty("Content-Length",
+	// Integer.toString(data.getBytes("UTF-8").length));
+	// System.out.println(Integer.toString(data.getBytes("UTF-8").length));
+	//
+	// OutputStream os = conn.getOutputStream();
+	// OutputStreamWriter osw = new OutputStreamWriter(os, "UTF-8");
+	// osw.write(data);
+	// osw.flush();
+	// osw.close();
+	//
+	// // BufferedWriter out =
+	// // new BufferedWriter(new
+	// // OutputStreamWriter(conn.getOutputStream()));
+	// // out.write(json.toString());
+	// // out.close();
+	//
+	// if (conn.getResponseCode() == 200) {
+	// BufferedReader br = new BufferedReader(new
+	// InputStreamReader((conn.getInputStream())));
+	// StringBuilder sb = new StringBuilder("");
+	// String output = null;
+	//
+	// while ((output = br.readLine()) != null) {
+	// sb.append(output);
+	// }
+	// conn.disconnect();
+	// response = sb.toString();
+	// } else {
+	// BufferedReader br = new BufferedReader(new
+	// InputStreamReader((conn.getErrorStream())));
+	// StringBuilder sb = new StringBuilder("");
+	// String output = null;
+	//
+	// while ((output = br.readLine()) != null) {
+	// sb.append(output);
+	// }
+	//
+	// // System.out.println(sb.toString());
+	// }
+	// } catch (UnknownHostException | NoRouteToHostException e) {
+	// // Log.info("NO RESPONSE FROM SERVER");
+	// } catch (java.net.SocketException e) {
+	// // Log.info("NETWORK IS UNREACHABLE");
+	// } catch (IOException e) {
+	// // Log.debug("BUFFER READING ERROR");
+	// e.printStackTrace();
+	// }
+	// return response;
+	// }
 
 }

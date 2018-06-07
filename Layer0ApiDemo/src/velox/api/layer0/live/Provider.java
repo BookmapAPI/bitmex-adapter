@@ -14,6 +14,9 @@ import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+
 import velox.api.layer0.annotations.Layer0LiveModule;
 import velox.api.layer1.Layer1ApiAdminListener;
 import velox.api.layer1.Layer1ApiDataListener;
@@ -51,6 +54,7 @@ import bitmexAdapter.Message;
 import bitmexAdapter.MessageGeneric;
 import bitmexAdapter.Position;
 import bitmexAdapter.TradeConnector;
+import bitmexAdapter.TradeConnector.Method;
 import bitmexAdapter.Wallet;
 import bitmexAdapter.BmInstrument;
 import bitmexAdapter.BmOrder;
@@ -58,7 +62,6 @@ import bitmexAdapter.BmOrder;
 //@Layer0LiveModule
 public class Provider extends ExternalLiveBaseProvider {
 
-	
 	public BitmexConnector connector = new BitmexConnector();
 	public TradeConnector connr = new TradeConnector();
 	private String tempClientId;
@@ -195,27 +198,39 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	@Override
 	public void sendOrder(OrderSendParameters orderSendParameters) {
-		
-		
-		if(orderSendParameters.getClass()== OcoOrderSendParameters.class){
+
+		if (orderSendParameters.getClass() == OcoOrderSendParameters.class) {
 			OcoOrderSendParameters ocoParams = (OcoOrderSendParameters) orderSendParameters;
 			String clOrdLinkID = System.currentTimeMillis() + "-OCO-" + orderOcoCount++;
 			String contingencyType = "OneCancelsTheOther";
-			for (SimpleOrderSendParameters simpleParams : ocoParams.orders){
-				sendSimpleOrder(simpleParams, clOrdLinkID, contingencyType);
+
+			JsonArray array = new JsonArray();
+
+			for (SimpleOrderSendParameters simpleParams : ocoParams.orders) {
+				JsonObject json = prepareSimpleOrder(simpleParams, clOrdLinkID, contingencyType);
+				array.add(json);
 			}
+			String data = array.toString();
+			String data1 = "orders=" + data;
+			connr.processNewOrderBulk(data1);
 		} else {
 			sendSimpleOrder(orderSendParameters);
 		}
 
 	}
 
-	private void sendSimpleOrder(OrderSendParameters orderSendParameters){
-		sendSimpleOrder(orderSendParameters, null, null);
+	private void sendSimpleOrder(OrderSendParameters orderSendParameters) {
+		JsonObject json = prepareSimpleOrder(orderSendParameters, null, null);
+		if (json != null) {
+			String data = json.toString();
+			connr.processNewOrder(data);
+		}
+
 	}
-	
-	private void sendSimpleOrder(OrderSendParameters orderSendParameters, String clOrdLinkID, String contingencyType ){
-//		Log.info("*******sendOrder*******");
+
+	private JsonObject prepareSimpleOrder(OrderSendParameters orderSendParameters, String clOrdLinkID,
+			String contingencyType) {
+		// Log.info("*******sendOrder*******");
 		SimpleOrderSendParameters simpleParameters = (SimpleOrderSendParameters) orderSendParameters;
 		// Detecting order type
 		OrderType orderType = OrderType.getTypeFromPrices(simpleParameters.stopPrice, simpleParameters.limitPrice);
@@ -247,14 +262,19 @@ public class Provider extends ExternalLiveBaseProvider {
 																// yet not
 																// Working
 
-			connr.processNewOrder(simpleParameters, orderType, tempOrderId, clOrdLinkID, contingencyType);
+			// connr.processNewOrder(simpleParameters, orderType, tempOrderId,
+			// clOrdLinkID, contingencyType);
+			JsonObject json = TradeConnector.createSendData(simpleParameters, orderType, tempOrderId, clOrdLinkID,
+					contingencyType);
+			return json;
+			// String data = json.toString();
+			// return data;
 
 		} else {
 			rejectOrder(builder);
+			return null;
 		}
 	}
-	
-
 
 	private void rejectOrder(OrderInfoBuilder builder) {
 		Log.info("***Order gets REJECTED");
@@ -394,9 +414,9 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		BmInstrument bmInstrument = connector.getActiveInstrumentsMap().get(symbol);
 
-//		if (!bmInstrument.isFirstSnapshotParsed()) {
-//			return;
-//		}
+		// if (!bmInstrument.isFirstSnapshotParsed()) {
+		// return;
+		// }
 
 		List<DataUnit> units = msg0.getData();
 
@@ -419,24 +439,24 @@ public class Provider extends ExternalLiveBaseProvider {
 		}
 
 	}
-	
+
 	public void listenOrderOrTrade(Message msg0) {
 		// Log.info("LISTENER USED");
-		
+
 		if (msg0 == null || msg0.getAction() == null || msg0.getData() == null) {
 			Log.info("***********NULL POINTER AT MESSAGE " + msg0);
 		}
-		
+
 		String symbol = msg0.getData().get(0).getSymbol();
-		
+
 		BmInstrument bmInstrument = connector.getActiveInstrumentsMap().get(symbol);
-		
-//		if (!bmInstrument.isFirstSnapshotParsed()) {
-//			return;
-//		}
-		
+
+		// if (!bmInstrument.isFirstSnapshotParsed()) {
+		// return;
+		// }
+
 		List<DataUnit> units = msg0.getData();
-		
+
 		if (msg0.getTable().equals("orderBookL2")) {
 			// if (bmInstrument.isFirstSnapshotParsed()) {//!!!!!!!!
 			for (DataUnit unit : units) {
@@ -454,7 +474,7 @@ public class Provider extends ExternalLiveBaseProvider {
 				}
 			}
 		}
-		
+
 	}
 
 	public void listenToExecution(Execution orderExec) {
@@ -466,7 +486,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		}
 
 		if (orderExec.getExecType().equals("TriggeredOrActivatedBySystem")) {
-//			Log.info("****LISTEN EXEC - TRIGGERED");
+			// Log.info("****LISTEN EXEC - TRIGGERED");
 			// if(orderExec.getTriggered().equals(arg0))
 			builder.setStopTriggered(true);
 			final OrderInfoBuilder finBuilder = builder;
@@ -618,33 +638,32 @@ public class Provider extends ExternalLiveBaseProvider {
 		// int workingBuys,
 		// int workingSells)
 		// BalanceInfo info = new BalanceInfo();
-		try{
+		try {
 
-		StatusInfo info = new StatusInfo(validPosition.getSymbol(),
-				(double) validPosition.getUnrealisedPnl() / (double) instr.getMultiplier(),
-				(double) validPosition.getRealisedPnl() / (double) instr.getMultiplier(), validPosition.getCurrency(),
-				(int) Math.round(
-						(double) (validPosition.getMarkValue()) / (double) instr.getUnderlyingToSettleMultiplier()),
-				// (int) Math.round((double) (validPosition.getMarkValue() -
-				// validPosition.getUnrealisedPnl())
-				// / (double) instr.getMultiplier()),
-				validPosition.getAvgEntryPrice(), instr.getExecutionsVolume(),
-				// instr.getBuyOrdersCount(),
-				// instr.getSellOrdersCount());
-				validPosition.getOpenOrderBuyQty().intValue(), validPosition.getOpenOrderSellQty().intValue());
+			StatusInfo info = new StatusInfo(validPosition.getSymbol(),
+					(double) validPosition.getUnrealisedPnl() / (double) instr.getMultiplier(),
+					(double) validPosition.getRealisedPnl() / (double) instr.getMultiplier(),
+					validPosition.getCurrency(),
+					(int) Math.round(
+							(double) (validPosition.getMarkValue()) / (double) instr.getUnderlyingToSettleMultiplier()),
+					// (int) Math.round((double) (validPosition.getMarkValue() -
+					// validPosition.getUnrealisedPnl())
+					// / (double) instr.getMultiplier()),
+					validPosition.getAvgEntryPrice(), instr.getExecutionsVolume(),
+					// instr.getBuyOrdersCount(),
+					// instr.getSellOrdersCount());
+					validPosition.getOpenOrderBuyQty().intValue(), validPosition.getOpenOrderSellQty().intValue());
 
-		Log.info(info.toString());
+			Log.info(info.toString());
 
-		tradingListeners.forEach(l -> l.onStatus(info));
-		} catch (Exception e){
+			tradingListeners.forEach(l -> l.onStatus(info));
+		} catch (Exception e) {
 			Log.info("***Valid POS EXC " + validPosition.toString());
 			Log.info("***POS EXC " + pos.toString());
 			e.printStackTrace();
 		}
 
 	}
-
-	
 
 	public void listenToWallet(Wallet wallet) {
 		// BalanceInCurrency(double balance,
@@ -654,16 +673,16 @@ public class Provider extends ExternalLiveBaseProvider {
 		// double netLiquidityValue,
 		// java.lang.String currency,
 		// java.lang.Double rateToBase)
-		
+
 		long tempMultiplier = 100000000;// temp
 
 		Double balance = (double) wallet.getAmount() / tempMultiplier;
 		// PNLs and NetLiquidityValue are taken from Margin topic
-		Double previousDayBalance =(double) wallet.getPrevAmount() /tempMultiplier;
+		Double previousDayBalance = (double) wallet.getPrevAmount() / tempMultiplier;
 		Double netLiquidityValue = 0.0;// to be calculated
 		String currency = wallet.getCurrency();
 		Double rateToBase = null;
-		
+
 		BalanceInfo.BalanceInCurrency currentBic = balanceMap.get(wallet.getCurrency());
 		BalanceInfo.BalanceInCurrency newBic;
 		if (currentBic == null) {// no current balance balance
@@ -677,41 +696,41 @@ public class Provider extends ExternalLiveBaseProvider {
 					rateToBase == null ? currentBic.rateToBase : rateToBase);
 
 		}
-		
+
 		balanceMap.remove(currency);
 		balanceMap.put(currency, newBic);
 		BalanceInfo info = new BalanceInfo(new ArrayList<BalanceInfo.BalanceInCurrency>(balanceMap.values()));
 		tradingListeners.forEach(l -> l.onBalance(info));
-//		 Log.info(info.toString());
+		// Log.info(info.toString());
 
 	}
 
 	public void listenToMargin(Margin margin) {
-		 long tempMultiplier = 100000000;// temp
-		 String currency = margin.getCurrency();
-		 BalanceInfo.BalanceInCurrency currentBic = balanceMap.get(margin.getCurrency());
-		 BalanceInfo.BalanceInCurrency newBic;
-			if (currentBic == null) {// no current balance balance
-				newBic = new BalanceInfo.BalanceInCurrency(0.0, 0.0, 0.0, 0.0, 0.0,
-						margin.getCurrency(), null);
-			} else {
-				newBic = new BalanceInfo.BalanceInCurrency(currentBic.balance,
-						margin.getRealisedPnl() == null? currentBic.realizedPnl : (double) margin.getRealisedPnl()/tempMultiplier, 
-						margin.getUnrealisedPnl() == null? currentBic.unrealizedPnl : (double) margin.getUnrealisedPnl()/tempMultiplier,
-						currentBic.previousDayBalance, 
-						margin.getAvailableMargin() == null? currentBic.netLiquidityValue : (double) margin.getAvailableMargin()/tempMultiplier,  
-						currency, currentBic.rateToBase);
+		long tempMultiplier = 100000000;// temp
+		String currency = margin.getCurrency();
+		BalanceInfo.BalanceInCurrency currentBic = balanceMap.get(margin.getCurrency());
+		BalanceInfo.BalanceInCurrency newBic;
+		if (currentBic == null) {// no current balance balance
+			newBic = new BalanceInfo.BalanceInCurrency(0.0, 0.0, 0.0, 0.0, 0.0, margin.getCurrency(), null);
+		} else {
+			newBic = new BalanceInfo.BalanceInCurrency(currentBic.balance,
+					margin.getRealisedPnl() == null ? currentBic.realizedPnl
+							: (double) margin.getRealisedPnl() / tempMultiplier,
+					margin.getUnrealisedPnl() == null ? currentBic.unrealizedPnl
+							: (double) margin.getUnrealisedPnl() / tempMultiplier,
+					currentBic.previousDayBalance, margin.getAvailableMargin() == null ? currentBic.netLiquidityValue
+							: (double) margin.getAvailableMargin() / tempMultiplier,
+					currency, currentBic.rateToBase);
 
-			}
-			
-			balanceMap.remove(currency);
-			balanceMap.put(currency, newBic);
-			BalanceInfo info = new BalanceInfo(new ArrayList<BalanceInfo.BalanceInCurrency>(balanceMap.values()));
-			tradingListeners.forEach(l -> l.onBalance(info));
-//			Log.info(info.toString());
+		}
+
+		balanceMap.remove(currency);
+		balanceMap.put(currency, newBic);
+		BalanceInfo info = new BalanceInfo(new ArrayList<BalanceInfo.BalanceInCurrency>(balanceMap.values()));
+		tradingListeners.forEach(l -> l.onBalance(info));
+		// Log.info(info.toString());
 
 	}
-
 
 	private void updateValidPosition(Position validPosition, Position pos) {
 
@@ -760,7 +779,6 @@ public class Provider extends ExternalLiveBaseProvider {
 	 * needs not updated valid position
 	 */
 
-
 	public void createBookmapOrder(BmOrder order) {
 		String symbol = order.getSymbol();
 		String orderId = order.getOrderID();
@@ -799,8 +817,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
 		builder.markAllUnchanged();
 
-
-//		updateOrdersCount(builder, (int) order.getLeavesQty());
+		// updateOrdersCount(builder, (int) order.getLeavesQty());
 
 		synchronized (workingOrders) {
 			// workingOrders.put(builder.orderId, builder);
@@ -812,27 +829,26 @@ public class Provider extends ExternalLiveBaseProvider {
 	@Override
 	public Layer1ApiProviderSupportedFeatures getSupportedFeatures() {
 		// Expanding parent supported features, reporting basic trading support
-		Layer1ApiProviderSupportedFeaturesBuilder a =  super.getSupportedFeatures().toBuilder()
-				.setTrading(true)
-				.setOco(true)
-				.setSupportedOrderDurations(Arrays.asList(new OrderDuration[] { OrderDuration.GTC }))
+		Layer1ApiProviderSupportedFeaturesBuilder a = super.getSupportedFeatures().toBuilder().setTrading(true)
+				.setOco(true).setSupportedOrderDurations(Arrays.asList(new OrderDuration[] { OrderDuration.GTC }))
 				// At the moment of writing this method it was not possible to
 				// report limit orders support, but no stop orders support
 				// If you actually need it, you can report stop orders support
 				// but reject stop orders when those are sent.
 				.setSupportedStopOrders(Arrays.asList(new OrderType[] { OrderType.LMT, OrderType.MKT }));
-		
+
 		a.setBalanceSupported(true);
 		return a.build();
-				
-				
-//		return super.getSupportedFeatures().toBuilder().setTrading(true)
-//				.setSupportedOrderDurations(Arrays.asList(new OrderDuration[] { OrderDuration.GTC }))
-//				// At the moment of writing this method it was not possible to
-//				// report limit orders support, but no stop orders support
-//				// If you actually need it, you can report stop orders support
-//				// but reject stop orders when those are sent.
-//				.setSupportedStopOrders(Arrays.asList(new OrderType[] { OrderType.LMT, OrderType.MKT })).build();
+
+		// return super.getSupportedFeatures().toBuilder().setTrading(true)
+		// .setSupportedOrderDurations(Arrays.asList(new OrderDuration[] {
+		// OrderDuration.GTC }))
+		// // At the moment of writing this method it was not possible to
+		// // report limit orders support, but no stop orders support
+		// // If you actually need it, you can report stop orders support
+		// // but reject stop orders when those are sent.
+		// .setSupportedStopOrders(Arrays.asList(new OrderType[] {
+		// OrderType.LMT, OrderType.MKT })).build();
 	}
 
 	@Override
