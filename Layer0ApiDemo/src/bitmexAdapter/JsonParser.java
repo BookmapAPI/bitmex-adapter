@@ -93,7 +93,7 @@ public class JsonParser {
 			}
 
 			if (partialsParsed.keySet().contains("wallet") && partialsParsed.get("wallet") == true) {
-				Log.info("PARSER WS WALLET " + str);
+//				Log.info("PARSER WS WALLET " + str);
 				Type type = new TypeToken<MessageGeneric<Wallet>>() {
 				}.getType();
 				MessageGeneric<Wallet> msg0 = gson.fromJson(str, type);

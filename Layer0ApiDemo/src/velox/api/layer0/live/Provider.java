@@ -201,22 +201,81 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		if (orderSendParameters.getClass() == OcoOrderSendParameters.class) {
 			OcoOrderSendParameters ocoParams = (OcoOrderSendParameters) orderSendParameters;
-			String clOrdLinkID = System.currentTimeMillis() + "-OCO-" + orderOcoCount++;
-			String contingencyType = "OneCancelsTheOther";
-
-			JsonArray array = new JsonArray();
-
-			for (SimpleOrderSendParameters simpleParams : ocoParams.orders) {
-				JsonObject json = prepareSimpleOrder(simpleParams, clOrdLinkID, contingencyType);
-				array.add(json);
-			}
-			String data = array.toString();
-			String data1 = "orders=" + data;
+			// String clOrdLinkID = "LINKED-" + orderOcoCount++;
+			// String contingencyType = "OneCancelsTheOther";
+			//
+			// JsonArray array = new JsonArray();
+			// for (SimpleOrderSendParameters simpleParams : ocoParams.orders) {
+			// JsonObject json = prepareSimpleOrder(simpleParams, clOrdLinkID,
+			// contingencyType);
+			// array.add(json);
+			// }
+			// String data = array.toString();
+			// String data1 = "orders=" + data;
+			String data1 = createOrdersStringData(ocoParams.orders, "OneCancelsTheOther");
 			connr.processNewOrderBulk(data1);
 		} else {
-			sendSimpleOrder(orderSendParameters);
+			SimpleOrderSendParameters simpleParams = (SimpleOrderSendParameters) orderSendParameters;
+			if (simpleParams.takeProfitOffset != 0 && simpleParams.stopLossOffset != 0) {
+				// so this must be a bracket order
+				String symbol = TradeConnector.isolateSymbol(simpleParams.alias);
+				BmInstrument bmInstrument = connector.getActiveInstrumentsMap().get(symbol);
+				double ticksize = bmInstrument.getTickSize();
+
+				SimpleOrderSendParameters stopLoss = new SimpleOrderSendParameters(
+						simpleParams.alias,
+						simpleParams.isBuy,
+						simpleParams.size,
+						simpleParams.duration,
+						simpleParams.limitPrice - simpleParams.takeProfitOffset * ticksize, // limitPrice
+						simpleParams.limitPrice - simpleParams.stopLossOffset * ticksize, // stopPrice
+						simpleParams.sizeMultiplier);
+
+				SimpleOrderSendParameters takeProfit = new SimpleOrderSendParameters(
+						simpleParams.alias,
+						simpleParams.isBuy,
+						simpleParams.size,
+						simpleParams.duration,
+						simpleParams.limitPrice - simpleParams.takeProfitOffset * ticksize,
+						Double.NaN, // stopPrice
+						simpleParams.sizeMultiplier);
+
+				List<SimpleOrderSendParameters> ordersList = new LinkedList<>();
+				ordersList.add(simpleParams);
+				ordersList.add(stopLoss);
+				ordersList.add(takeProfit);
+
+				// String data1 = createOrdersStringData(ordersList,
+				// "OneTriggersTheOther");
+				String clOrdLinkID = "LINKED-" + orderOcoCount++;
+				JsonArray array = new JsonArray();
+				array.add(prepareSimpleOrder(simpleParams, clOrdLinkID, "OneTriggersTheOther"));
+				array.add(prepareSimpleOrder(stopLoss, clOrdLinkID, null));
+				array.add(prepareSimpleOrder(takeProfit, clOrdLinkID, null));
+
+				String data = array.toString();
+				String data1 = "orders=" + data;
+
+				connr.processNewOrderBulk(data1);
+
+			} else {// simple order otherwise
+				sendSimpleOrder(orderSendParameters);
+			}
 		}
 
+	}
+
+	private String createOrdersStringData(List<SimpleOrderSendParameters> ordersList, String contingencyType) {
+		String clOrdLinkID = "LINKED-" + orderOcoCount++;
+
+		JsonArray array = new JsonArray();
+		for (SimpleOrderSendParameters simpleParams : ordersList) {
+			JsonObject json = prepareSimpleOrder(simpleParams, clOrdLinkID, contingencyType);
+			array.add(json);
+		}
+		String data = array.toString();
+		String data1 = "orders=" + data;
+		return data1;
 	}
 
 	private void sendSimpleOrder(OrderSendParameters orderSendParameters) {
@@ -323,8 +382,8 @@ public class Provider extends ExternalLiveBaseProvider {
 			// expected
 			if (orderUpdateParameters.getClass() == OrderCancelParameters.class) {
 
-				Log.info("***order with provided ID gets CANCELLED");
 				OrderCancelParameters orderCancelParameters = (OrderCancelParameters) orderUpdateParameters;
+				Log.info("***order with provided ID gets CANCELLED " + orderCancelParameters.orderId);
 				connr.cancelOrder(orderCancelParameters.orderId);
 
 			} else if (orderUpdateParameters.getClass() == OrderResizeParameters.class) {
@@ -506,7 +565,7 @@ public class Provider extends ExternalLiveBaseProvider {
 			canceledBuilder.setStatus(OrderStatus.CANCELLED);
 			tradingListeners.forEach(l -> l.onOrderUpdated(canceledBuilder.build()));
 
-		} else if (orderExec.getExecType().equals("New")) {
+		} else if (orderExec.getExecType().equals("New") && !orderExec.getTriggered().equals("NotTriggered")) {
 			Log.info("PROVIDER: ****LISTEN EXEC - NEW");
 			String tempOrderId = orderExec.getClOrdID();
 			OrderInfoBuilder buildertemp = workingOrders.get(tempOrderId);
@@ -520,6 +579,26 @@ public class Provider extends ExternalLiveBaseProvider {
 
 			buildertemp.setOrderId(realOrderId);
 			buildertemp.setStatus(OrderStatus.WORKING);
+			tradingListeners.forEach(l -> l.onOrderUpdated(buildertemp.build()));
+			buildertemp.markAllUnchanged();
+
+			synchronized (workingOrders) {
+				workingOrders.put(buildertemp.getOrderId(), buildertemp);
+			}
+		} else if (orderExec.getExecType().equals("New") && orderExec.getTriggered().equals("NotTriggered")) {
+			Log.info("PROVIDER: ****LISTEN EXEC - SUSPENDED");
+			String tempOrderId = orderExec.getClOrdID();
+			OrderInfoBuilder buildertemp = workingOrders.get(tempOrderId);
+			// there will be either new id if the order is accepted
+			// or the order will be rejected so no need to keep it in the map
+			workingOrders.remove(tempOrderId);
+
+			Log.info("BM_ID " + realOrderId);
+			// ****************** TO BITMEX ENDS
+			updateOrdersCount(buildertemp, buildertemp.getUnfilled());
+
+			buildertemp.setOrderId(realOrderId);
+			buildertemp.setStatus(OrderStatus.SUSPENDED);
 			tradingListeners.forEach(l -> l.onOrderUpdated(buildertemp.build()));
 			buildertemp.markAllUnchanged();
 
@@ -830,7 +909,9 @@ public class Provider extends ExternalLiveBaseProvider {
 	public Layer1ApiProviderSupportedFeatures getSupportedFeatures() {
 		// Expanding parent supported features, reporting basic trading support
 		Layer1ApiProviderSupportedFeaturesBuilder a = super.getSupportedFeatures().toBuilder().setTrading(true)
-				.setOco(true).setSupportedOrderDurations(Arrays.asList(new OrderDuration[] { OrderDuration.GTC }))
+				.setOco(true)
+				.setBrackets(true)
+				.setSupportedOrderDurations(Arrays.asList(new OrderDuration[] { OrderDuration.GTC }))
 				// At the moment of writing this method it was not possible to
 				// report limit orders support, but no stop orders support
 				// If you actually need it, you can report stop orders support
