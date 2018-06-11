@@ -240,6 +240,7 @@ public class Provider extends ExternalLiveBaseProvider {
 				// String data1 = createOrdersStringData(ordersList,
 				// "OneTriggersTheOther");
 				String clOrdLinkID = "LINKED-" + orderOcoCount++;
+				ocoToBuildersMap.put(clOrdLinkID, new ArrayList<>());
 				JsonArray array = new JsonArray();
 				array.add(prepareSimpleOrder(simpleParams, clOrdLinkID, "OneTriggersTheOther"));
 				array.add(prepareSimpleOrder(stopLoss, clOrdLinkID, null));
@@ -558,14 +559,14 @@ public class Provider extends ExternalLiveBaseProvider {
 			Log.info("PROVIDER: BUILDER IS NULL (LISTEN TO EXEC");
 		}
 
-		if (orderExec.getExecType().equals("TriggeredOrActivatedBySystem")) {
-			// Log.info("****LISTEN EXEC - TRIGGERED");
-			// if(orderExec.getTriggered().equals(arg0))
-			builder.setStopTriggered(true);
-			final OrderInfoBuilder finBuilder = builder;
-			tradingListeners.forEach(l -> l.onOrderUpdated(finBuilder.build()));
-
-		} else if (orderExec.getExecType().equals("Rejected")) {
+//		if (orderExec.getExecType().equals("TriggeredOrActivatedBySystem")) {
+//			// Log.info("****LISTEN EXEC - TRIGGERED");
+//			// if(orderExec.getTriggered().equals(arg0))
+//			builder.setStopTriggered(true);
+//			final OrderInfoBuilder finBuilder = builder;
+//			tradingListeners.forEach(l -> l.onOrderUpdated(finBuilder.build()));
+//		} else 
+		if (orderExec.getExecType().equals("Rejected")) {
 			Log.info("PROVIDER: ****LISTEN EXEC - REJECTED");
 			if (builder == null) {
 				builder = workingOrders.get(orderExec.getClOrdID());
@@ -573,52 +574,82 @@ public class Provider extends ExternalLiveBaseProvider {
 			rejectOrder(builder, orderExec.getOrdRejReason());
 		} else if (orderExec.getExecType().equals("Canceled")) {
 			Log.info("PROVIDER: ****LISTEN EXEC - CANCELED");
-			updateOrdersCount(builder, -builder.getUnfilled());
+//			updateOrdersCount(builder, -builder.getUnfilled());
 
 			OrderInfoBuilder canceledBuilder = workingOrders.remove(realOrderId);
 			canceledBuilder.setStatus(OrderStatus.CANCELLED);
 			tradingListeners.forEach(l -> l.onOrderUpdated(canceledBuilder.build()));
 
-		} else if (orderExec.getExecType().equals("New") && !orderExec.getTriggered().equals("NotTriggered")) {
-			Log.info("PROVIDER: ****LISTEN EXEC - NEW");
-			String tempOrderId = orderExec.getClOrdID();
-			OrderInfoBuilder buildertemp = workingOrders.get(tempOrderId);
-			// there will be either new id if the order is accepted
-			// or the order will be rejected so no need to keep it in the map
-			workingOrders.remove(tempOrderId);
+		} else if (orderExec.getExecType().equals("TriggeredOrActivatedBySystem") 
+				&& orderExec.getTriggered().equals("Triggered") ) {
+			
+			OrderInfoBuilder buildertemp;
+			
+				Log.info("PROVIDER: ****LISTEN EXEC - TRIGGERED");
+				buildertemp = workingOrders.get(realOrderId);
+			
 
-			Log.info("BM_ID " + realOrderId);
-			// ****************** TO BITMEX ENDS
-			updateOrdersCount(buildertemp, buildertemp.getUnfilled());
-
-			buildertemp.setOrderId(realOrderId);
 			buildertemp.setStatus(OrderStatus.WORKING);
 			tradingListeners.forEach(l -> l.onOrderUpdated(buildertemp.build()));
 			buildertemp.markAllUnchanged();
 			
-			//********* FOR OCO ORDERS
-//			1) modify the list or real order ids to clOrderLinkId and pu it to the relevant map
+			//********* FOR LINKED ORDERS
+//			1) modify the list or real order ids to clOrderLinkId and put it into the relevant map
 //			2) add a <realOrderId, ClOrdLinkID> pair to another relevant map 
-			if(ocoToBuildersMap.containsKey(orderExec.getClOrdLinkID())){
+			if(orderExec.getClOrdLinkID()!= null && ocoToBuildersMap.containsKey(orderExec.getClOrdLinkID())){
 				List<String> list = ocoToBuildersMap.get(orderExec.getClOrdLinkID());
 				list.add(realOrderId);
 				ocoToBuildersMap.put(orderExec.getClOrdLinkID(), list);
 				RealIdToOCoMap.put(realOrderId, orderExec.getClOrdLinkID());
 			}
-//*******END FOR OCO ORDERS
+//*******END FOR LINKED ORDERS
+			synchronized (workingOrders) {
+				workingOrders.put(buildertemp.getOrderId(), buildertemp);
+			}
+		} else if (orderExec.getExecType().equals("New") 
+				&&  orderExec.getTriggered().equals("") ) {
+			
+			OrderInfoBuilder buildertemp;
+			
+				Log.info("PROVIDER: ****LISTEN EXEC - NEW");
+				String tempOrderId = orderExec.getClOrdID();
+				buildertemp = workingOrders.get(tempOrderId);
+				// there will be either new id if the order is accepted
+				// or the order will be rejected so no need to keep it in the map
+				workingOrders.remove(tempOrderId);
+				Log.info("BM_ID " + realOrderId);
+				// ****************** TO BITMEX ENDS
+//				updateOrdersCount(buildertemp, buildertemp.getUnfilled());
+
+				buildertemp.setOrderId(realOrderId);
+			
+			
+
+			buildertemp.setStatus(OrderStatus.WORKING);
+			tradingListeners.forEach(l -> l.onOrderUpdated(buildertemp.build()));
+			buildertemp.markAllUnchanged();
+			
+			//********* FOR LINKED ORDERS
+//			1) modify the list or real order ids to clOrderLinkId and put it into the relevant map
+//			2) add a <realOrderId, ClOrdLinkID> pair to another relevant map 
+			if(orderExec.getClOrdLinkID()!= null && ocoToBuildersMap.containsKey(orderExec.getClOrdLinkID())){
+				List<String> list = ocoToBuildersMap.get(orderExec.getClOrdLinkID());
+				list.add(realOrderId);
+				ocoToBuildersMap.put(orderExec.getClOrdLinkID(), list);
+				RealIdToOCoMap.put(realOrderId, orderExec.getClOrdLinkID());
+			}
+//*******END FOR LINKED ORDERS
 			synchronized (workingOrders) {
 				workingOrders.put(buildertemp.getOrderId(), buildertemp);
 			}
 		} else if (orderExec.getExecType().equals("New") && orderExec.getTriggered().equals("NotTriggered")) {
-			Log.info("PROVIDER: ****LISTEN EXEC - SUSPENDED");
 			String tempOrderId = orderExec.getClOrdID();
 			OrderInfoBuilder buildertemp = workingOrders.get(tempOrderId);
 			// there will be either new id if the order is accepted
 			// or the order will be rejected so no need to keep it in the map
 			workingOrders.remove(tempOrderId);
 
-			Log.info("BM_ID " + realOrderId);
-			// ****************** TO BITMEX ENDS
+			Log.info("PROVIDER: ****LISTEN EXEC - NEW SUSPENDED" + realOrderId);
 			updateOrdersCount(buildertemp, buildertemp.getUnfilled());
 
 			buildertemp.setOrderId(realOrderId);
@@ -626,6 +657,18 @@ public class Provider extends ExternalLiveBaseProvider {
 			tradingListeners.forEach(l -> l.onOrderUpdated(buildertemp.build()));
 			buildertemp.markAllUnchanged();
 
+			
+			//********* FOR LINKED ORDERS
+//			1) modify the list or real order ids to clOrderLinkId and put it into the relevant map
+//			2) add a <realOrderId, ClOrdLinkID> pair to another relevant map 
+			if(orderExec.getClOrdLinkID()!= null && ocoToBuildersMap.containsKey(orderExec.getClOrdLinkID())){
+				List<String> list = ocoToBuildersMap.get(orderExec.getClOrdLinkID());
+				list.add(realOrderId);
+				ocoToBuildersMap.put(orderExec.getClOrdLinkID(), list);
+				RealIdToOCoMap.put(realOrderId, orderExec.getClOrdLinkID());
+			}
+//*******END FOR LINKED ORDERS
+			
 			synchronized (workingOrders) {
 				workingOrders.put(buildertemp.getOrderId(), buildertemp);
 			}
@@ -944,6 +987,7 @@ public class Provider extends ExternalLiveBaseProvider {
 				.setSupportedStopOrders(Arrays.asList(new OrderType[] { OrderType.LMT, OrderType.MKT }));
 
 		a.setBalanceSupported(true);
+	
 		return a.build();
 
 		// return super.getSupportedFeatures().toBuilder().setTrading(true)
