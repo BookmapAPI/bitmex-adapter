@@ -11,6 +11,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Iterator;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -68,15 +69,15 @@ public class Provider extends ExternalLiveBaseProvider {
 	private HashMap<String, OrderInfoBuilder> workingOrders = new HashMap<>();
 	private long orderCount = 0;
 	private long orderOcoCount = 0;
+	
+//	for ocoOrders
+//	Map <clOrdLinkID, List <realIds>>
+//	Map<realid, clOrderLinkID>
+	private Map<String, List <String>> ocoToBuildersMap = new HashMap<>();
+	private Map<String, String> RealIdToOCoMap = new HashMap<>();
 
 	private Map<String, BalanceInfo.BalanceInCurrency> balanceMap = new HashMap<>();
-	// private Map<String, Wallet> validWallets = new HashMap<>();// by
-	// currencies
-	// private Map<String, Long> unrealizedPnlByCurrencies = new HashMap<>();//
-	// by
-	// // currencies
-	// private Map<String, Long> realizedPnlByCurrencies = new HashMap<>();// by
-	// // currencies
+
 
 	protected class Instrument {
 
@@ -201,17 +202,8 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		if (orderSendParameters.getClass() == OcoOrderSendParameters.class) {
 			OcoOrderSendParameters ocoParams = (OcoOrderSendParameters) orderSendParameters;
-			// String clOrdLinkID = "LINKED-" + orderOcoCount++;
-			// String contingencyType = "OneCancelsTheOther";
-			//
-			// JsonArray array = new JsonArray();
-			// for (SimpleOrderSendParameters simpleParams : ocoParams.orders) {
-			// JsonObject json = prepareSimpleOrder(simpleParams, clOrdLinkID,
-			// contingencyType);
-			// array.add(json);
-			// }
-			// String data = array.toString();
-			// String data1 = "orders=" + data;
+
+			
 			String data1 = createOrdersStringData(ocoParams.orders, "OneCancelsTheOther");
 			connr.processNewOrderBulk(data1);
 		} else {
@@ -267,6 +259,7 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	private String createOrdersStringData(List<SimpleOrderSendParameters> ordersList, String contingencyType) {
 		String clOrdLinkID = "LINKED-" + orderOcoCount++;
+		ocoToBuildersMap.put(clOrdLinkID, new ArrayList<>());
 
 		JsonArray array = new JsonArray();
 		for (SimpleOrderSendParameters simpleParams : ordersList) {
@@ -398,13 +391,28 @@ public class Provider extends ExternalLiveBaseProvider {
 
 				int newSize = orderResizeParameters.size;
 				OrderInfoBuilder builder = workingOrders.get(orderResizeParameters.orderId);
+				
+				//check if there is a linked OCO order
+//				if (ocoMap.containsKey(key))
 
 				if (builder.getFilled() == 0) {// unfilled order
 					connr.resizeOrder(orderResizeParameters.orderId, newSize);
+					
+//					***** OCO
+					if (RealIdToOCoMap.containsKey(builder.getOrderId())){
+						List <String> otherIds= getOtherOCOorderId(builder.getOrderId());
+						for (String realId : otherIds){
+							connr.resizeOrder(realId, newSize);
+						}
+						
+						connr.resizeOrder(orderResizeParameters.orderId, newSize);
+						
+					}
+					
 				} else {// partially filled order
 					connr.resizePartiallyFilledOrder(orderResizeParameters.orderId, newSize);
 				}
-				connr.resizeOrder(orderResizeParameters.orderId, newSize);
+//				connr.resizeOrder(orderResizeParameters.orderId, newSize);
 
 			} else if (orderUpdateParameters.getClass() == OrderMoveParameters.class) {
 
@@ -427,6 +435,12 @@ public class Provider extends ExternalLiveBaseProvider {
 			}
 
 		}
+	}
+	
+	private List <String> getOtherOCOorderId(String realId){
+		String ocoId = RealIdToOCoMap.get(realId);
+		List <String> otherIds = ocoToBuildersMap.get(ocoId);
+		return otherIds;
 	}
 
 	@Override
@@ -581,7 +595,17 @@ public class Provider extends ExternalLiveBaseProvider {
 			buildertemp.setStatus(OrderStatus.WORKING);
 			tradingListeners.forEach(l -> l.onOrderUpdated(buildertemp.build()));
 			buildertemp.markAllUnchanged();
-
+			
+			//********* FOR OCO ORDERS
+//			1) modify the list or real order ids to clOrderLinkId and pu it to the relevant map
+//			2) add a <realOrderId, ClOrdLinkID> pair to another relevant map 
+			if(ocoToBuildersMap.containsKey(orderExec.getClOrdLinkID())){
+				List<String> list = ocoToBuildersMap.get(orderExec.getClOrdLinkID());
+				list.add(realOrderId);
+				ocoToBuildersMap.put(orderExec.getClOrdLinkID(), list);
+				RealIdToOCoMap.put(realOrderId, orderExec.getClOrdLinkID());
+			}
+//*******END FOR OCO ORDERS
 			synchronized (workingOrders) {
 				workingOrders.put(buildertemp.getOrderId(), buildertemp);
 			}
@@ -607,7 +631,7 @@ public class Provider extends ExternalLiveBaseProvider {
 			}
 		} else if (orderExec.getExecType().equals("Replaced")) {
 
-			// quantity was changed
+			// quantity has changed
 			if (orderExec.getText().equals("Amended orderQty: Amended via API.\nSubmitted via API.")) {
 				Log.info("PROVIDER: ****LISTEN EXEC - REPLACED QUANTITY");
 				int oldSize = builder.getUnfilled();
@@ -619,23 +643,24 @@ public class Provider extends ExternalLiveBaseProvider {
 				builder.setUnfilled(newSize);
 				final OrderInfoBuilder finBuilder = builder;
 				tradingListeners.forEach(l -> l.onOrderUpdated(finBuilder.build()));
+				
 				Log.info("PROVIDER: *********RESIZED*********");
 			} else if (orderExec.getText().equals("Amended price: Amended via API.\nSubmitted via API.")) {
 				Log.info("PROVIDER: ****LISTEN EXEC - REPLACED PRICE");
-				// price was changed
+				// limit price has changed
 				OrderInfoBuilder order = workingOrders.get(builder.getOrderId());
 				order.setLimitPrice(orderExec.getPrice());
 				tradingListeners.forEach(l -> l.onOrderUpdated(order.build()));
 
 			} else if (orderExec.getText().equals("Amended stopPx: Amended via API.\nSubmitted via API.")) {
 				Log.info("PROVIDER: ****LISTEN EXEC - REPLACED STOP PRICE");
-				// price was changed
+				// stop price has changed
 				OrderInfoBuilder order = workingOrders.get(builder.getOrderId());
 				order.setStopPrice(orderExec.getStopPx());
 				tradingListeners.forEach(l -> l.onOrderUpdated(order.build()));
 			} else if (orderExec.getText().equals("Amended price stopPx: Amended via API.\nSubmitted via API.")) {
 				Log.info("PROVIDER: ****LISTEN EXEC - REPLACED STOP AND LIMIT PRICE");
-				// price was changed
+				// limit AND stop prices have changed
 				OrderInfoBuilder order = workingOrders.get(builder.getOrderId());
 				order.setStopPrice(orderExec.getStopPx());
 				order.setLimitPrice(orderExec.getPrice());
