@@ -69,15 +69,14 @@ public class Provider extends ExternalLiveBaseProvider {
 	private HashMap<String, OrderInfoBuilder> workingOrders = new HashMap<>();
 	private long orderCount = 0;
 	private long orderOcoCount = 0;
-	
-//	for ocoOrders
-//	Map <clOrdLinkID, List <realIds>>
-//	Map<realid, clOrderLinkID>
-	private Map<String, List <String>> ocoToBuildersMap = new HashMap<>();
+
+	// for ocoOrders
+	// Map <clOrdLinkID, List <realIds>>
+	// Map<realid, clOrderLinkID>
+	private Map<String, List<String>> ocoToBuildersMap = new HashMap<>();
 	private Map<String, String> RealIdToOCoMap = new HashMap<>();
 
 	private Map<String, BalanceInfo.BalanceInCurrency> balanceMap = new HashMap<>();
-
 
 	protected class Instrument {
 
@@ -203,7 +202,6 @@ public class Provider extends ExternalLiveBaseProvider {
 		if (orderSendParameters.getClass() == OcoOrderSendParameters.class) {
 			OcoOrderSendParameters ocoParams = (OcoOrderSendParameters) orderSendParameters;
 
-			
 			String data1 = createOrdersStringData(ocoParams.orders, "OneCancelsTheOther");
 			connr.processNewOrderBulk(data1);
 		} else {
@@ -214,21 +212,23 @@ public class Provider extends ExternalLiveBaseProvider {
 				BmInstrument bmInstrument = connector.getActiveInstrumentsMap().get(symbol);
 				double ticksize = bmInstrument.getTickSize();
 
+				int offsetMultiplier = simpleParams.isBuy ? 1 : -1;
+
 				SimpleOrderSendParameters stopLoss = new SimpleOrderSendParameters(
 						simpleParams.alias,
-						simpleParams.isBuy,
+						!simpleParams.isBuy, // !
 						simpleParams.size,
 						simpleParams.duration,
-						simpleParams.limitPrice - simpleParams.takeProfitOffset * ticksize, // limitPrice
-						simpleParams.limitPrice - simpleParams.stopLossOffset * ticksize, // stopPrice
+						simpleParams.limitPrice + offsetMultiplier * simpleParams.takeProfitOffset * ticksize, // limitPrice
+						simpleParams.limitPrice + offsetMultiplier * simpleParams.stopLossOffset * ticksize, // stopPrice
 						simpleParams.sizeMultiplier);
 
 				SimpleOrderSendParameters takeProfit = new SimpleOrderSendParameters(
 						simpleParams.alias,
-						simpleParams.isBuy,
+						!simpleParams.isBuy, // !
 						simpleParams.size,
 						simpleParams.duration,
-						simpleParams.limitPrice - simpleParams.takeProfitOffset * ticksize,
+						simpleParams.limitPrice - offsetMultiplier * simpleParams.takeProfitOffset * ticksize,
 						Double.NaN, // stopPrice
 						simpleParams.sizeMultiplier);
 
@@ -392,28 +392,32 @@ public class Provider extends ExternalLiveBaseProvider {
 
 				int newSize = orderResizeParameters.size;
 				OrderInfoBuilder builder = workingOrders.get(orderResizeParameters.orderId);
-				
-				//check if there is a linked OCO order
-//				if (ocoMap.containsKey(key))
+
+				// check if there is a linked OCO order
+				// if (ocoMap.containsKey(key))
 
 				if (builder.getFilled() == 0) {// unfilled order
-					connr.resizeOrder(orderResizeParameters.orderId, newSize);
-					
-//					***** OCO
-					if (RealIdToOCoMap.containsKey(builder.getOrderId())){
-						List <String> otherIds= getOtherOCOorderId(builder.getOrderId());
-						for (String realId : otherIds){
+					if (!RealIdToOCoMap.containsKey(builder.getOrderId())) {
+						// sinfle order
+						connr.resizeOrder(orderResizeParameters.orderId, newSize);
+					} else { // ***** OCO
+						List<String> otherIds = getOtherOCOorderId(builder.getOrderId());
+						for (String realId : otherIds) {
 							connr.resizeOrder(realId, newSize);
 						}
-						
-						connr.resizeOrder(orderResizeParameters.orderId, newSize);
-						
 					}
-					
 				} else {// partially filled order
-					connr.resizePartiallyFilledOrder(orderResizeParameters.orderId, newSize);
+					if (!RealIdToOCoMap.containsKey(builder.getOrderId())) {
+						// sinfle order
+						connr.resizePartiallyFilledOrder(orderResizeParameters.orderId, newSize);
+					} else { // ***** OCO
+						List<String> otherIds = getOtherOCOorderId(builder.getOrderId());
+						for (String realId : otherIds) {
+							connr.resizePartiallyFilledOrder(realId, newSize);
+						}
+					}
 				}
-//				connr.resizeOrder(orderResizeParameters.orderId, newSize);
+				// connr.resizeOrder(orderResizeParameters.orderId, newSize);
 
 			} else if (orderUpdateParameters.getClass() == OrderMoveParameters.class) {
 
@@ -421,11 +425,6 @@ public class Provider extends ExternalLiveBaseProvider {
 
 				// Change stop/limit prices of an order with provided ID
 				OrderMoveParameters orderMoveParameters = (OrderMoveParameters) orderUpdateParameters;
-
-				Log.info("LimP " + Double.toString(orderMoveParameters.limitPrice) + "\tStP "
-						+ Double.toString(orderMoveParameters.stopPrice));
-
-				//
 
 				connr.moveOrder(orderMoveParameters, workingOrders.get(orderMoveParameters.orderId).isStopTriggered());
 				// connr.moveOrder(orderMoveParameters.orderId,
@@ -437,10 +436,10 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		}
 	}
-	
-	private List <String> getOtherOCOorderId(String realId){
+
+	private List<String> getOtherOCOorderId(String realId) {
 		String ocoId = RealIdToOCoMap.get(realId);
-		List <String> otherIds = ocoToBuildersMap.get(ocoId);
+		List<String> otherIds = ocoToBuildersMap.get(ocoId);
 		return otherIds;
 	}
 
@@ -559,14 +558,16 @@ public class Provider extends ExternalLiveBaseProvider {
 			Log.info("PROVIDER: BUILDER IS NULL (LISTEN TO EXEC");
 		}
 
-//		if (orderExec.getExecType().equals("TriggeredOrActivatedBySystem")) {
-//			// Log.info("****LISTEN EXEC - TRIGGERED");
-//			// if(orderExec.getTriggered().equals(arg0))
-//			builder.setStopTriggered(true);
-//			final OrderInfoBuilder finBuilder = builder;
-//			tradingListeners.forEach(l -> l.onOrderUpdated(finBuilder.build()));
-//		} else 
-		if (orderExec.getExecType().equals("Rejected")) {
+		if (orderExec.getExecType().equals("TriggeredOrActivatedBySystem")
+				&& orderExec.getTriggered().equals("StopOrderTriggered")) {
+			 Log.info("****LISTEN EXEC - TriggeredOrActivatedBySystem + StopOrderTriggered");
+			// if(orderExec.getTriggered().equals(arg0))
+			builder.setStopTriggered(true);
+			final OrderInfoBuilder finBuilder = builder;
+			tradingListeners.forEach(l -> l.onOrderUpdated(finBuilder.build()));
+		} else 
+			
+			if (orderExec.getExecType().equals("Rejected")) {
 			Log.info("PROVIDER: ****LISTEN EXEC - REJECTED");
 			if (builder == null) {
 				builder = workingOrders.get(orderExec.getClOrdID());
@@ -574,75 +575,75 @@ public class Provider extends ExternalLiveBaseProvider {
 			rejectOrder(builder, orderExec.getOrdRejReason());
 		} else if (orderExec.getExecType().equals("Canceled")) {
 			Log.info("PROVIDER: ****LISTEN EXEC - CANCELED");
-//			updateOrdersCount(builder, -builder.getUnfilled());
+			// updateOrdersCount(builder, -builder.getUnfilled());
 
 			OrderInfoBuilder canceledBuilder = workingOrders.remove(realOrderId);
 			canceledBuilder.setStatus(OrderStatus.CANCELLED);
 			tradingListeners.forEach(l -> l.onOrderUpdated(canceledBuilder.build()));
 
-		} else if (orderExec.getExecType().equals("TriggeredOrActivatedBySystem") 
-				&& orderExec.getTriggered().equals("Triggered") ) {
-			
+		} else if (orderExec.getExecType().equals("TriggeredOrActivatedBySystem")
+				&& orderExec.getTriggered().equals("Triggered")) {
+
 			OrderInfoBuilder buildertemp;
-			
-				Log.info("PROVIDER: ****LISTEN EXEC - TRIGGERED");
-				buildertemp = workingOrders.get(realOrderId);
-			
+
+			 Log.info("****LISTEN EXEC - TriggeredOrActivatedBySystem + Triggered");
+			buildertemp = workingOrders.get(realOrderId);
 
 			buildertemp.setStatus(OrderStatus.WORKING);
 			tradingListeners.forEach(l -> l.onOrderUpdated(buildertemp.build()));
 			buildertemp.markAllUnchanged();
-			
-			//********* FOR LINKED ORDERS
-//			1) modify the list or real order ids to clOrderLinkId and put it into the relevant map
-//			2) add a <realOrderId, ClOrdLinkID> pair to another relevant map 
-			if(orderExec.getClOrdLinkID()!= null && ocoToBuildersMap.containsKey(orderExec.getClOrdLinkID())){
+
+			// ********* FOR LINKED ORDERS
+			// 1) modify the list or real order ids to clOrderLinkId and put it
+			// into the relevant map
+			// 2) add a <realOrderId, ClOrdLinkID> pair to another relevant map
+			if (orderExec.getClOrdLinkID() != null && ocoToBuildersMap.containsKey(orderExec.getClOrdLinkID())) {
 				List<String> list = ocoToBuildersMap.get(orderExec.getClOrdLinkID());
 				list.add(realOrderId);
 				ocoToBuildersMap.put(orderExec.getClOrdLinkID(), list);
 				RealIdToOCoMap.put(realOrderId, orderExec.getClOrdLinkID());
 			}
-//*******END FOR LINKED ORDERS
+			// *******END FOR LINKED ORDERS
 			synchronized (workingOrders) {
 				workingOrders.put(buildertemp.getOrderId(), buildertemp);
 			}
-		} else if (orderExec.getExecType().equals("New") 
-				&&  orderExec.getTriggered().equals("") ) {
-			
-			OrderInfoBuilder buildertemp;
-			
-				Log.info("PROVIDER: ****LISTEN EXEC - NEW");
-				String tempOrderId = orderExec.getClOrdID();
-				buildertemp = workingOrders.get(tempOrderId);
-				// there will be either new id if the order is accepted
-				// or the order will be rejected so no need to keep it in the map
-				workingOrders.remove(tempOrderId);
-				Log.info("BM_ID " + realOrderId);
-				// ****************** TO BITMEX ENDS
-//				updateOrdersCount(buildertemp, buildertemp.getUnfilled());
+		} else if (orderExec.getExecType().equals("New")
+				&& orderExec.getTriggered().equals("")) {
 
-				buildertemp.setOrderId(realOrderId);
-			
-			
+			OrderInfoBuilder buildertemp;
+
+			Log.info("PROVIDER: ****LISTEN EXEC - NEW");
+			String tempOrderId = orderExec.getClOrdID();
+			buildertemp = workingOrders.get(tempOrderId);
+			// there will be either new id if the order is accepted
+			// or the order will be rejected so no need to keep it in the map
+			workingOrders.remove(tempOrderId);
+			Log.info("BM_ID " + realOrderId);
+			// ****************** TO BITMEX ENDS
+			// updateOrdersCount(buildertemp, buildertemp.getUnfilled());
+
+			buildertemp.setOrderId(realOrderId);
 
 			buildertemp.setStatus(OrderStatus.WORKING);
 			tradingListeners.forEach(l -> l.onOrderUpdated(buildertemp.build()));
 			buildertemp.markAllUnchanged();
-			
-			//********* FOR LINKED ORDERS
-//			1) modify the list or real order ids to clOrderLinkId and put it into the relevant map
-//			2) add a <realOrderId, ClOrdLinkID> pair to another relevant map 
-			if(orderExec.getClOrdLinkID()!= null && ocoToBuildersMap.containsKey(orderExec.getClOrdLinkID())){
+
+			// ********* FOR LINKED ORDERS
+			// 1) modify the list or real order ids to clOrderLinkId and put it
+			// into the relevant map
+			// 2) add a <realOrderId, ClOrdLinkID> pair to another relevant map
+			if (orderExec.getClOrdLinkID() != null && ocoToBuildersMap.containsKey(orderExec.getClOrdLinkID())) {
 				List<String> list = ocoToBuildersMap.get(orderExec.getClOrdLinkID());
 				list.add(realOrderId);
 				ocoToBuildersMap.put(orderExec.getClOrdLinkID(), list);
 				RealIdToOCoMap.put(realOrderId, orderExec.getClOrdLinkID());
 			}
-//*******END FOR LINKED ORDERS
+			// *******END FOR LINKED ORDERS
 			synchronized (workingOrders) {
 				workingOrders.put(buildertemp.getOrderId(), buildertemp);
 			}
 		} else if (orderExec.getExecType().equals("New") && orderExec.getTriggered().equals("NotTriggered")) {
+			Log.info("PROVIDER: ****LISTEN EXEC - NEW  + NOT TRIGGERED");
 			String tempOrderId = orderExec.getClOrdID();
 			OrderInfoBuilder buildertemp = workingOrders.get(tempOrderId);
 			// there will be either new id if the order is accepted
@@ -657,18 +658,18 @@ public class Provider extends ExternalLiveBaseProvider {
 			tradingListeners.forEach(l -> l.onOrderUpdated(buildertemp.build()));
 			buildertemp.markAllUnchanged();
 
-			
-			//********* FOR LINKED ORDERS
-//			1) modify the list or real order ids to clOrderLinkId and put it into the relevant map
-//			2) add a <realOrderId, ClOrdLinkID> pair to another relevant map 
-			if(orderExec.getClOrdLinkID()!= null && ocoToBuildersMap.containsKey(orderExec.getClOrdLinkID())){
+			// ********* FOR LINKED ORDERS
+			// 1) modify the list or real order ids to clOrderLinkId and put it
+			// into the relevant map
+			// 2) add a <realOrderId, ClOrdLinkID> pair to another relevant map
+			if (orderExec.getClOrdLinkID() != null && ocoToBuildersMap.containsKey(orderExec.getClOrdLinkID())) {
 				List<String> list = ocoToBuildersMap.get(orderExec.getClOrdLinkID());
 				list.add(realOrderId);
 				ocoToBuildersMap.put(orderExec.getClOrdLinkID(), list);
 				RealIdToOCoMap.put(realOrderId, orderExec.getClOrdLinkID());
 			}
-//*******END FOR LINKED ORDERS
-			
+			// *******END FOR LINKED ORDERS
+
 			synchronized (workingOrders) {
 				workingOrders.put(buildertemp.getOrderId(), buildertemp);
 			}
@@ -686,7 +687,7 @@ public class Provider extends ExternalLiveBaseProvider {
 				builder.setUnfilled(newSize);
 				final OrderInfoBuilder finBuilder = builder;
 				tradingListeners.forEach(l -> l.onOrderUpdated(finBuilder.build()));
-				
+
 				Log.info("PROVIDER: *********RESIZED*********");
 			} else if (orderExec.getText().equals("Amended price: Amended via API.\nSubmitted via API.")) {
 				Log.info("PROVIDER: ****LISTEN EXEC - REPLACED PRICE");
@@ -933,7 +934,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		// OrderType type = order.getOrdType().equals("Limit") ? OrderType.LMT :
 		// OrderType.STP;
 		OrderType type = OrderType.getTypeFromPrices(order.getStopPx(), order.getPrice());
-		Log.info("+++++  " + type.toString());
+		Log.info("PROVIDER createBookmapOrder +++++ TYPE  " + type.toString());
 		// String clientId =order.getClientId();//this field is being left blank
 		// so far
 		String clientId = tempClientId;
@@ -987,7 +988,7 @@ public class Provider extends ExternalLiveBaseProvider {
 				.setSupportedStopOrders(Arrays.asList(new OrderType[] { OrderType.LMT, OrderType.MKT }));
 
 		a.setBalanceSupported(true);
-	
+
 		return a.build();
 
 		// return super.getSupportedFeatures().toBuilder().setTrading(true)

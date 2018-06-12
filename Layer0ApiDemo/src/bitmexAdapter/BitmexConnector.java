@@ -289,7 +289,7 @@ public class BitmexConnector implements Runnable {
 //		socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"position\"]}");
 //		socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"wallet\"]}");
 
-		// getting open orders snapshot
+//		 getting open orders snapshot
 //		long moment = getMoment();
 //		String data1 = "";
 //		String data0 = "?filter=%7B%22open%22:true%7D";
@@ -309,9 +309,9 @@ public class BitmexConnector implements Runnable {
 //		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
 //			e.printStackTrace();
 //		}
-
-		instr.setExecutionsVolume(countExecutionsVolume(instr.getSymbol()));
-
+//
+//		instr.setExecutionsVolume(countExecutionsVolume(instr.getSymbol()));
+//
 	}
 
 	public void unSubscribe(BmInstrument instr) {

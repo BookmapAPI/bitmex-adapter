@@ -320,6 +320,7 @@ public class TradeConnector {
 		json.addProperty("clOrdID", tempOrderId);
 		json.addProperty("clOrdLinkID", clOrdLinkID);
 		json.addProperty("contingencyType", contingencyType);
+		json.addProperty("execInst", "LastPrice");//used by stops to determine triggering price
 
 		/*
 		 * https://www.bitmex.com/api/explorer/#!/Order/Order_new Send a
@@ -335,6 +336,7 @@ public class TradeConnector {
 		} else if (orderType == OrderType.STP) {// StopMarket
 			json.addProperty("ordType", "Stop");
 			json.addProperty("stopPx", params.stopPrice);
+			
 		} else if (orderType == OrderType.STP_LMT) {
 			json.addProperty("ordType", "StopLimit");
 			json.addProperty("stopPx", params.stopPrice);
