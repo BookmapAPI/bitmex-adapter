@@ -174,10 +174,14 @@ public class JsonParser {
 		}
 
 		if (msg.getTable().equals("order")) {
-			// Log.info("PARSER WS POSITION " + str);
+			 Log.info("PARSER WS ORDER " + str);
 			//We need only the snapshot to put
 			//existing orders to Bookmap.
 			//The rest of info comes from Execution. 
+			 if (msg.getAction().equals("partial")) {
+					partialsParsed.put("order", true);
+				}
+			 
 			if (partialsParsed.keySet().contains("order") && msg.getAction().equals("partial")) {
 			
 				Type type = new TypeToken<MessageGeneric<BmOrder>>() {
