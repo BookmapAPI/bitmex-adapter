@@ -73,8 +73,12 @@ public class Provider extends ExternalLiveBaseProvider {
 	// for ocoOrders
 	// Map <clOrdLinkID, List <realIds>>
 	// Map<realid, clOrderLinkID>
-	private Map<String, List<String>> ocoToBuildersMap = new HashMap<>();
-	private Map<String, String> RealIdToOCoMap = new HashMap<>();
+	private Map<String, List<String>> LinkIdToRealIdsMap = new HashMap<>();
+	private Map<String, String> RealToLinkIdMap = new HashMap<>();
+	private Set<String> bracketParents = new HashSet<>();
+
+//	<id, trailingStep>
+	private Map<String, Double> trailingStops = new HashMap<>();
 
 	private Map<String, BalanceInfo.BalanceInCurrency> balanceMap = new HashMap<>();
 
@@ -213,14 +217,17 @@ public class Provider extends ExternalLiveBaseProvider {
 				double ticksize = bmInstrument.getTickSize();
 
 				int offsetMultiplier = simpleParams.isBuy ? 1 : -1;
+				
+				SimpleOrderSendParameters testParams = new SimpleOrderSendParameters("TEST", false, 0, null, 0, 0, 0);
 
 				SimpleOrderSendParameters stopLoss = new SimpleOrderSendParameters(
 						simpleParams.alias,
 						!simpleParams.isBuy, // !
 						simpleParams.size,
 						simpleParams.duration,
-						simpleParams.limitPrice + offsetMultiplier * simpleParams.takeProfitOffset * ticksize, // limitPrice
-						simpleParams.limitPrice + offsetMultiplier * simpleParams.stopLossOffset * ticksize, // stopPrice
+						Double.NaN, // limitPrice
+//						simpleParams.limitPrice - offsetMultiplier * simpleParams.takeProfitOffset * ticksize, // limitPrice
+						simpleParams.limitPrice - offsetMultiplier * simpleParams.stopLossOffset * ticksize, // stopPrice
 						simpleParams.sizeMultiplier);
 
 				SimpleOrderSendParameters takeProfit = new SimpleOrderSendParameters(
@@ -228,23 +235,17 @@ public class Provider extends ExternalLiveBaseProvider {
 						!simpleParams.isBuy, // !
 						simpleParams.size,
 						simpleParams.duration,
-						simpleParams.limitPrice - offsetMultiplier * simpleParams.takeProfitOffset * ticksize,
+						simpleParams.limitPrice + offsetMultiplier * simpleParams.takeProfitOffset * ticksize,
 						Double.NaN, // stopPrice
 						simpleParams.sizeMultiplier);
 
-				List<SimpleOrderSendParameters> ordersList = new LinkedList<>();
-				ordersList.add(simpleParams);
-				ordersList.add(stopLoss);
-				ordersList.add(takeProfit);
-
-				// String data1 = createOrdersStringData(ordersList,
-				// "OneTriggersTheOther");
+				
 				String clOrdLinkID = "LINKED-" + orderOcoCount++;
-				ocoToBuildersMap.put(clOrdLinkID, new ArrayList<>());
+				LinkIdToRealIdsMap.put(clOrdLinkID, new ArrayList<>());
 				JsonArray array = new JsonArray();
 				array.add(prepareSimpleOrder(simpleParams, clOrdLinkID, "OneTriggersTheOther"));
-				array.add(prepareSimpleOrder(stopLoss, clOrdLinkID, null));
-				array.add(prepareSimpleOrder(takeProfit, clOrdLinkID, null));
+				array.add(prepareSimpleOrder(stopLoss, clOrdLinkID, "OneCancelsTheOther"));
+				array.add(prepareSimpleOrder(takeProfit, clOrdLinkID, "OneCancelsTheOther"));
 
 				String data = array.toString();
 				String data1 = "orders=" + data;
@@ -260,7 +261,7 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	private String createOrdersStringData(List<SimpleOrderSendParameters> ordersList, String contingencyType) {
 		String clOrdLinkID = "LINKED-" + orderOcoCount++;
-		ocoToBuildersMap.put(clOrdLinkID, new ArrayList<>());
+		LinkIdToRealIdsMap.put(clOrdLinkID, new ArrayList<>());
 
 		JsonArray array = new JsonArray();
 		for (SimpleOrderSendParameters simpleParams : ordersList) {
@@ -317,8 +318,13 @@ public class Provider extends ExternalLiveBaseProvider {
 
 			// connr.processNewOrder(simpleParameters, orderType, tempOrderId,
 			// clOrdLinkID, contingencyType);
+			
+				String symbol = TradeConnector.isolateSymbol(simpleParameters.alias);
+				BmInstrument bmInstrument = connector.getActiveInstrumentsMap().get(symbol);
+			
+			
 			JsonObject json = TradeConnector.createSendData(simpleParameters, orderType, tempOrderId, clOrdLinkID,
-					contingencyType);
+					contingencyType, bmInstrument);
 			return json;
 			// String data = json.toString();
 			// return data;
@@ -393,28 +399,21 @@ public class Provider extends ExternalLiveBaseProvider {
 				int newSize = orderResizeParameters.size;
 				OrderInfoBuilder builder = workingOrders.get(orderResizeParameters.orderId);
 
-				// check if there is a linked OCO order
-				// if (ocoMap.containsKey(key))
-
 				if (builder.getFilled() == 0) {// unfilled order
-					if (!RealIdToOCoMap.containsKey(builder.getOrderId())) {
+					if (!RealToLinkIdMap.containsKey(builder.getOrderId())) {
 						// sinfle order
 						connr.resizeOrder(orderResizeParameters.orderId, newSize);
 					} else { // ***** OCO
 						List<String> otherIds = getOtherOCOorderId(builder.getOrderId());
-						for (String realId : otherIds) {
-							connr.resizeOrder(realId, newSize);
-						}
+						connr.resizeOrder(otherIds, newSize);
 					}
 				} else {// partially filled order
-					if (!RealIdToOCoMap.containsKey(builder.getOrderId())) {
+					if (!RealToLinkIdMap.containsKey(builder.getOrderId())) {
 						// sinfle order
 						connr.resizePartiallyFilledOrder(orderResizeParameters.orderId, newSize);
 					} else { // ***** OCO
 						List<String> otherIds = getOtherOCOorderId(builder.getOrderId());
-						for (String realId : otherIds) {
-							connr.resizePartiallyFilledOrder(realId, newSize);
-						}
+						connr.resizePartiallyFilledOrder(otherIds, newSize);
 					}
 				}
 				// connr.resizeOrder(orderResizeParameters.orderId, newSize);
@@ -425,10 +424,64 @@ public class Provider extends ExternalLiveBaseProvider {
 
 				// Change stop/limit prices of an order with provided ID
 				OrderMoveParameters orderMoveParameters = (OrderMoveParameters) orderUpdateParameters;
+				OrderInfoBuilder builder = workingOrders.get(orderMoveParameters.orderId);
 
-				connr.moveOrder(orderMoveParameters, workingOrders.get(orderMoveParameters.orderId).isStopTriggered());
-				// connr.moveOrder(orderMoveParameters.orderId,
-				// orderMoveParameters.limitPrice);
+				// connr.moveOrder(orderMoveParameters,
+				// workingOrders.get(orderMoveParameters.orderId).isStopTriggered());
+			
+				
+				
+				
+				if (bracketParents.contains(builder.getOrderId())) {//bracket parent
+					//full list of linked orders with the parent included (the last in the list)
+					List<String> brackets = LinkIdToRealIdsMap.get(RealToLinkIdMap.get(builder.getOrderId()));
+					double finiteDifference = 0.0;
+					if(!Double.isNaN(orderMoveParameters.limitPrice)){
+						finiteDifference += orderMoveParameters.limitPrice - workingOrders.get(orderMoveParameters.orderId).getLimitPrice();
+					}
+					if(!Double.isNaN(orderMoveParameters.stopPrice)){
+						finiteDifference += orderMoveParameters.stopPrice - workingOrders.get(orderMoveParameters.orderId).getStopPrice();
+					}
+					
+					
+					
+					String orderOneId = brackets.get(0);
+					OrderMoveParameters moveParamsOne = new OrderMoveParameters(orderOneId, 
+							 workingOrders.get(orderOneId).getStopPrice() + finiteDifference,
+							 workingOrders.get(orderOneId).getLimitPrice() + finiteDifference);
+					String orderTwoId = brackets.get(1);
+					OrderMoveParameters moveParamsTwo = new OrderMoveParameters(orderTwoId, 
+							workingOrders.get(orderTwoId).getStopPrice() + finiteDifference,
+							workingOrders.get(orderTwoId).getLimitPrice() + finiteDifference);
+					
+					JsonArray array = new JsonArray();
+					array.add(connr.moveOrderJson(orderMoveParameters,
+							workingOrders.get(orderMoveParameters.orderId).isStopTriggered()));
+					array.add(connr.moveOrderJson(moveParamsOne,
+							workingOrders.get(orderOneId).isStopTriggered()));
+					array.add(connr.moveOrderJson(moveParamsTwo,
+							workingOrders.get(orderTwoId).isStopTriggered()));
+
+					String data = array.toString();
+					String data1 = "orders=" + data;
+
+					connr.moveOrderBulk(data1);				
+				
+				} else if (trailingStops.keySet().contains(orderMoveParameters.orderId)){
+					//trailing stop
+					String id = orderMoveParameters.orderId;
+					double newOffset =  trailingStops.get(id) +
+							orderMoveParameters.stopPrice - workingOrders.get(id).getStopPrice();
+					
+					JsonObject json = connr.moveTrailingStepJson(id, newOffset);
+					connr.moveOrder(json.toString());
+
+				} else {//single order
+					JsonObject json = connr.moveOrderJson(orderMoveParameters,
+							workingOrders.get(orderMoveParameters.orderId).isStopTriggered());
+					connr.moveOrder(json.toString());
+
+				}
 
 			} else {
 				throw new UnsupportedOperationException("Unsupported order type");
@@ -436,10 +489,14 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		}
 	}
+	
+	private void getParentFromLinkId(){
+		
+	}
 
 	private List<String> getOtherOCOorderId(String realId) {
-		String ocoId = RealIdToOCoMap.get(realId);
-		List<String> otherIds = ocoToBuildersMap.get(ocoId);
+		String ocoId = RealToLinkIdMap.get(realId);
+		List<String> otherIds = LinkIdToRealIdsMap.get(ocoId);
 		return otherIds;
 	}
 
@@ -560,14 +617,14 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		if (orderExec.getExecType().equals("TriggeredOrActivatedBySystem")
 				&& orderExec.getTriggered().equals("StopOrderTriggered")) {
-			 Log.info("****LISTEN EXEC - TriggeredOrActivatedBySystem + StopOrderTriggered");
+			Log.info("****LISTEN EXEC - TriggeredOrActivatedBySystem + StopOrderTriggered");
 			// if(orderExec.getTriggered().equals(arg0))
 			builder.setStopTriggered(true);
 			final OrderInfoBuilder finBuilder = builder;
 			tradingListeners.forEach(l -> l.onOrderUpdated(finBuilder.build()));
-		} else 
-			
-			if (orderExec.getExecType().equals("Rejected")) {
+		} else
+
+		if (orderExec.getExecType().equals("Rejected")) {
 			Log.info("PROVIDER: ****LISTEN EXEC - REJECTED");
 			if (builder == null) {
 				builder = workingOrders.get(orderExec.getClOrdID());
@@ -576,6 +633,10 @@ public class Provider extends ExternalLiveBaseProvider {
 		} else if (orderExec.getExecType().equals("Canceled")) {
 			Log.info("PROVIDER: ****LISTEN EXEC - CANCELED");
 			// updateOrdersCount(builder, -builder.getUnfilled());
+			
+			if(trailingStops.keySet().contains(orderExec.getOrderID())){
+				trailingStops.remove(orderExec.getOrderID());
+			}
 
 			OrderInfoBuilder canceledBuilder = workingOrders.remove(realOrderId);
 			canceledBuilder.setStatus(OrderStatus.CANCELLED);
@@ -586,7 +647,7 @@ public class Provider extends ExternalLiveBaseProvider {
 
 			OrderInfoBuilder buildertemp;
 
-			 Log.info("****LISTEN EXEC - TriggeredOrActivatedBySystem + Triggered");
+			Log.info("****LISTEN EXEC - TriggeredOrActivatedBySystem + Triggered");
 			buildertemp = workingOrders.get(realOrderId);
 
 			buildertemp.setStatus(OrderStatus.WORKING);
@@ -597,18 +658,24 @@ public class Provider extends ExternalLiveBaseProvider {
 			// 1) modify the list or real order ids to clOrderLinkId and put it
 			// into the relevant map
 			// 2) add a <realOrderId, ClOrdLinkID> pair to another relevant map
-			if (orderExec.getClOrdLinkID() != null && ocoToBuildersMap.containsKey(orderExec.getClOrdLinkID())) {
-				List<String> list = ocoToBuildersMap.get(orderExec.getClOrdLinkID());
+			if (orderExec.getClOrdLinkID() != null && LinkIdToRealIdsMap.containsKey(orderExec.getClOrdLinkID())) {
+				List<String> list = LinkIdToRealIdsMap.get(orderExec.getClOrdLinkID());
 				list.add(realOrderId);
-				ocoToBuildersMap.put(orderExec.getClOrdLinkID(), list);
-				RealIdToOCoMap.put(realOrderId, orderExec.getClOrdLinkID());
+				LinkIdToRealIdsMap.put(orderExec.getClOrdLinkID(), list);
+				RealToLinkIdMap.put(realOrderId, orderExec.getClOrdLinkID());
 			}
 			// *******END FOR LINKED ORDERS
 			synchronized (workingOrders) {
 				workingOrders.put(buildertemp.getOrderId(), buildertemp);
 			}
 		} else if (orderExec.getExecType().equals("New")
-				&& orderExec.getTriggered().equals("")) {
+				&& orderExec.getTriggered().equals("")
+				&& !orderExec.getPegPriceType().equals("TrailingStopPeg")) {
+			
+			//add to the map if an order is a bracket parent
+			if(orderExec.getContingencyType().equals("OneTriggersTheOther")){
+				bracketParents.add(orderExec.getOrderID());
+			}
 
 			OrderInfoBuilder buildertemp;
 
@@ -632,17 +699,72 @@ public class Provider extends ExternalLiveBaseProvider {
 			// 1) modify the list or real order ids to clOrderLinkId and put it
 			// into the relevant map
 			// 2) add a <realOrderId, ClOrdLinkID> pair to another relevant map
-			if (orderExec.getClOrdLinkID() != null && ocoToBuildersMap.containsKey(orderExec.getClOrdLinkID())) {
-				List<String> list = ocoToBuildersMap.get(orderExec.getClOrdLinkID());
+			if (orderExec.getClOrdLinkID() != null && LinkIdToRealIdsMap.containsKey(orderExec.getClOrdLinkID())) {
+				List<String> list = LinkIdToRealIdsMap.get(orderExec.getClOrdLinkID());
 				list.add(realOrderId);
-				ocoToBuildersMap.put(orderExec.getClOrdLinkID(), list);
-				RealIdToOCoMap.put(realOrderId, orderExec.getClOrdLinkID());
+				LinkIdToRealIdsMap.put(orderExec.getClOrdLinkID(), list);
+				RealToLinkIdMap.put(realOrderId, orderExec.getClOrdLinkID());
 			}
 			// *******END FOR LINKED ORDERS
 			synchronized (workingOrders) {
 				workingOrders.put(buildertemp.getOrderId(), buildertemp);
 			}
-		} else if (orderExec.getExecType().equals("New") && orderExec.getTriggered().equals("NotTriggered")) {
+		} else if (orderExec.getExecType().equals("New")
+				&& orderExec.getPegPriceType().equals("TrailingStopPeg")) {
+			
+			OrderInfoBuilder buildertemp;
+
+			Log.info("PROVIDER: ****LISTEN EXEC - NEW ** TRAILING STOP");
+			String tempOrderId = orderExec.getClOrdID();
+			buildertemp = workingOrders.get(tempOrderId);
+			// there will be either new id if the order is accepted
+			// or the order will be rejected so no need to keep it in the map
+			workingOrders.remove(tempOrderId);
+			Log.info("BM_ID " + realOrderId);
+			Log.info("PROVIDER TR ST MAP OLD OFFSET " + trailingStops.get(realOrderId));
+			trailingStops.put(realOrderId, orderExec.getPegOffsetValue());
+			Log.info("PROVIDER TR ST MAP NEW OFFSET " + trailingStops.get(realOrderId));
+
+			buildertemp.setOrderId(realOrderId);
+//			***status Working at starting price
+			buildertemp.setStatus(OrderStatus.WORKING);
+			tradingListeners.forEach(l -> l.onOrderUpdated(buildertemp.build()));
+			buildertemp.markAllUnchanged();
+			synchronized (workingOrders) {
+				workingOrders.put(buildertemp.getOrderId(), buildertemp);
+			}
+
+			OrderInfoBuilder buildertemp1 = workingOrders.get(realOrderId);
+			buildertemp1.setStopPrice(orderExec.getStopPx());
+			buildertemp1.setStatus(OrderStatus.WORKING);
+			tradingListeners.forEach(l -> l.onOrderUpdated(buildertemp1.build()));
+			buildertemp1.markAllUnchanged();
+
+			synchronized (workingOrders) {
+				workingOrders.put(buildertemp1.getOrderId(), buildertemp1);
+			}
+		}else if (orderExec.getOrdStatus().equals("New")
+				&& orderExec.getPegPriceType().equals("TrailingStopPeg")
+				&& orderExec.getExecType().equals("Restated")) {
+
+			Log.info("PROVIDER: ****LISTEN EXEC - MOVED ** TRAILING STOP");
+
+			Log.info("PROVIDER TR ST MAP OLD OFFSET " + trailingStops.get(realOrderId));
+
+			trailingStops.put(realOrderId, orderExec.getPegOffsetValue());
+			Log.info("PROVIDER TR ST MAP NEW OFFSET " + trailingStops.get(realOrderId));
+
+			
+			OrderInfoBuilder buildertemp1 = workingOrders.get(realOrderId);
+			buildertemp1.setStopPrice(orderExec.getStopPx());
+			buildertemp1.setStatus(OrderStatus.WORKING);
+			tradingListeners.forEach(l -> l.onOrderUpdated(buildertemp1.build()));
+			buildertemp1.markAllUnchanged();
+
+			synchronized (workingOrders) {
+				workingOrders.put(buildertemp1.getOrderId(), buildertemp1);
+			} 
+		}else if (orderExec.getExecType().equals("New") && orderExec.getTriggered().equals("NotTriggered")) {
 			Log.info("PROVIDER: ****LISTEN EXEC - NEW  + NOT TRIGGERED");
 			String tempOrderId = orderExec.getClOrdID();
 			OrderInfoBuilder buildertemp = workingOrders.get(tempOrderId);
@@ -662,11 +784,11 @@ public class Provider extends ExternalLiveBaseProvider {
 			// 1) modify the list or real order ids to clOrderLinkId and put it
 			// into the relevant map
 			// 2) add a <realOrderId, ClOrdLinkID> pair to another relevant map
-			if (orderExec.getClOrdLinkID() != null && ocoToBuildersMap.containsKey(orderExec.getClOrdLinkID())) {
-				List<String> list = ocoToBuildersMap.get(orderExec.getClOrdLinkID());
+			if (orderExec.getClOrdLinkID() != null && LinkIdToRealIdsMap.containsKey(orderExec.getClOrdLinkID())) {
+				List<String> list = LinkIdToRealIdsMap.get(orderExec.getClOrdLinkID());
 				list.add(realOrderId);
-				ocoToBuildersMap.put(orderExec.getClOrdLinkID(), list);
-				RealIdToOCoMap.put(realOrderId, orderExec.getClOrdLinkID());
+				LinkIdToRealIdsMap.put(orderExec.getClOrdLinkID(), list);
+				RealToLinkIdMap.put(realOrderId, orderExec.getClOrdLinkID());
 			}
 			// *******END FOR LINKED ORDERS
 
@@ -682,7 +804,7 @@ public class Provider extends ExternalLiveBaseProvider {
 				int newSize = (int) orderExec.getOrderQty();
 				Log.info("PROVIDER: ****oldSize " + oldSize + "   newSize " + newSize);
 
-				updateOrdersCount(builder, newSize - oldSize);
+//				updateOrdersCount(builder, newSize - oldSize);
 
 				builder.setUnfilled(newSize);
 				final OrderInfoBuilder finBuilder = builder;
@@ -696,7 +818,11 @@ public class Provider extends ExternalLiveBaseProvider {
 				order.setLimitPrice(orderExec.getPrice());
 				tradingListeners.forEach(l -> l.onOrderUpdated(order.build()));
 
-			} else if (orderExec.getText().equals("Amended stopPx: Amended via API.\nSubmitted via API.")) {
+			} else if (orderExec.getText().equals("Amended stopPx: Amended via API.\nSubmitted via API.")
+//					|| (orderExec.getPegPriceType().equals("TrailingStopPeg")
+//							 )
+					
+					){
 				Log.info("PROVIDER: ****LISTEN EXEC - REPLACED STOP PRICE");
 				// stop price has changed
 				OrderInfoBuilder order = workingOrders.get(builder.getOrderId());
@@ -709,8 +835,22 @@ public class Provider extends ExternalLiveBaseProvider {
 				order.setStopPrice(orderExec.getStopPx());
 				order.setLimitPrice(orderExec.getPrice());
 				tradingListeners.forEach(l -> l.onOrderUpdated(order.build()));
-			}
+			} else if (orderExec.getText().equals("Amended pegOffsetValue: Amended via API.\nSubmitted via API.")
+					|| orderExec.getText().equals("Amended pegOffsetValue: Amend from testnet.bitmex.com\nSubmitted via API.")) {
+				Log.info("PROVIDER: ****LISTEN EXEC - REPLACED PEG OFFSET");
+				// pegOfset has changed
+//				but
+				OrderInfoBuilder order = workingOrders.get(builder.getOrderId());
+				order.setStopPrice(orderExec.getStopPx() + orderExec.getPegOffsetValue() - trailingStops.get(builder.getOrderId()));
+				Log.info("PROVIDER TR ST MAP OLD OFFSET " + trailingStops.get(realOrderId));
+				trailingStops.put(builder.getOrderId(), orderExec.getPegOffsetValue());
+				Log.info("PROVIDER TR ST MAP NEW OFFSET " + trailingStops.get(realOrderId));
+				tradingListeners.forEach(l -> l.onOrderUpdated(order.build()));
+			} 
 
+			
+			
+//			Amended pegOffsetValue: Amended via API.\nSubmitted via API.
 		} else if (orderExec.getOrdStatus().equals("PartiallyFilled") || orderExec.getOrdStatus().equals("Filled")) {
 			Log.info("PROVIDER: ****LISTEN EXEC - (PARTIALLY) FILLED");
 
@@ -721,7 +861,7 @@ public class Provider extends ExternalLiveBaseProvider {
 			if (builder.getUnfilled() != orderExec.getLeavesQty()) {
 				Execution exec = (Execution) orderExec;
 				int filled = (int) Math.abs(exec.getForeignNotional());
-				Log.info("PROVIDER: FILLED " + filled);
+//				Log.info("PROVIDER: FILLED " + filled);
 				// if (orderExec.getOrdStatus().equals("Filled")) {
 				final long executionTime = System.currentTimeMillis();
 
@@ -743,6 +883,11 @@ public class Provider extends ExternalLiveBaseProvider {
 					order.setUnfilled(0);
 					order.setFilled((int) exec.getCumQty());
 					order.setStatus(OrderStatus.FILLED);
+					
+					if(trailingStops.keySet().contains(orderExec.getOrderID())){
+						trailingStops.remove(orderExec.getOrderID());
+					}
+					
 				} else {
 					order.setUnfilled((int) orderExec.getLeavesQty());
 					order.setFilled((int) orderExec.getCumQty());
@@ -792,8 +937,9 @@ public class Provider extends ExternalLiveBaseProvider {
 					(double) validPosition.getUnrealisedPnl() / (double) instr.getMultiplier(),
 					(double) validPosition.getRealisedPnl() / (double) instr.getMultiplier(),
 					validPosition.getCurrency(),
-					(int) Math.round(
-							(double) (validPosition.getMarkValue()) / (double) instr.getUnderlyingToSettleMultiplier()),
+					(int)pos.getCurrentQty(),
+//					(int) Math.round(
+//							(double) (validPosition.getMarkValue()) / (double) instr.getUnderlyingToSettleMultiplier()),
 					// (int) Math.round((double) (validPosition.getMarkValue() -
 					// validPosition.getUnrealisedPnl())
 					// / (double) instr.getMultiplier()),
@@ -802,7 +948,7 @@ public class Provider extends ExternalLiveBaseProvider {
 					// instr.getSellOrdersCount());
 					validPosition.getOpenOrderBuyQty().intValue(), validPosition.getOpenOrderSellQty().intValue());
 
-			Log.info(info.toString());
+//			Log.info(info.toString());
 
 			tradingListeners.forEach(l -> l.onStatus(info));
 		} catch (Exception e) {
@@ -914,9 +1060,11 @@ public class Provider extends ExternalLiveBaseProvider {
 		}
 		if (pos.getOpenOrderBuyQty() != null) {
 			validPosition.setOpenOrderBuyQty(pos.getOpenOrderBuyQty());
+			Log.info("PROVIDER OPEN BUYS FO POS = " + validPosition.getOpenOrderBuyQty() );
 		}
 		if (pos.getOpenOrderSellQty() != null) {
 			validPosition.setOpenOrderSellQty(pos.getOpenOrderSellQty());
+			Log.info("PROVIDER OPEN SELLS FO POS = " + validPosition.getOpenOrderSellQty() );
 		}
 
 		// Log.info("WTN MTH" + validPosition.toString());
@@ -988,6 +1136,7 @@ public class Provider extends ExternalLiveBaseProvider {
 				.setSupportedStopOrders(Arrays.asList(new OrderType[] { OrderType.LMT, OrderType.MKT }));
 
 		a.setBalanceSupported(true);
+		a.setTrailingStopsAsIndependentOrders(true);
 
 		return a.build();
 

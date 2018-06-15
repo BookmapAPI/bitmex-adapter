@@ -16,6 +16,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -29,6 +30,7 @@ import org.apache.commons.codec.binary.Hex;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import bitmexAdapter.TradeConnector.GeneralType;
@@ -304,11 +306,11 @@ public class TradeConnector {
 	}
 
 	public static JsonObject createSendData(SimpleOrderSendParameters params, OrderType orderType, String tempOrderId,
-			String clOrdLinkID, String contingencyType) {
+			String clOrdLinkID, String contingencyType, BmInstrument instr) {
 		String symbol = isolateSymbol(params.alias);
 		String side = params.isBuy ? "Buy" : "Sell";
 		Log.info("****SIDE = " + side);
-		double price = params.limitPrice;
+//		double price = params.limitPrice;
 		double orderQty = params.size;
 
 		JsonObject json = new JsonObject();
@@ -318,9 +320,13 @@ public class TradeConnector {
 		json.addProperty("orderQty", orderQty);
 		json.addProperty("orderQty", orderQty);
 		json.addProperty("clOrdID", tempOrderId);
-		json.addProperty("clOrdLinkID", clOrdLinkID);
-		json.addProperty("contingencyType", contingencyType);
-		json.addProperty("execInst", "LastPrice");//used by stops to determine triggering price
+		if(clOrdLinkID != null){
+			json.addProperty("clOrdLinkID", clOrdLinkID);
+		}
+		if(contingencyType != null){
+			json.addProperty("contingencyType", contingencyType);
+		}
+		
 
 		/*
 		 * https://www.bitmex.com/api/explorer/#!/Order/Order_new Send a
@@ -332,15 +338,47 @@ public class TradeConnector {
 
 		if (orderType == OrderType.LMT) {
 			json.addProperty("ordType", "Limit");
-			json.addProperty("price", price);
+			json.addProperty("price", params.limitPrice);
 		} else if (orderType == OrderType.STP) {// StopMarket
 			json.addProperty("ordType", "Stop");
 			json.addProperty("stopPx", params.stopPrice);
+			json.addProperty("execInst", "LastPrice");//used by stops to determine triggering price
+			
+			if(params.trailingStep > 0){
+				Log.info("TR CONN (createSendData) : STP trailing step == " +  params.trailingStep);
+				json.addProperty("pegPriceType", "TrailingStopPeg");
+				
+				double pegOffset;
+				if (params.isBuy){
+					pegOffset = params.stopPrice - (double)instr.getOrderBook().getBestAskPriceOrNone()*instr.getTickSize();
+				} else {
+					pegOffset = params.stopPrice - (double)instr.getOrderBook().getBestBidPriceOrNone()*instr.getTickSize();
+				}
+				json.addProperty("pegOffsetValue", pegOffset);
+//				json.addProperty("pegOffsetValue", ticksize);
+			}
 			
 		} else if (orderType == OrderType.STP_LMT) {
+			Log.info("TR CONN (createSendData) : STP_LMT trailing step == " + params.trailingStep);
 			json.addProperty("ordType", "StopLimit");
 			json.addProperty("stopPx", params.stopPrice);
-			json.addProperty("price", price);
+			json.addProperty("price", params.limitPrice);
+			json.addProperty("execInst", "LastPrice");//used by stops to determine triggering price
+			
+			if(params.trailingStep > 0){
+				Log.info("TR CONN (createSendData) : STP trailing step == " +  params.trailingStep);
+				json.addProperty("pegPriceType", "TrailingStopPeg");
+				
+				double pegOffset;
+				if (params.isBuy){
+					pegOffset = params.stopPrice - instr.getOrderBook().getBestAskPriceOrNone();
+				} else {
+					pegOffset = -params.stopPrice + instr.getOrderBook().getBestBidPriceOrNone();
+				}
+				json.addProperty("pegOffsetValue", pegOffset);
+//				json.addProperty("pegOffsetValue", ticksize);
+			}
+			
 		}
 
 		return json;
@@ -389,7 +427,7 @@ public class TradeConnector {
 		return null;
 	}
 
-	public BmOrder resizeOrder(String orderId, long orderQty) {
+	public void resizeOrder(String orderId, long orderQty) {
 
 		JsonObject json = new JsonObject();
 		json.addProperty("orderID", orderId);
@@ -398,13 +436,34 @@ public class TradeConnector {
 		String data = json.toString();
 
 		try {
-			String res = require(GeneralType.order, Method.PUT, data);
-			Log.info(res);
-			return (BmOrder) gson.fromJson(res, BmOrder.class);
+			require(GeneralType.order, Method.PUT, data);
 		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
 			e.printStackTrace();
 		}
-		return null;
+	}
+	
+	public void resizeOrder(List<String> orderIds, long orderQty) {
+
+		JsonArray array = new JsonArray();
+			for(String orderId : orderIds){
+			JsonObject json = new JsonObject();
+			json.addProperty("orderID", orderId);
+			json.addProperty("orderQty", orderQty);
+//			String data = json.toString();
+			
+			array.add(json);
+		}
+		
+		String data = array.toString();
+		String data1 = "orders=" + data;		
+
+		Log.info("TR CONN - RESIZE BULK " + data1);
+		try {
+			require(GeneralType.orderBulk, Method.PUT, data1);
+		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		}
+
 	}
 
 	public BmOrder resizePartiallyFilledOrder(String orderId, long orderQty) {
@@ -424,8 +483,65 @@ public class TradeConnector {
 		}
 		return null;
 	}
+	
+	public void resizePartiallyFilledOrder(List<String> orderIds, long orderQty) {
 
-	public void moveOrder(OrderMoveParameters params, boolean isStopTriggered) {
+		JsonArray array = new JsonArray();
+			for(String orderId : orderIds){
+			JsonObject json = new JsonObject();
+			json.addProperty("orderID", orderId);
+			json.addProperty("leavesQty", orderQty);
+//			String data = json.toString();
+			
+			array.add(json);
+		}
+		
+		String data = array.toString();
+		String data1 = "orders=" + data;		
+
+		Log.info("TR CONN - RESIZE BULK " + data1);
+		try {
+			require(GeneralType.orderBulk, Method.PUT, data1);
+		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		}
+
+	}
+
+//	public void moveOrder(OrderMoveParameters params, boolean isStopTriggered) {
+//		// public void moveOrder(String orderId, OrderMoveParameters params) {
+//		OrderType orderType = OrderType.getTypeFromPrices(params.stopPrice, params.limitPrice);
+//		JsonObject json = new JsonObject();
+//		json.addProperty("orderID", params.orderId);
+//		if (orderType == OrderType.LMT) {
+//			// json.addProperty("ordType", "Limit");
+//			json.addProperty("price", params.limitPrice);
+//		} else if (orderType == OrderType.STP) {// StopMarket
+//			// json.addProperty("ordType", "Stop");
+//			json.addProperty("stopPx", params.stopPrice);
+//		} else if (orderType == OrderType.STP_LMT) {
+//			// json.addProperty("ordType", "StopLimit");
+//			if (!isStopTriggered) {
+//				json.addProperty("stopPx", params.stopPrice);
+//			}
+//			json.addProperty("price", params.limitPrice);
+//		}
+//		
+//		// JsonObject json = new JsonObject();
+//		// json.addProperty("orderID", orderId);
+//		// json.addProperty("price", price);
+//		String data = json.toString();
+//		
+//		try {
+//			String res = require(GeneralType.order, Method.PUT, data);
+//			Log.info(res);
+//			// return (BmOrder) gson.fromJson(res, BmOrder.class);
+//		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
+//			e.printStackTrace();
+//		}
+//		// return null;
+//	}
+	public JsonObject moveOrderJson(OrderMoveParameters params, boolean isStopTriggered) {
 		// public void moveOrder(String orderId, OrderMoveParameters params) {
 		OrderType orderType = OrderType.getTypeFromPrices(params.stopPrice, params.limitPrice);
 		JsonObject json = new JsonObject();
@@ -443,12 +559,17 @@ public class TradeConnector {
 			}
 			json.addProperty("price", params.limitPrice);
 		}
-
-		// JsonObject json = new JsonObject();
-		// json.addProperty("orderID", orderId);
-		// json.addProperty("price", price);
-		String data = json.toString();
-
+		return json;
+	}
+	
+	public JsonObject moveTrailingStepJson(String id, Double newOffset) {
+		JsonObject json = new JsonObject();
+		json.addProperty("orderID", id);
+		json.addProperty("pegOffsetValue", newOffset);
+		return json;
+	}
+	
+	public void moveOrder(String data){
 		try {
 			String res = require(GeneralType.order, Method.PUT, data);
 			Log.info(res);
@@ -456,8 +577,18 @@ public class TradeConnector {
 		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
 			e.printStackTrace();
 		}
-		// return null;
 	}
+	
+	public void moveOrderBulk(String data){
+		try {
+			String res = require(GeneralType.orderBulk, Method.PUT, data);
+			Log.info(res);
+			// return (BmOrder) gson.fromJson(res, BmOrder.class);
+		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		}
+	}
+	
 
 	public String require(GeneralType genType, Method method, String data)
 			throws InvalidKeyException, NoSuchAlgorithmException {
@@ -486,11 +617,11 @@ public class TradeConnector {
 			// subPath, data, moment);
 			// String signature = this.generateSignature(orderApiSecret,
 			// messageBody);
-			Log.info("TRCONN SIGNATURE:" + signature);
-			Log.info("TRCONN MOMENT:" + moment);
+//			Log.info("TRCONN SIGNATURE:" + signature);
+//			Log.info("TRCONN MOMENT:" + moment);
 
 			conn.setRequestMethod(methods.get(method));
-			Log.info(methods.get(method));
+
 			if (genType.equals(GeneralType.orderBulk)) {
 				conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
 			} else {

@@ -67,9 +67,10 @@ public class JsonParser {
 
 		// skip a messages if it contains empty data
 		if (msg.getData() == null) {
-			Log.info("PARSER SKIPS " + str);
+			Log.info("PARSER SKIPS (DATA == NULL ) " + str);
 			return;
 		}
+		
 		// if (answ.getData() == null || answ.getData().equals("") ||
 		// answ.getData().equals("[]") ) {
 		// Log.info("PARSER SKIPS " + str);
@@ -90,9 +91,14 @@ public class JsonParser {
 		if (msg.getTable().equals("wallet")) {
 			if (msg.getAction().equals("partial")) {
 				partialsParsed.put("wallet", true);
+				if (msg.getData().size() == 0) {
+					Log.info("PARSER SKIPS (DATA == [] ) " + str);
+					return;
+				}
 			}
 
 			if (partialsParsed.keySet().contains("wallet") && partialsParsed.get("wallet") == true) {
+
 //				Log.info("PARSER WS WALLET " + str);
 				Type type = new TypeToken<MessageGeneric<Wallet>>() {
 				}.getType();
@@ -114,6 +120,10 @@ public class JsonParser {
 			 Log.info("PARSER WS EXECUTION " + str);
 			if (msg.getAction().equals("partial")) {
 				partialsParsed.put("execution", true);
+				if (msg.getData().size() == 0) {
+					Log.info("PARSER SKIPS (DATA == [] ) " + str);
+					return;
+				}
 			}
 
 			if (partialsParsed.keySet().contains("execution") && partialsParsed.get("execution").equals(true)) {
@@ -135,6 +145,10 @@ public class JsonParser {
 			// Log.info("PARSER WS MARGIN " + str);
 			if (msg.getAction().equals("partial")) {
 				partialsParsed.put("margin", true);
+				if (msg.getData().size() == 0) {
+					Log.info("PARSER SKIPS (DATA == [] ) " + str);
+					return;
+				}
 			}
 
 			if (partialsParsed.keySet().contains("margin") && partialsParsed.get("margin").equals(true)) {
@@ -153,9 +167,13 @@ public class JsonParser {
 		}
 
 		if (msg.getTable().equals("position")) {
-			// Log.info("PARSER WS POSITION " + str);
+//			 Log.info("PARSER WS POSITION " + str);
 			if (msg.getAction().equals("partial")) {
 				partialsParsed.put("position", true);
+				if (msg.getData().size() == 0) {
+					Log.info("PARSER SKIPS (DATA == [] ) " + str);
+					return;
+				}
 			}
 
 			if (partialsParsed.keySet().contains("position") && partialsParsed.get("position").equals(true)) {
@@ -174,12 +192,16 @@ public class JsonParser {
 		}
 
 		if (msg.getTable().equals("order")) {
-			 Log.info("PARSER WS ORDER " + str);
+//			 Log.info("PARSER WS ORDER " + str);
 			//We need only the snapshot to put
 			//existing orders to Bookmap.
 			//The rest of info comes from Execution. 
 			 if (msg.getAction().equals("partial")) {
 					partialsParsed.put("order", true);
+					if (msg.getData().size() == 0) {
+						Log.info("PARSER SKIPS (DATA == [] ) " + str);
+						return;
+					}
 				}
 			 
 			if (partialsParsed.keySet().contains("order") && msg.getAction().equals("partial")) {
@@ -288,6 +310,12 @@ public class JsonParser {
 				msg.setData(putBestAskToTheHeadOfList(msg.getData()));
 		
 				instr.setFirstSnapshotParsed(true);
+				
+//				This is for tracking the last trade price.
+//              Before there are not any trades, we take bestBid/bestAsk as
+//				best trades prices
+				instr.setLastSell(instr.getOrderBook().getBestAskPriceOrNone());
+				instr.setLastBuy(instr.getOrderBook().getBestBidPriceOrNone());
 				// this is the trigger for parser to start
 				// processing every message
 
@@ -297,7 +325,7 @@ public class JsonParser {
 			}
 		} else if (!msg.getTable().equals("execution")) {//1st snapshot parsed
 			if (msg.getTable().equals("trade")) {//if trade not order
-				// Log.info(str);
+//				 Log.info("PARSER WS TRADE: " + str);
 				processTradeMessage(msg);
 			} else {//if order not trade
 				processOrderMessage(msg);
@@ -398,7 +426,7 @@ public class JsonParser {
 	private void processOrderMessage(Message msg) {
 		BmInstrument instr = activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
 		OrderBook book = instr.getOrderBook();
-		
+
 		for (DataUnit unit : msg.getData()) {
 			unit.setBid(unit.getSide().equals("Buy"));
 			HashMap<Long, Integer> pricesMap = instr.getPricesMap();
@@ -417,6 +445,13 @@ public class JsonParser {
 			}
 			unit.setIntPrice(intPrice);
 			book.onUpdate(unit.isBid(), intPrice, unit.getSize());
+			
+////			tracking the last trade price
+//			if(unit.getSide().equals("Buy")){
+//				instr.setLastBuy(unit.getPrice());
+//			} else {
+//				instr.setLastSell(unit.getPrice());
+//			}
 		}
 	}
 
@@ -449,6 +484,9 @@ public class JsonParser {
 			unit.setBid(unit.getSide().equals("Buy"));
 			int intPrice = createIntPrice(unit.getPrice(), instr.getTickSize());
 			unit.setIntPrice(intPrice);
+			
+
+			
 		}
 	}
 

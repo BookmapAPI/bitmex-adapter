@@ -33,6 +33,9 @@ public class BmInstrument {
 	private HashMap<Long, Integer> pricesMap = new HashMap<>();
 	private Position validPosition = new Position(0L, "", "", 0L, 0L, 0L, 0D);
 	
+	private double lastBuy = Double.NaN;
+	private double lastSell = Double.NaN;
+	
 	private int executionsVolume = 0;
 	private int sellOrdersCount = 0;
 	private int buyOrdersCount = 0;
@@ -195,6 +198,22 @@ public class BmInstrument {
 
 	public void setInstrumentPartialsParsed(Map<String, Boolean> instrumentPartialsParsed) {
 		this.instrumentPartialsParsed = instrumentPartialsParsed;
+	}
+
+	public double getLastBuy() {
+		return lastBuy;
+	}
+
+	public double getLastSell() {
+		return lastSell;
+	}
+
+	public void setLastBuy(double lastBuy) {
+		this.lastBuy = lastBuy;
+	}
+
+	public void setLastSell(double lastSell) {
+		this.lastSell = lastSell;
 	}
 	
 	
