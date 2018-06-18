@@ -52,10 +52,8 @@ public class BitmexConnector implements Runnable {
 
 	// КОСТЫЛИ
 	public Provider prov;
-//	public DemoExternalRealtimeTradingProvider_2 provider;
+	// public DemoExternalRealtimeTradingProvider_2 provider;
 
-
-	
 	TradeConnector connr;
 
 	public TradeConnector getTrConn() {
@@ -143,8 +141,8 @@ public class BitmexConnector implements Runnable {
 			this.socket = socket;
 			this.parser.setActiveInstrumentsMap(Collections.unmodifiableMap(activeBmInstrumentsMap));
 			this.socket.setParser(parser);
-			
-//			**********передача парсеру провайдера
+
+			// **********передача парсеру провайдера
 			parser.prov = this.prov;
 
 			client.start();
@@ -162,9 +160,10 @@ public class BitmexConnector implements Runnable {
 			String mes = wssAuthTwo();
 			Log.info("AUTH MESSAGE PASSED");
 			this.socket.sendMessage(mes);
-			socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"position\",\"wallet\",\"margin\",\"execution\",\"order\"]}");
-//			socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"position\",\"wallet\",\"margin\"]}");
-
+			socket.sendMessage(
+					"{\"op\":\"subscribe\", \"args\":[\"position\",\"wallet\",\"margin\",\"execution\",\"order\"]}");
+			// socket.sendMessage("{\"op\":\"subscribe\",
+			// \"args\":[\"position\",\"wallet\",\"margin\"]}");
 
 			Log.info("SENDING AUTH MESSAGE PASSED");
 
@@ -180,7 +179,7 @@ public class BitmexConnector implements Runnable {
 			socket.getClosingLatch().await();
 			for (BmInstrument instr : activeBmInstrumentsMap.values()) {
 				instr.setInstrumentPartialsParsed(new HashMap<String, Boolean>());
-//				instr.setFirstSnapshotParsed(false);
+				// instr.setFirstSnapshotParsed(false);
 			}
 
 			this.socket = null;
@@ -252,7 +251,6 @@ public class BitmexConnector implements Runnable {
 			if (str == null)
 				return;
 
-
 			BmInstrument[] instrs = JsonParser.getArrayFromJson(str, BmInstrument[].class);
 
 			for (BmInstrument instr : instrs) {
@@ -268,50 +266,53 @@ public class BitmexConnector implements Runnable {
 	}
 
 	private void launchSnapshotTimer(BitmexConnector connector, BmInstrument instr) {
-		// TimerTask task = new TimerTask() {
-		// @Override
-		// public void run() {
-		// if (!instr.isFirstSnapshotParsed()) {
-		// connector.unSubscribe(instr);
-		// connector.subscribe(instr);
-		// }
-		// }
-		// };
-		//
-		// Timer timer = new Timer();
-		// timer.schedule(task, 8000);
+		TimerTask task = new TimerTask() {
+			@Override
+			public void run() {
+				if (!instr.isFirstSnapshotParsed()) {
+					connector.unSubscribe(instr);
+					connector.subscribe(instr);
+				}
+			}
+		};
+
+		Timer timer = new Timer();
+		timer.schedule(task, 8000);
 	}
 
 	public void subscribe(BmInstrument instr) {
 		instr.setSubscribed(true);
 		sendWebsocketMessage(instr.getSubscribeReq());
 		launchSnapshotTimer(this, instr);
-//		socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"position\"]}");
-//		socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"wallet\"]}");
+		// socket.sendMessage("{\"op\":\"subscribe\",
+		// \"args\":[\"position\"]}");
+		// socket.sendMessage("{\"op\":\"subscribe\", \"args\":[\"wallet\"]}");
 
-//		 getting open orders snapshot
-//		long moment = getMoment();
-//		String data1 = "";
-//		String data0 = "?filter=%7B%22open%22:true%7D";
-//		String addr = "/api/v1/order?filter=%7B%22symbol%22%3A%22" + instr.getSymbol()
-//				+ "%22%2C%22ordStatus%22%3A%22New%22%7D";
-//		String sign;
-//		try {
-//			sign = TradeConnector.generateSignature(connr.orderApiSecret,
-//					createMessageBody("GET", addr, data1, moment));
-//			String st0 = connr.get("https://testnet.bitmex.com" + addr, connr.orderApiKey, sign, moment, data0);
-//			Log.info("EXISTING ORDERS => " + st0);
-//			BmOrder[] orders = JsonParser.getArrayFromJson(st0, BmOrder[].class);
-//			for (BmOrder order : orders) {
-//				order.setSnapshot(true);
-//				prov.createBookmapOrder(order);
-//			}
-//		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
-//			e.printStackTrace();
-//		}
-//
-//		instr.setExecutionsVolume(countExecutionsVolume(instr.getSymbol()));
-//
+		// getting open orders snapshot
+		// long moment = getMoment();
+		// String data1 = "";
+		// String data0 = "?filter=%7B%22open%22:true%7D";
+		// String addr = "/api/v1/order?filter=%7B%22symbol%22%3A%22" +
+		// instr.getSymbol()
+		// + "%22%2C%22ordStatus%22%3A%22New%22%7D";
+		// String sign;
+		// try {
+		// sign = TradeConnector.generateSignature(connr.orderApiSecret,
+		// createMessageBody("GET", addr, data1, moment));
+		// String st0 = connr.get("https://testnet.bitmex.com" + addr,
+		// connr.orderApiKey, sign, moment, data0);
+		// Log.info("EXISTING ORDERS => " + st0);
+		// BmOrder[] orders = JsonParser.getArrayFromJson(st0, BmOrder[].class);
+		// for (BmOrder order : orders) {
+		// order.setSnapshot(true);
+		// prov.createBookmapOrder(order);
+		// }
+		// } catch (InvalidKeyException | NoSuchAlgorithmException e) {
+		// e.printStackTrace();
+		// }
+		//
+		// instr.setExecutionsVolume(countExecutionsVolume(instr.getSymbol()));
+		//
 	}
 
 	public void unSubscribe(BmInstrument instr) {
@@ -369,9 +370,9 @@ public class BitmexConnector implements Runnable {
 
 			BmOrder[] orders = JsonParser.getArrayFromJson(st0, BmOrder[].class);
 			for (BmOrder order : orders) {
-//				sum += order.getSimpleOrderQty();
+				// sum += order.getSimpleOrderQty();
 				sum += order.getOrderQty();
-//				Log.info("VOLUME ELEMENT " + order.getOrderQty());
+				// Log.info("VOLUME ELEMENT " + order.getOrderQty());
 			}
 
 			System.out.println("=> " + st0);
