@@ -60,7 +60,7 @@ import bitmexAdapter.Wallet;
 import bitmexAdapter.BmInstrument;
 import bitmexAdapter.BmOrder;
 
-//@Layer0LiveModule
+@Layer0LiveModule
 public class Provider extends ExternalLiveBaseProvider {
 
 	public BitmexConnector connector = new BitmexConnector();

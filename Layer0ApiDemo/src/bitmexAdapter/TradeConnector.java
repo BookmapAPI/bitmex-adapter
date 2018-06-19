@@ -68,9 +68,7 @@ public class TradeConnector {
 	// LastPeg, MidPricePeg, MarketPeg, PrimaryPeg, TrailingStopPeg;
 	// }
 
-	private static final long requestTimeToLive = 1000000;
-	public String orderApiKey;
-	public String orderApiSecret;
+	
 //	public final String orderApiKey = "PLc0jF_9Jh2-gYU6ye-6BS4q";
 //	public final String orderApiSecret = "xyMWpfSlONCWCwrntm0GotQN42ia291Vv2aWANlp-f0Kb5-I";
 
@@ -81,12 +79,16 @@ public class TradeConnector {
 	// public final String restApi = "https://testnet.bitmex.com";
 	public final String restApi = "https://testnet.bitmex.com";
 
-	private Map<String, TradeConnector.Key> keys = new HashMap<String, TradeConnector.Key>();
+//	private Map<String, TradeConnector.Key> keys = new HashMap<String, TradeConnector.Key>();
 
 	public enum GeneralType {
 		order, orderBulk, orderAll, instrument, execution, position;
 	}
 
+	private static final long requestTimeToLive = 1000000;
+	private String orderApiKey;
+	private String orderApiSecret;
+	
 	private EnumMap<GeneralType, String> subPaths = new EnumMap<GeneralType, String>(GeneralType.class);
 	{
 		subPaths.put(GeneralType.order, "/api/v1/order");
@@ -112,31 +114,43 @@ public class TradeConnector {
 		methods.put(Method.DELETE, "DELETE");
 	}
 
-	public class Key {
-		private final String apiKey;
-		private final String apiSecretKey;
+//	public class Key {
+//		private final String apiKey;
+//		private final String apiSecretKey;
+//
+//		public Key(String apiKey, String apiSecretKey) {
+//			super();
+//			this.apiKey = apiKey;
+//			this.apiSecretKey = apiSecretKey;
+//		}
+//
+//		public String getApiKey() {
+//			Log.info("TR CONN  - APIKEY REQUESTED");
+//			return apiKey;
+//		}
+//
+//		public String getApiSecretKey() {
+//			Log.info("TR CONN  - APISECRET REQUESTED");
+//			return apiSecretKey;
+//		}
+//	}
+//
+//	public void setKeys(Map<String, TradeConnector.Key> keys) {
+//		this.keys = keys;
+//	}
+//
+//	public Map<String, TradeConnector.Key> getKeys() {
+//		return keys;
+//	}
 
-		public Key(String apiKey, String apiSecretKey) {
-			super();
-			this.apiKey = apiKey;
-			this.apiSecretKey = apiSecretKey;
-		}
-
-		public String getApiKey() {
-			return apiKey;
-		}
-
-		public String getApiSecretKey() {
-			return apiSecretKey;
-		}
+	public String getOrderApiKey() {
+		Log.info("TR CONN  - APIKEY REQUESTED");
+		return orderApiKey;
 	}
 
-	public void setKeys(Map<String, TradeConnector.Key> keys) {
-		this.keys = keys;
-	}
-
-	public Map<String, TradeConnector.Key> getKeys() {
-		return keys;
+	public String getOrderApiSecret() {
+		Log.info("TR CONN  - APISECRET REQUESTED");
+		return orderApiSecret;
 	}
 
 	public void setOrderApiKey(String orderApiKey) {
@@ -146,6 +160,8 @@ public class TradeConnector {
 	public void setOrderApiSecret(String orderApiSecret) {
 		this.orderApiSecret = orderApiSecret;
 	}
+	
+	
 
 	public static long getMoment() {
 		return System.currentTimeMillis() + requestTimeToLive;
