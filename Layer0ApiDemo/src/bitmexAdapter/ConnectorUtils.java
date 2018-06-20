@@ -2,10 +2,21 @@ package bitmexAdapter;
 
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.apache.commons.collections.map.HashedMap;
 
 import com.ibm.icu.text.SimpleDateFormat;
 
-public class MiscUtils {
+public class ConnectorUtils {
+	public static final String bitmex_Wss = "wss://www.bitmex.com/realtime";
+	public static final String bitmex_restApi ="https://www.bitmex.com/api/v1";
+	public static final String bitmex_restActiveInstrUrl = "https://www.bitmex.com/api/v1/instrument/active";
+	
+	public static final String testnet_Wss = "wss://testnet.bitmex.com/realtime";
+	public static final String testnet_restApi = "https://testnet.bitmex.com/api/v1";
+	public static final String testnet_restActiveInstrUrl = "https://testnet.bitmex.com/api/v1/instrument/active";
 	
 	public static String getDateTwentyFourHoursAgoAsUrlEncodedString() {
 		Calendar calendar = Calendar.getInstance();
@@ -27,5 +38,7 @@ public class MiscUtils {
 		String z = sb.toString();
 		return z;
 	}
+	
+	
 
 }
