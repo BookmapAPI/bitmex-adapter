@@ -3,7 +3,9 @@ package bitmexAdapter;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -33,6 +35,9 @@ public class BmInstrument {
 	private HashMap<Long, Integer> pricesMap = new HashMap<>();
 	private Position validPosition = new Position(0L, "", "", 0L, 0L, 0L, 0D);
 	
+	private Set<String> partialsParsed = new HashSet<>();
+
+	
 	private double lastBuy = Double.NaN;
 	private double lastSell = Double.NaN;
 	
@@ -61,6 +66,14 @@ public class BmInstrument {
 		super();
 	}
 	
+	public Set<String> getPartialsParsed() {
+		return partialsParsed;
+	}
+
+	public void setPartialsParsed(Set<String> partialsParsed) {
+		this.partialsParsed = partialsParsed;
+	}
+
 	public int getExecutionsVolume() {
 		return executionsVolume;
 	}

@@ -14,7 +14,7 @@ public class BmOrder {
 	
 	
 	
-		private double simpleOrderQty; // or int?
+	private double simpleOrderQty; // or int?
 	private long orderQty;// ot int?
 	private double price = Double.NaN;
 	

@@ -59,6 +59,7 @@ import bitmexAdapter.TradeConnector.Method;
 import bitmexAdapter.Wallet;
 import bitmexAdapter.BmInstrument;
 import bitmexAdapter.BmOrder;
+import bitmexAdapter.ConnectorUtils;
 
 @Layer0LiveModule
 public class Provider extends ExternalLiveBaseProvider {
@@ -116,6 +117,7 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	@Override
 	public void subscribe(String symbol, String exchange, String type) {
+		Log.info("PROVIDER  - SUBSCRIBE METHOD INVOKED");
 
 		String alias = createAlias(symbol, exchange, type);
 		// Since instruments also will be accessed from the data generation
@@ -153,11 +155,11 @@ public class Provider extends ExternalLiveBaseProvider {
 				}
 
 				if (set.contains(symbol)) {
-					// try {
-					// this.connector.getWebSocketStartingLatch().await();
-					// } catch (InterruptedException e) {
-					// e.printStackTrace();
-					// }
+					try {
+						this.connector.getWebSocketStartingLatch().await();
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
 					BmInstrument instr = activeBmInstruments.get(symbol);
 					double pips = instr.getTickSize();
 
@@ -396,26 +398,32 @@ public class Provider extends ExternalLiveBaseProvider {
 				OrderCancelParameters orderCancelParameters = (OrderCancelParameters) orderUpdateParameters;
 				Log.info("***order with provided ID gets CANCELLED " + orderCancelParameters.orderId);
 				if (orderCancelParameters.batchEnd == true) {
-					//if this is the end of batch or single cancel
+					// if this is the end of batch or single cancel
 					if (batchCancels.size() == 0) {
-						//the batch list is empty so this appears to be a single order
-						if(RealToLinkIdMap.keySet().contains(orderCancelParameters.orderId)){
-//							but if this single order is a part of OCO or Bracket
-//							we have to cancel all orders with the same linkedId
-							List <String> bunchOfOrdersToCancel =  LinkIdToRealIdsMap.get(RealToLinkIdMap.get(orderCancelParameters.orderId));
+						// the batch list is empty so this appears to be a
+						// single order
+						if (RealToLinkIdMap.keySet().contains(orderCancelParameters.orderId)) {
+							// but if this single order is a part of OCO or
+							// Bracket
+							// we have to cancel all orders with the same
+							// linkedId
+							List<String> bunchOfOrdersToCancel = LinkIdToRealIdsMap
+									.get(RealToLinkIdMap.get(orderCancelParameters.orderId));
 							connr.cancelOrder(bunchOfOrdersToCancel);
 						} else {
-							//finally, true single order 
+							// finally, true single order
 							connr.cancelOrder(orderCancelParameters.orderId);
 
 						}
 					} else {
-						//add cancel to the list then perform canceling then clear the list
+						// add cancel to the list then perform canceling then
+						// clear the list
 						batchCancels.add(orderCancelParameters.orderId);
 						connr.cancelOrder(batchCancels);
 						batchCancels.clear();
 					}
-				} else {//this is not the end of batch so just add it to the list
+				} else {// this is not the end of batch so just add it to the
+						// list
 					batchCancels.add(orderCancelParameters.orderId);
 				}
 
@@ -543,30 +551,56 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	private void handleLogin(UserPasswordDemoLoginData userPasswordDemoLoginData) {
+		Log.info("PROVIDER HANDLE LOGIN");
 		// With real connection provider would attempt establishing connection
 		// here.
 
 		// there is no need in password check for demo purposes
-		// boolean isValid = "pass".equals(userPasswordDemoLoginData.password)
-		// && "user".equals(userPasswordDemoLoginData.user) &&
-		// userPasswordDemoLoginData.isDemo == true;
+		boolean isValid = !userPasswordDemoLoginData.password.equals("") 
+				&& !userPasswordDemoLoginData.password.equals("") == true;
 
-		connr.setOrderApiKey(userPasswordDemoLoginData.user);
-		connr.setOrderApiSecret(userPasswordDemoLoginData.password);
-		// if (isValid) {
-		// Report succesful login
-		adminListeners.forEach(Layer1ApiAdminListener::onLoginSuccessful);
+		if (isValid) {
+			connr.setOrderApiKey(userPasswordDemoLoginData.user);
+			connr.setOrderApiSecret(userPasswordDemoLoginData.password);
+			// if (isValid) {
+			// Report succesful login
+			adminListeners.forEach(Layer1ApiAdminListener::onLoginSuccessful);
 
-		// CONNECTOR
-		// this.connector = new BitmexConnector();
+			if(userPasswordDemoLoginData.isDemo == true){
+				adminListeners.forEach(l -> l.onSystemTextMessage("You will be connected to testnet.bitex.com",
+						// adminListeners.forEach(l -> l.onSystemTextMessage("This
+						// provider only supports limit orders",
+						SystemTextMessageType.UNCLASSIFIED));
+				connector.setWssUrl(ConnectorUtils.testnet_Wss);
+				connector.setRestApi(ConnectorUtils.testnet_restApi);
+				connector.setRestActiveInstrUrl(ConnectorUtils.testnet_restActiveInstrUrl);
+			} else {
+				connector.setWssUrl(ConnectorUtils.bitmex_Wss);
+				connector.setRestApi(ConnectorUtils.bitmex_restApi);
+				connector.setRestActiveInstrUrl(ConnectorUtils.bitmex_restActiveInstrUrl);
+			}
+			// CONNECTOR
+			// this.connector = new BitmexConnector();
 
+			this.connector.prov = this;
+			this.connector.setTrConn(connr);
+			Thread thread = new Thread(this.connector);
+			thread.setName("->BitmexAdapter: connector");
+			thread.start();
+		} else {
+			// Report failed login
+            adminListeners.forEach(l -> l.onLoginFailed(LoginFailedReason.WRONG_CREDENTIALS,
+                    "Login or password is empty"));
+
+		}
+
+	}
+	
+	public void reportWrongCredentials(String reason){
+		adminListeners.forEach(l -> l.onLoginFailed(LoginFailedReason.WRONG_CREDENTIALS,
+                reason));
+		connectionThread.interrupt();
 		
-		this.connector.prov = this;
-		this.connector.setTrConn(connr);
-		Thread thread = new Thread(this.connector);
-		thread.setName("->BitmexAdapter: connector");
-		thread.start();
-
 	}
 
 	public void listenOrderOrTrade(MessageGeneric<DataUnit> msg0) {
@@ -641,6 +675,21 @@ public class Provider extends ExternalLiveBaseProvider {
 			}
 		}
 
+	}
+
+	public void listenOnOrderBookL2(DataUnit unit) {
+		for (Layer1ApiDataListener listener : dataListeners) {
+			listener.onDepth(unit.getSymbol(), unit.isBid(), unit.getIntPrice(), (int) unit.getSize());
+		}
+	}
+
+	public void listenOnTrade(DataUnit unit) {
+		// Log.info("***Provider TRADE " + unit.toString());
+		for (Layer1ApiDataListener listener : dataListeners) {
+			final boolean isOtc = false;
+			listener.onTrade(unit.getSymbol(), unit.getIntPrice(), (int) unit.getSize(),
+					new TradeInfo(isOtc, unit.isBid()));
+		}
 	}
 
 	public void listenToExecution(Execution orderExec) {
@@ -972,7 +1021,7 @@ public class Provider extends ExternalLiveBaseProvider {
 					(double) validPosition.getUnrealisedPnl() / (double) instr.getMultiplier(),
 					(double) validPosition.getRealisedPnl() / (double) instr.getMultiplier(),
 					"",
-//					validPosition.getCurrency(),
+					// validPosition.getCurrency(),
 					(int) pos.getCurrentQty(),
 					// (int) Math.round(
 					// (double) (validPosition.getMarkValue()) / (double)

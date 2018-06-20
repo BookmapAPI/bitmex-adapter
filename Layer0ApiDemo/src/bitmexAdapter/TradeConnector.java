@@ -732,7 +732,7 @@ public class TradeConnector {
 					sb.append(output);
 				}
 
-				System.out.println(sb.toString());
+				Log.info("TR CONN * REQUIRE ASNWER " + sb.toString());
 			}
 		} catch (UnknownHostException | NoRouteToHostException e) {
 			// Log.info("NO RESPONSE FROM SERVER");

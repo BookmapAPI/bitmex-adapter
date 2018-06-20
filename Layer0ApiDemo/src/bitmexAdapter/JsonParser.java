@@ -33,18 +33,40 @@ public class JsonParser {
 	 }
 
 	private static final Gson gson = new GsonBuilder().create();
-	private Map<String, Boolean> partialsParsed = new HashMap<>();
+//	private Set<String> partialsParsed = new HashSet<>();
 
 	private Map<String, BmInstrument> activeInstrumentsMap = new HashMap<>();
+	private Set<String> nonInstrumentPartialsParsed = new HashSet<>();
+
+	public void setNonInstrumentPartialsParsed(Set<String> nonInstrumentPartialsParsed) {
+		this.nonInstrumentPartialsParsed = nonInstrumentPartialsParsed;
+	}
 
 	public void setActiveInstrumentsMap(Map<String, BmInstrument> activeInstrumentsMap) {
 		this.activeInstrumentsMap = activeInstrumentsMap;
 	}
 
 	public void parse(String str) {
-//		Log.info(str);
+		Log.info("PARSER STR => " + str);
 		// first let's find out what kind of object we have here
 		Answer answ = (Answer) gson.fromJson(str, Answer.class);
+//		Log.info("PARSER ANSW Error  " + answ.getError());
+		if (answ.getTable()==null){
+		if (answ.getInfo()!=null){
+			return;
+		}
+		
+		if (answ.getStatus() == 401){
+			prov.connector.socket.close();
+			Log.info(answ.getError());
+			prov.reportWrongCredentials(answ.getError());
+			return;
+		}
+		
+		if (answ.getSuccess()==true && answ.getRequest().getOp().equals("authKey")){
+			prov.connector.webSocketAuthLatch.countDown();
+		}
+		
 		if (answ.getSuccess() == null && answ.getError() == null && answ.getTable() == null && answ.getInfo() == null) {
 			Log.info("PARSER FAILS TO PARSE " + str);
 			throw new RuntimeException();
@@ -55,11 +77,15 @@ public class JsonParser {
 			return;
 		}
 
-		if (answ.getError() != null) {
+		if (answ.getError()!= null) {
 			Log.info("PARSER ERROR MSG " + str);
+			BmErrorMessage error = new Gson().fromJson(str, BmErrorMessage.class);
+			Log.info(error.getMessage());
 			return;
 		}
-
+		return;
+		}
+		
 		// Options 'No object', 'success' and 'error' are already excluded
 		// so only 'message' object (that contains 'data', an array of objects)
 		// stays
@@ -68,8 +94,13 @@ public class JsonParser {
 		// skip a messages if it contains empty data
 		if (msg.getData() == null) {
 			Log.info("PARSER SKIPS (DATA == NULL ) " + str);
-			return;
+			
 		}
+		
+//		if (!msg.getTable().equals("orderBookL2")){
+//			Log.info(str);
+//		}
+		
 		
 		// if (answ.getData() == null || answ.getData().equals("") ||
 		// answ.getData().equals("[]") ) {
@@ -90,14 +121,15 @@ public class JsonParser {
 
 		if (msg.getTable().equals("wallet")) {
 			if (msg.getAction().equals("partial")) {
-				partialsParsed.put("wallet", true);
+				nonInstrumentPartialsParsed.add("wallet");
+//				instr.setPartialsParsed(partialsParsed);
 				if (msg.getData().size() == 0) {
 					Log.info("PARSER SKIPS (DATA == [] ) " + str);
 					return;
 				}
 			}
 
-			if (partialsParsed.keySet().contains("wallet") && partialsParsed.get("wallet") == true) {
+			if (nonInstrumentPartialsParsed.contains("wallet")) {
 
 //				Log.info("PARSER WS WALLET " + str);
 				Type type = new TypeToken<MessageGeneric<Wallet>>() {
@@ -117,16 +149,17 @@ public class JsonParser {
 		}
 
 		if (msg.getTable().equals("execution")) {
-			 Log.info("PARSER WS EXECUTION " + str);
+			Log.info("PARSER WS EXECUTION " + str);
 			if (msg.getAction().equals("partial")) {
-				partialsParsed.put("execution", true);
+				nonInstrumentPartialsParsed.add("execution");
+//				instr.setPartialsParsed(partialsParsed);
 				if (msg.getData().size() == 0) {
 					Log.info("PARSER SKIPS (DATA == [] ) " + str);
 					return;
 				}
 			}
 
-			if (partialsParsed.keySet().contains("execution") && partialsParsed.get("execution").equals(true)) {
+			if (nonInstrumentPartialsParsed.contains("execution")) {
 				Type type = new TypeToken<MessageGeneric<Execution>>() {
 				}.getType();
 				MessageGeneric<Execution> msg0 = gson.fromJson(str, type);
@@ -144,14 +177,15 @@ public class JsonParser {
 		if (msg.getTable().equals("margin")) {
 			// Log.info("PARSER WS MARGIN " + str);
 			if (msg.getAction().equals("partial")) {
-				partialsParsed.put("margin", true);
+				nonInstrumentPartialsParsed.add("margin");
+//				instr.setPartialsParsed(partialsParsed);
 				if (msg.getData().size() == 0) {
 					Log.info("PARSER SKIPS (DATA == [] ) " + str);
 					return;
 				}
 			}
 
-			if (partialsParsed.keySet().contains("margin") && partialsParsed.get("margin").equals(true)) {
+			if (nonInstrumentPartialsParsed.contains("margin") ) {
 				Type type = new TypeToken<MessageGeneric<Margin>>() {
 				}.getType();
 				MessageGeneric<Margin> msg0 = gson.fromJson(str, type);
@@ -169,14 +203,15 @@ public class JsonParser {
 		if (msg.getTable().equals("position")) {
 //			 Log.info("PARSER WS POSITION " + str);
 			if (msg.getAction().equals("partial")) {
-				partialsParsed.put("position", true);
+				nonInstrumentPartialsParsed.add("position");
+//				instr.setPartialsParsed(partialsParsed);
 				if (msg.getData().size() == 0) {
 					Log.info("PARSER SKIPS (DATA == [] ) " + str);
 					return;
 				}
 			}
 
-			if (partialsParsed.keySet().contains("position") && partialsParsed.get("position").equals(true)) {
+			if (nonInstrumentPartialsParsed.contains("position")) {
 				Type type = new TypeToken<MessageGeneric<Position>>() {
 				}.getType();
 				MessageGeneric<Position> msg0 = gson.fromJson(str, type);
@@ -192,19 +227,20 @@ public class JsonParser {
 		}
 
 		if (msg.getTable().equals("order")) {
-//			 Log.info("PARSER WS ORDER " + str);
+			 Log.info("PARSER WS ORDER " + str);
 			//We need only the snapshot to put
 			//existing orders to Bookmap.
 			//The rest of info comes from Execution. 
 			 if (msg.getAction().equals("partial")) {
-					partialsParsed.put("order", true);
+				 nonInstrumentPartialsParsed.add("order");
+//					instr.setPartialsParsed(partialsParsed);
 					if (msg.getData().size() == 0) {
 						Log.info("PARSER SKIPS (DATA == [] ) " + str);
 						return;
 					}
 				}
 			 
-			if (partialsParsed.keySet().contains("order") && msg.getAction().equals("partial")) {
+			if (nonInstrumentPartialsParsed.contains("order")) {
 			
 				Type type = new TypeToken<MessageGeneric<BmOrder>>() {
 				}.getType();
@@ -216,122 +252,140 @@ public class JsonParser {
 						prov.createBookmapOrder(order);
 					}
 				}
+				
+//				specific
+				nonInstrumentPartialsParsed.remove("order");
 			}
 			return;
 		}
 
-		try {
-			BmInstrument instr = activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
-		} catch (IndexOutOfBoundsException e) {
-			Log.info("PARSER ERROR FOR " + str);
-		}
-
-		BmInstrument instr = activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
-		if (!instr.isSubscribed()) {
-			return;
-		}
-		
-//		if (msg.getTable().equals("orderBookL2")) {
+//		try {
 //			BmInstrument instr = activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
-//			Map <String, Boolean> instrPartials = instr.getInstrumentPartialsParsed();
-//							
-//			if (msg.getAction().equals("partial")) {
-//				//snapshot has come
+//		} catch (IndexOutOfBoundsException e) {
+//			Log.info("PARSER ERROR FOR " + str);
+//		}
+//
+//		BmInstrument instr = activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
+//		if (!instr.isSubscribed()) {
+//			return;
+//		}
+		
+
+
+//		if (!instr.isFirstSnapshotParsed()) {//1st snapshot not parsed
+//			if (msg.action.equals("partial")) {//snapshot has come
+//				// action is partial so let's fill in the orderBook
 //				if (!instr.getOrderBook().getAskMap().isEmpty()) {//orderbook is filled already (after reconnect)
 //					// reset the book after reconnect
 //					resetBookMapOrderBook(instr);
 //					resetBmInstrumentOrderBook(instr);
 //				}
-//				Type type = new TypeToken<MessageGeneric<DataUnit>>() {
-//				}.getType();
-//				MessageGeneric<DataUnit> msg0 = gson.fromJson(str, type);
-////				msg0.setData(putBestAskToTheHeadOfList(msg0.getData()));
-//
-//				
-//				if (msg0.getData().size() > 0) {
-//					processOrderMessage(msg0);
-//				}
-//				
-//				instrPartials.put("orderBookL2", true);
-//				instr.setInstrumentPartialsParsed(instrPartials);
-//				
-//				prov.listenOrderOrTrade(msg0);
-//
-//			}
-//
-//			if (instrPartials.get("orderBookL2").equals(true)) {
-//				
-//				
-//				Type type = new TypeToken<MessageGeneric<DataUnit>>() {
-//				}.getType();
-//				MessageGeneric<DataUnit> msg0 = gson.fromJson(str, type);
-//				
-//				if (msg0.getData().size() > 0) {
-//					processOrderMessage(msg0);
-//				}
-//				prov.listenOrderOrTrade(msg0);
-//			}
-//			return;
-//		}
+//				processOrderMessage(msg);
+//				msg.setData(putBestAskToTheHeadOfList(msg.getData()));
 //		
-//		if (msg.getTable().equals("trade")) {
-//			BmInstrument instr = activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
-//			Map <String, Boolean> instrPartials = instr.getInstrumentPartialsParsed();
-//							
-//			if (msg.getAction().equals("partial")) {
-//				//snapshot has come
-//				instrPartials.put("trade", true);
-//				instr.setInstrumentPartialsParsed(instrPartials);
-//			}
-//
-//			if (instrPartials.get("trade").equals(true)) {
-//								Type type = new TypeToken<MessageGeneric<DataUnit>>() {
-//				}.getType();
-//				MessageGeneric<DataUnit> msg0 = gson.fromJson(str, type);
+//				instr.setFirstSnapshotParsed(true);
 //				
-//				if (msg0.getData().size() > 0) {
-//					processTradeMessage(msg0);
-//				}
-//				msg0.setData(putBestAskToTheHeadOfList(msg0.getData()));
-//				prov.listenOrderOrTrade(msg0);
+////				This is for tracking the last trade price.
+////              Before there are not any trades, we take bestBid/bestAsk as
+////				best trades prices
+//				instr.setLastSell(instr.getOrderBook().getBestAskPriceOrNone());
+//				instr.setLastBuy(instr.getOrderBook().getBestBidPriceOrNone());
+//				// this is the trigger for parser to start
+//				// processing every message
+//
+//				prov.listenOrderOrTrade(msg);
+//			} else {//snapshot has not come yet
+//				return; // otherwise wait for partial
 //			}
-//			return;
+//		} else if (!msg.getTable().equals("execution")) {//1st snapshot parsed
+//			if (msg.getTable().equals("trade")) {//if trade not order
+////				 Log.info("PARSER WS TRADE: " + str);
+//				processTradeMessage(msg);
+//			} else {//if order not trade
+//				processOrderMessage(msg);
+//			}
+//	
+//			prov.listenOrderOrTrade(msg);//for both trade or order
 //		}
-
-		if (!instr.isFirstSnapshotParsed()) {//1st snapshot not parsed
-			if (msg.action.equals("partial")) {//snapshot has come
-				// action is partial so let's fill in the orderBook
+		
+		
+//		????????????????
+		if (msg.getTable().equals("orderBookL2")) {
+			
+			
+			BmInstrument instr = activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
+			Set<String> partialsParsed = instr.getPartialsParsed();
+			
+			
+			// Log.info("PARSER WS MARGIN " + str);
+			if (msg.getAction().equals("partial")) {
+				
+				partialsParsed.add("orderBookL2");
+				instr.setPartialsParsed(partialsParsed);
+				if (msg.getData().size() == 0) {
+					Log.info("PARSER SKIPS (DATA == [] ) " + str);
+					return;
+				}
 				if (!instr.getOrderBook().getAskMap().isEmpty()) {//orderbook is filled already (after reconnect)
 					// reset the book after reconnect
 					resetBookMapOrderBook(instr);
 					resetBmInstrumentOrderBook(instr);
 				}
-				processOrderMessage(msg);
-				msg.setData(putBestAskToTheHeadOfList(msg.getData()));
-		
-				instr.setFirstSnapshotParsed(true);
-				
-//				This is for tracking the last trade price.
-//              Before there are not any trades, we take bestBid/bestAsk as
-//				best trades prices
-				instr.setLastSell(instr.getOrderBook().getBestAskPriceOrNone());
-				instr.setLastBuy(instr.getOrderBook().getBestBidPriceOrNone());
-				// this is the trigger for parser to start
-				// processing every message
+//				Last buy or sell are not set
+			}
 
-				prov.listenOrderOrTrade(msg);
-			} else {//snapshot has not come yet
-				return; // otherwise wait for partial
+			if (partialsParsed.contains("orderBookL2")) {
+				
+				Type type = new TypeToken<MessageGeneric<DataUnit>>() {
+				}.getType();
+				MessageGeneric<DataUnit> msg0 = gson.fromJson(str, type);
+				processOrderMessage(msg0);
+				
+				if(msg0.getAction().equals("partial")){
+					msg0.setData(putBestAskToTheHeadOfList(msg0.getData()));
+				}
+				
+				ArrayList<DataUnit> units = msg0.getData();
+				if (units.size() > 0) {
+					for (DataUnit unit : units) {
+						prov.listenOnOrderBookL2(unit);
+					}
+				}
 			}
-		} else if (!msg.getTable().equals("execution")) {//1st snapshot parsed
-			if (msg.getTable().equals("trade")) {//if trade not order
-//				 Log.info("PARSER WS TRADE: " + str);
-				processTradeMessage(msg);
-			} else {//if order not trade
-				processOrderMessage(msg);
+			return;
+		}
+		
+		if (msg.getTable().equals("trade")) {
+//			 Log.info("PARSER WS TRADE " + str);
+
+			
+			BmInstrument instr = activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
+			Set<String> partialsParsed = instr.getPartialsParsed();
+			
+			
+			if (msg.getAction().equals("partial")) {
+				partialsParsed.add("trade");
+				instr.setPartialsParsed(partialsParsed);
+				if (msg.getData().size() == 0) {
+					Log.info("PARSER SKIPS (DATA == [] ) " + str);
+					return;
+				}
 			}
-	
-			prov.listenOrderOrTrade(msg);//for both trade or order
+
+			if (partialsParsed.contains("trade")) {
+				Type type = new TypeToken<MessageGeneric<DataUnit>>() {
+				}.getType();
+				MessageGeneric<DataUnit> msg0 = gson.fromJson(str, type);
+				processTradeMessage(msg0);
+				ArrayList<DataUnit> units = msg0.getData();
+
+				if (units.size() > 0) {
+					for (DataUnit unit : units) {
+						prov.listenOnTrade(unit);
+					}
+				}
+			}
+			return;
 		}
 		
 //		*****************************ORDERBOOKL2 AND TRADE
@@ -568,4 +622,6 @@ public class JsonParser {
 			book.onUpdate(true, intPrice, 0);
 		}
 	}
+	
+	
 }

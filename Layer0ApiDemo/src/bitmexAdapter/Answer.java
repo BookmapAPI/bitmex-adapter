@@ -1,11 +1,17 @@
 package bitmexAdapter;
 
-import com.google.gson.annotations.Expose;
 
 public class Answer {
 	private String table;
 	private String action;
+	private int status;
 	
+	
+
+	private ContainerReq request;
+
+
+	//	private Container error;
 	private String error;
 	private String info;
 	private Boolean success;
@@ -48,7 +54,46 @@ public class Answer {
 //		this.data = data;
 //	}
 	
+	public int getStatus() {
+		return status;
+	}
+	public void setStatus(int status) {
+		this.status = status;
+	}
 	
+	public ContainerReq getRequest() {
+		return request;
+	}
+	
+	class Container {
+		String message;
+		String name;
+		public String getMessage() {
+			return message;
+		}
+		public String getName() {
+			return name;
+		}
+		public void setMessage(String message) {
+			this.message = message;
+		}
+		public void setName(String name) {
+			this.name = name;
+		}
+	}
+	
+	class ContainerReq {
+		String op;
+
+		public String getOp() {
+			return op;
+		}
+
+		public void setOp(String op) {
+			this.op = op;
+		}
+		
+	}
 	
 
 }
