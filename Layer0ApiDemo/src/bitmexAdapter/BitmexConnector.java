@@ -44,24 +44,24 @@ public class BitmexConnector implements Runnable {
 	// private final String restApi = "https://www.bitmex.com/api/v1";
 	// private final String restActiveInstrUrl =
 	// "https://www.bitmex.com/api/v1/instrument/active";
-//	private String wssUrl = "wss://testnet.bitmex.com/realtime";
-//	private String restApi = "https://testnet.bitmex.com/api/v1";
-//	private String restActiveInstrUrl = "https://testnet.bitmex.com/api/v1/instrument/active";
+	// private String wssUrl = "wss://testnet.bitmex.com/realtime";
+	// private String restApi = "https://testnet.bitmex.com/api/v1";
+	// private String restActiveInstrUrl =
+	// "https://testnet.bitmex.com/api/v1/instrument/active";
 	private String wssUrl;
 	private String restApi;
 	private String restActiveInstrUrl;
-	
 
 	private HashMap<String, BmInstrument> activeBmInstrumentsMap = new HashMap<>();
-//	private Set<String> nonInstrumentPartialsParsed = new HashSet<>();
+	// private Set<String> nonInstrumentPartialsParsed = new HashSet<>();
 
 	private CountDownLatch webSocketStartingLatch = new CountDownLatch(1);
-	public  CountDownLatch webSocketAuthLatch = new CountDownLatch(1);
+	public CountDownLatch webSocketAuthLatch = new CountDownLatch(1);
 	public ClientSocket socket;
 	public JsonParser parser = new JsonParser();
 
 	public boolean isReconnecting = false;
-	
+
 	// КОСТЫЛИ
 	public Provider prov;
 	// public DemoExternalRealtimeTradingProvider_2 provider;
@@ -87,7 +87,6 @@ public class BitmexConnector implements Runnable {
 		}
 		return true;
 	}
-
 
 	public void setWssUrl(String wssUrl) {
 		this.wssUrl = wssUrl;
@@ -133,7 +132,7 @@ public class BitmexConnector implements Runnable {
 			ClientSocket socket = new ClientSocket();
 			this.socket = socket;
 			this.parser.setActiveInstrumentsMap(Collections.unmodifiableMap(activeBmInstrumentsMap));
-//			this.parser.setNonInstrumentPartialsParsed(Collections.unmodifiableSet(nonInstrumentPartialsParsed));
+			// this.parser.setNonInstrumentPartialsParsed(Collections.unmodifiableSet(nonInstrumentPartialsParsed));
 			this.socket.setParser(parser);
 
 			// **********передача парсеру провайдера
@@ -160,19 +159,19 @@ public class BitmexConnector implements Runnable {
 			Log.info("AUTH MESSAGE PASSED");
 			this.socket.sendMessage(mes);
 			webSocketAuthLatch.await();
-			
+
 			socket.sendMessage(
 					"{\"op\":\"subscribe\", \"args\":[\"position\",\"wallet\",\"margin\",\"execution\",\"order\"]}");
 			// socket.sendMessage("{\"op\":\"subscribe\",
 			// \"args\":[\"position\",\"wallet\",\"margin\"]}");
 
-//			Log.info("SENDING AUTH MESSAGE PASSED");
+			// Log.info("SENDING AUTH MESSAGE PASSED");
 
 			this.webSocketStartingLatch.countDown();
 
 			Log.info("BITM CONN ** LATCH IS DOWN");
 
-			if(isReconnecting){
+			if (isReconnecting) {
 				for (BmInstrument instr : activeBmInstrumentsMap.values()) {
 					if (instr.isSubscribed()) {
 						subscribe(instr);
@@ -185,10 +184,11 @@ public class BitmexConnector implements Runnable {
 
 			// WAITING FOR THE SOCKET TO CLOSE
 			socket.getClosingLatch().await();
-//			for (BmInstrument instr : activeBmInstrumentsMap.values()) {
-//				instr.setInstrumentPartialsParsed(new HashMap<String, Boolean>());
-//				// instr.setFirstSnapshotParsed(false);
-//			}
+			// for (BmInstrument instr : activeBmInstrumentsMap.values()) {
+			// instr.setInstrumentPartialsParsed(new HashMap<String,
+			// Boolean>());
+			// // instr.setFirstSnapshotParsed(false);
+			// }
 
 			this.socket = null;
 			isReconnecting = true;
@@ -224,8 +224,8 @@ public class BitmexConnector implements Runnable {
 			throw new RuntimeException();
 		}
 		Log.info("BITM CONN  * SEND WS MESSG");
-		synchronized(socket){
-		socket.sendMessage(message);
+		synchronized (socket) {
+			socket.sendMessage(message);
 		}
 	}
 
@@ -281,32 +281,31 @@ public class BitmexConnector implements Runnable {
 	}
 
 	private void launchSnapshotTimer(BitmexConnector connector, BmInstrument instr) {
-//		TimerTask task = new TimerTask() {
-//			@Override
-//			public void run() {
-//				if (!instr.getPartialsParsed().contains("orderBookL2")) {
-//					connector.unSubscribe(instr);
-//					connector.subscribe(instr);
-//				}
-//			}
-//		};
-//
-//		Timer timer = new Timer();
-//		timer.schedule(task, 10000);
+		// TimerTask task = new TimerTask() {
+		// @Override
+		// public void run() {
+		// if (!instr.getPartialsParsed().contains("orderBookL2")) {
+		// connector.unSubscribe(instr);
+		// connector.subscribe(instr);
+		// }
+		// }
+		// };
+		//
+		// Timer timer = new Timer();
+		// timer.schedule(task, 10000);
 	}
 
 	public void subscribe(BmInstrument instr) {
 		Log.info("BITM CONN INST TO SUBSCRIBE " + instr.getSymbol());
 		instr.setSubscribed(true);
-		
-		sendWebsocketMessage(instr.getSubscribeReq());	
-		
-		
+
+		sendWebsocketMessage(instr.getSubscribeReq());
+
 		launchSnapshotTimer(this, instr);
-		
+
 		instr.setExecutionsVolume(countExecutionsVolume(instr.getSymbol()));
 	}
-	
+
 	public void unSubscribe(BmInstrument instr) {
 		instr.setSubscribed(false);
 		sendWebsocketMessage(instr.getUnSubscribeReq());
@@ -361,10 +360,12 @@ public class BitmexConnector implements Runnable {
 			String st0 = connr.get("https://testnet.bitmex.com" + addr, connr.getOrderApiKey(), sign, moment, "");
 
 			BmOrder[] orders = JsonParser.getArrayFromJson(st0, BmOrder[].class);
-			for (BmOrder order : orders) {
-				// sum += order.getSimpleOrderQty();
-				sum += order.getOrderQty();
-				// Log.info("VOLUME ELEMENT " + order.getOrderQty());
+			if (orders != null) {
+				for (BmOrder order : orders) {
+					// sum += order.getSimpleOrderQty();
+					sum += order.getOrderQty();
+					// Log.info("VOLUME ELEMENT " + order.getOrderQty());
+				}
 			}
 
 			System.out.println("=> " + st0);
