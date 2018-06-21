@@ -134,6 +134,7 @@ public class ClientSocket {
 			}
 		}
 		Thread.currentThread().interrupt();
+		Log.info("CLIENT SOCKET *** INTERRUPTED");
 	}
 
 	public void setParser(JsonParser parser) {

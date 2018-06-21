@@ -28,6 +28,7 @@ import javax.net.ssl.HttpsURLConnection;
 import velox.api.layer0.live.Provider;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.data.OrderUpdateParameters;
+import velox.api.layer1.data.SystemTextMessageType;
 
 import org.apache.commons.codec.binary.Hex;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
@@ -48,6 +49,7 @@ public class BitmexConnector implements Runnable {
 	// private String restApi = "https://testnet.bitmex.com/api/v1";
 	// private String restActiveInstrUrl =
 	// "https://testnet.bitmex.com/api/v1/instrument/active";
+	public boolean interruptionNeeded = false;
 	private String wssUrl;
 	private String restApi;
 	private String restActiveInstrUrl;
@@ -152,16 +154,24 @@ public class BitmexConnector implements Runnable {
 			client.connect(socket, echoUri, request);
 			this.socket.getOpeningLatch().await();
 
-			// АВТОРИЗАЦИЯ ВЕБСОКЕТ 1
-			Log.info("BITM CONN ** WSCONNECT AUTH");
+			if (prov.isCredentialsEmpty) {// no authentication is needed
+				prov.adminListeners.forEach(
+						l -> l.onSystemTextMessage("You are not subscribed to topics that require authentication",
+								// adminListeners.forEach(l ->
+								// l.onSystemTextMessage("This
+								// provider only supports limit orders",
+								SystemTextMessageType.UNCLASSIFIED));
+			} else {// authentication needed
+				// АВТОРИЗАЦИЯ ВЕБСОКЕТ 1
+				Log.info("BITM CONN ** WSCONNECT AUTH");
 
-			String mes = wssAuthTwo();
-			Log.info("AUTH MESSAGE PASSED");
-			this.socket.sendMessage(mes);
-			webSocketAuthLatch.await();
-
-			socket.sendMessage(
-					"{\"op\":\"subscribe\", \"args\":[\"position\",\"wallet\",\"margin\",\"execution\",\"order\"]}");
+				String mes = wssAuthTwo();
+				Log.info("AUTH MESSAGE PASSED");
+				this.socket.sendMessage(mes);
+				webSocketAuthLatch.await();
+				socket.sendMessage(
+						"{\"op\":\"subscribe\", \"args\":[\"position\",\"wallet\",\"margin\",\"execution\",\"order\"]}");
+			}
 			// socket.sendMessage("{\"op\":\"subscribe\",
 			// \"args\":[\"position\",\"wallet\",\"margin\"]}");
 
@@ -303,7 +313,9 @@ public class BitmexConnector implements Runnable {
 
 		launchSnapshotTimer(this, instr);
 
-		instr.setExecutionsVolume(countExecutionsVolume(instr.getSymbol()));
+		if (!prov.isCredentialsEmpty) {//if authenticated
+			instr.setExecutionsVolume(countExecutionsVolume(instr.getSymbol()));
+		}
 	}
 
 	public void unSubscribe(BmInstrument instr) {
@@ -357,7 +369,17 @@ public class BitmexConnector implements Runnable {
 		try {
 			sign = TradeConnector.generateSignature(connr.getOrderApiSecret(),
 					TradeConnector.createMessageBody("GET", addr, data1, moment));
+			
+			
 			String st0 = connr.get("https://testnet.bitmex.com" + addr, connr.getOrderApiKey(), sign, moment, "");
+			
+//			String test = Provider.testReponseForError(st0);
+//			if(test != null){
+//				prov.adminListeners.forEach(l -> l.onSystemTextMessage(test,
+//						// adminListeners.forEach(l -> l.onSystemTextMessage("This
+//						// provider only supports limit orders",
+//						SystemTextMessageType.UNCLASSIFIED));
+//			}
 
 			BmOrder[] orders = JsonParser.getArrayFromJson(st0, BmOrder[].class);
 			if (orders != null) {
@@ -378,7 +400,8 @@ public class BitmexConnector implements Runnable {
 
 	@Override
 	public void run() {
-		while (!Thread.currentThread().isInterrupted()) {
+		while (!interruptionNeeded) {
+
 			if (!isConnectionEstablished()) {
 				try {
 					Thread.sleep(5000);
@@ -394,8 +417,40 @@ public class BitmexConnector implements Runnable {
 				if (this.activeBmInstrumentsMap.isEmpty())
 					continue;
 			}
-			wSconnect();
+			if (!interruptionNeeded) {
+				wSconnect();
+			}
 		}
+		if (socket != null) {
+			socket.close();
+		}
+		Log.info("BM CONNECTOR CLOSES");
 	}
+	// @Override
+	// public void run() {
+	// while (!Thread.currentThread().isInterrupted()) {
+	//
+	//
+	// if (!isConnectionEstablished()) {
+	// try {
+	// Thread.sleep(5000);
+	// } catch (InterruptedException e) {
+	// e.printStackTrace();
+	// throw new RuntimeException();
+	// }
+	// continue;
+	// }
+	//
+	// if (this.activeBmInstrumentsMap.isEmpty()) {
+	// fillActiveBmInstrumentsMap();
+	// if (this.activeBmInstrumentsMap.isEmpty())
+	// continue;
+	// }
+	// wSconnect();
+	//
+	// }
+	// socket.close();
+	// Log.info("BM CONNECTOR CLOSES");
+	// }
 
 }

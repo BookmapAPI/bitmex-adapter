@@ -7,7 +7,6 @@
 			<attribute name="javadoc_location" value="jar:file:/C:/Program%20Files/Bookmap/lib/bm-l1api-javadoc.jar!/"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="lib/gson-2.4.jar"/>
 	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/AnimatedTransitions.jar"/>
 	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/ant-junit-1.9.7.jar"/>
 	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/assertj-core-3.7.0.jar"/>
@@ -93,6 +92,6 @@
 	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/util.jar"/>
 	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/voice-cmu-bdl-hsmm-5.2.jar"/>
 	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/webapilayer.jar"/>
-	<classpathentry kind="lib" path="C:/Program Files/Bookmap/Bookmap.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files/Bookmap/BookMap.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

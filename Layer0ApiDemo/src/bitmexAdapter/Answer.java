@@ -4,7 +4,7 @@ package bitmexAdapter;
 public class Answer {
 	private String table;
 	private String action;
-	private int status;
+	private Integer status;
 	
 	
 
@@ -54,10 +54,10 @@ public class Answer {
 //		this.data = data;
 //	}
 	
-	public int getStatus() {
+	public Integer getStatus() {
 		return status;
 	}
-	public void setStatus(int status) {
+	public void setStatus(Integer status) {
 		this.status = status;
 	}
 	

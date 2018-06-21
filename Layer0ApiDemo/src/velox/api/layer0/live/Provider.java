@@ -46,17 +46,20 @@ import velox.api.layer1.data.StatusInfo;
 import velox.api.layer1.data.SystemTextMessageType;
 import velox.api.layer1.data.TradeInfo;
 import velox.api.layer1.data.UserPasswordDemoLoginData;
-
+import bitmexAdapter.Answer;
 import bitmexAdapter.BitmexConnector;
 import bitmexAdapter.DataUnit;
 import bitmexAdapter.Execution;
+import bitmexAdapter.JsonParser;
 import bitmexAdapter.Margin;
 import bitmexAdapter.Message;
 import bitmexAdapter.MessageGeneric;
 import bitmexAdapter.Position;
+import bitmexAdapter.RestAnswer;
 import bitmexAdapter.TradeConnector;
 import bitmexAdapter.TradeConnector.Method;
 import bitmexAdapter.Wallet;
+import sun.rmi.transport.tcp.TCPConnection;
 import bitmexAdapter.BmInstrument;
 import bitmexAdapter.BmOrder;
 import bitmexAdapter.ConnectorUtils;
@@ -64,12 +67,14 @@ import bitmexAdapter.ConnectorUtils;
 @Layer0LiveModule
 public class Provider extends ExternalLiveBaseProvider {
 
-	public BitmexConnector connector = new BitmexConnector();
-	public TradeConnector connr = new TradeConnector();
+	public BitmexConnector connector;
+	public TradeConnector connr;
 	private String tempClientId;
 	private HashMap<String, OrderInfoBuilder> workingOrders = new HashMap<>();
+	public List<OrderInfoBuilder> pendingOrders = new ArrayList<>();
 	private long orderCount = 0;
 	private long orderOcoCount = 0;
+	public boolean isCredentialsEmpty = false;
 
 	// for ocoOrders
 	// Map <clOrdLinkID, List <realIds>>
@@ -98,7 +103,8 @@ public class Provider extends ExternalLiveBaseProvider {
 	protected HashMap<String, Instrument> instruments = new HashMap<>();
 
 	// This thread will perform data generation.
-	private Thread connectionThread = null;
+	private Thread providerThread = null;
+	private Thread connectorThread = null;
 
 	/**
 	 * <p>
@@ -113,6 +119,16 @@ public class Provider extends ExternalLiveBaseProvider {
 	 */
 	private static String createAlias(String symbol, String exchange, String type) {
 		return symbol;
+	}
+	
+	public static String testReponseForError(String str){
+		RestAnswer answ = (RestAnswer) JsonParser.gson.fromJson(str, RestAnswer.class);
+		
+		if(answ.getError() != null){
+			return answ.getError().getMessage();
+			
+		}
+		return null;
 	}
 
 	@Override
@@ -319,6 +335,9 @@ public class Provider extends ExternalLiveBaseProvider {
 		// Marking all fields as unchanged, since they were just reported and
 		// fields will be marked as changed automatically when modified.
 		builder.markAllUnchanged();
+		
+//		*pending to list to maybe cancel
+		pendingOrders.add(builder);
 
 		if (orderType == OrderType.STP || orderType == OrderType.LMT || orderType == OrderType.STP_LMT
 				|| orderType == OrderType.MKT) {
@@ -339,7 +358,6 @@ public class Provider extends ExternalLiveBaseProvider {
 			JsonObject json = TradeConnector.createSendData(simpleParameters, orderType, tempOrderId, clOrdLinkID,
 					contingencyType, bmInstrument);
 			return json;
-			// String data = json.toString();
 			// return data;
 
 		} else {
@@ -364,7 +382,7 @@ public class Provider extends ExternalLiveBaseProvider {
 				SystemTextMessageType.ORDER_FAILURE));
 	}
 
-	private void rejectOrder(OrderInfoBuilder builder, String reas) {
+	public void rejectOrder(OrderInfoBuilder builder, String reas) {
 		String reason = "The order was rejected: \n" + reas;
 		Log.info("***Order gets REJECTED");
 		// Necessary fields are already populated, so just change status to
@@ -545,9 +563,9 @@ public class Provider extends ExternalLiveBaseProvider {
 		UserPasswordDemoLoginData userPasswordDemoLoginData = (UserPasswordDemoLoginData) loginData;
 		// If connection process takes a while then it's better to do it in
 		// separate thread
-		connectionThread = new Thread(() -> handleLogin(userPasswordDemoLoginData));
-		connectionThread.setName("-> INSTRUMENT");
-		connectionThread.start();
+		providerThread = new Thread(() -> handleLogin(userPasswordDemoLoginData));
+		providerThread.setName("-> INSTRUMENT");
+		providerThread.start();
 	}
 
 	private void handleLogin(UserPasswordDemoLoginData userPasswordDemoLoginData) {
@@ -557,9 +575,20 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		// there is no need in password check for demo purposes
 		boolean isValid = !userPasswordDemoLoginData.password.equals("") 
-				&& !userPasswordDemoLoginData.password.equals("") == true;
+				&& !userPasswordDemoLoginData.user.equals("") == true;
+		
+		isCredentialsEmpty = userPasswordDemoLoginData.password.equals("") 
+				&& userPasswordDemoLoginData.user.equals("") == true;
+		
+		boolean isOneCredentialEmpty = !isCredentialsEmpty && !isValid;
 
-		if (isValid) {
+		if (isValid || isCredentialsEmpty) {
+			
+			Log.info("CONN HANDLE LGN valid OR empty");
+			
+			connector = new BitmexConnector();
+			connr = new TradeConnector();
+			connr.prov = this;
 			connr.setOrderApiKey(userPasswordDemoLoginData.user);
 			connr.setOrderApiSecret(userPasswordDemoLoginData.password);
 			// if (isValid) {
@@ -584,14 +613,14 @@ public class Provider extends ExternalLiveBaseProvider {
 
 			this.connector.prov = this;
 			this.connector.setTrConn(connr);
-			Thread thread = new Thread(this.connector);
-			thread.setName("->BitmexAdapter: connector");
-			thread.start();
-		} else {
+			connectorThread = new Thread(this.connector);
+			connectorThread.setName("->BitmexAdapter: connector");
+			connectorThread.start();
+		} else if (isOneCredentialEmpty){
+			Log.info("CONN HANDLE LGN emptyCredential");
 			// Report failed login
             adminListeners.forEach(l -> l.onLoginFailed(LoginFailedReason.WRONG_CREDENTIALS,
-                    "Login or password is empty"));
-
+                    "Either login or password is empty"));
 		}
 
 	}
@@ -599,7 +628,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	public void reportWrongCredentials(String reason){
 		adminListeners.forEach(l -> l.onLoginFailed(LoginFailedReason.WRONG_CREDENTIALS,
                 reason));
-		connectionThread.interrupt();
+		this.close();
 		
 	}
 
@@ -678,6 +707,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	public void listenOnOrderBookL2(DataUnit unit) {
+//		Log.info(unit.toString());
 		for (Layer1ApiDataListener listener : dataListeners) {
 			listener.onDepth(unit.getSymbol(), unit.isBid(), unit.getIntPrice(), (int) unit.getSize());
 		}
@@ -1211,7 +1241,13 @@ public class Provider extends ExternalLiveBaseProvider {
 	@Override
 	public Layer1ApiProviderSupportedFeatures getSupportedFeatures() {
 		// Expanding parent supported features, reporting basic trading support
-		Layer1ApiProviderSupportedFeaturesBuilder a = super.getSupportedFeatures().toBuilder().setTrading(true)
+		Layer1ApiProviderSupportedFeaturesBuilder a;
+		
+		if(isCredentialsEmpty){
+			return super.getSupportedFeatures().toBuilder().build();
+		}
+		
+		a= super.getSupportedFeatures().toBuilder().setTrading(true)
 				.setOco(true)
 				.setBrackets(true)
 				.setSupportedOrderDurations(Arrays.asList(new OrderDuration[] { OrderDuration.GTC }))
@@ -1223,7 +1259,9 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		a.setBalanceSupported(true);
 		a.setTrailingStopsAsIndependentOrders(true);
-
+		
+		
+		Log.info("PROVIDER getSupportedFeatures INVOKED");
 		return a.build();
 
 		// return super.getSupportedFeatures().toBuilder().setTrading(true)
@@ -1247,7 +1285,12 @@ public class Provider extends ExternalLiveBaseProvider {
 	@Override
 	public void close() {
 		// Stop events generation
-		connectionThread.interrupt();
+//		this.connector.socket.close();
+		Log.info("PROVIDER CLOSE()");
+		connector.socket.close();
+		connector.interruptionNeeded = true;
+//		connectorThread.interrupt();
+		providerThread.interrupt();
 	}
 
 }
