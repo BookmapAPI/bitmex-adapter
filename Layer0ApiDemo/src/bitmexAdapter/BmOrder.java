@@ -1,6 +1,6 @@
 package bitmexAdapter;
 
-public class BmOrder {
+public class BmOrder extends RawUnit{
 	
 	private String execID;
 	private String orderID;

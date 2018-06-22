@@ -18,7 +18,7 @@ import quickfix.RuntimeError;
 import velox.api.layer0.live.Provider;
 import bitmexAdapter.ConnectorUtils;
 import bitmexAdapter.Answer.Container;
-import bitmexAdapter.ConnectorUtils.Topic;
+import bitmexAdapter.ConnectorUtils.TOPIC;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.layers.utils.OrderBook;
 
@@ -52,13 +52,13 @@ public class JsonParser {
 	}
 
 	public void parse(String str) {
-//		Log.info("PARSER STR => " + str);
+		// Log.info("PARSER STR => " + str);
 		// first let's find out what kind of object we have here
 		Answer answ = (Answer) gson.fromJson(str, Answer.class);
 		// Log.info("PARSER ANSW Error " + answ.getError());
 		if (answ.getTable() == null) {
 			Log.info("PARSER STR => " + str);
-			
+
 			if (answ.getInfo() != null) {
 				return;
 			}
@@ -127,147 +127,151 @@ public class JsonParser {
 		// }
 
 		if (ConnectorUtils.stringToTopic.keySet().contains(msg.getTable())
-				&& msg.getTable().equals("wallet")
-				){
-			Topic topic = ConnectorUtils.stringToTopic.get(msg.getTable());
+				&& (msg.getTable().equals("wallet")
+						|| msg.getTable().equals("execution")
+						|| msg.getTable().equals("margin")
+						|| msg.getTable().equals("position")
+						|| msg.getTable().equals("order")
+
+				)) {
+			TOPIC topic = ConnectorUtils.stringToTopic.get(msg.getTable());
 			func(str, topic);
 
 		}
-		
-//		if (msg.getTable().equals("wallet")) {
+
+		// if (msg.getTable().equals("wallet")) {
+		// if (msg.getAction().equals("partial")) {
+		// nonInstrumentPartialsParsed.add("wallet");
+		// if (msg.getData().isEmpty()) {
+		// Log.info("PARSER SKIPS (DATA == [] ) " + str);
+		// return;
+		// }
+		// }
+		//
+		// if (nonInstrumentPartialsParsed.contains("wallet")) {
+		// Type type = new TypeToken<MessageGeneric<Wallet>>() {
+		// }.getType();
+		// MessageGeneric<Wallet> msg0 = gson.fromJson(str, type);
+		// ArrayList<Wallet> wallets = msg0.getData();
+		//
+		// if (wallets.size() > 0) {
+		// for (Wallet wallet : wallets) {
+		// prov.listenToWallet(wallet);
+		// }
+		// }
+		// }
+		// return;
+		// }
+
+		// if (msg.getTable().equals("execution")) {
+		// Log.info("PARSER WS EXECUTION " + str);
+		// if (msg.getAction().equals("partial")) {
+		// nonInstrumentPartialsParsed.add("execution");
+		// if (msg.getData().isEmpty()) {
+		// Log.info("PARSER SKIPS (DATA == [] ) " + str);
+		// return;
+		// }
+		// }
+		//
+		// if (nonInstrumentPartialsParsed.contains("execution")) {
+		// Type type = new TypeToken<MessageGeneric<Execution>>() {
+		// }.getType();
+		// MessageGeneric<Execution> msg0 = gson.fromJson(str, type);
+		// ArrayList<Execution> executions = msg0.getData();
+		//
+		// if (executions.size() > 0) {
+		// for (Execution execution : executions) {
+		// prov.listenToExecution(execution);
+		// }
+		// }
+		// }
+		// return;
+		// }
+
+		// if (msg.getTable().equals("margin")) {
+		// // Log.info("PARSER WS MARGIN " + str);
+		// if (msg.getAction().equals("partial")) {
+		// nonInstrumentPartialsParsed.add("margin");
+		// // instr.setPartialsParsed(partialsParsed);
+		// if (msg.getData().isEmpty()) {
+		// Log.info("PARSER SKIPS (DATA == [] ) " + str);
+		// return;
+		// }
+		// }
+		//
+		// if (nonInstrumentPartialsParsed.contains("margin")) {
+		// Type type = new TypeToken<MessageGeneric<Margin>>() {
+		// }.getType();
+		// MessageGeneric<Margin> msg0 = gson.fromJson(str, type);
+		// ArrayList<Margin> margins = msg0.getData();
+		//
+		// if (margins.size() > 0) {
+		// for (Margin margin : margins) {
+		// prov.listenToMargin(margin);
+		// }
+		// }
+		// }
+		// return;
+		// }
+		//
+		// if (msg.getTable().equals("position")) {
+		// // Log.info("PARSER WS POSITION " + str);
+		// if (msg.getAction().equals("partial")) {
+		// nonInstrumentPartialsParsed.add("position");
+		// // instr.setPartialsParsed(partialsParsed);
+		// if (msg.getData().isEmpty()) {
+		// Log.info("PARSER SKIPS (DATA == [] ) " + str);
+		// return;
+		// }
+		// }
+		//
+		// if (nonInstrumentPartialsParsed.contains("position")) {
+		// Type type = new TypeToken<MessageGeneric<Position>>() {
+		// }.getType();
+		// MessageGeneric<Position> msg0 = gson.fromJson(str, type);
+		// ArrayList<Position> positions = msg0.getData();
+		//
+		// if (positions.size() > 0) {
+		// for (Position position : positions) {
+		// prov.listenToPosition(position);
+		// }
+		// }
+		// }
+		// return;
+		// }
+
+//		if (msg.getTable().equals("order")) {
+//			Log.info("PARSER WS ORDER " + str);
+//			// We need only the snapshot to put
+//			// existing orders to Bookmap.
+//			// The rest of info comes from Execution.
 //			if (msg.getAction().equals("partial")) {
-//				nonInstrumentPartialsParsed.add("wallet");
+//				nonInstrumentPartialsParsed.add("order");
+//				// instr.setPartialsParsed(partialsParsed);
 //				if (msg.getData().isEmpty()) {
 //					Log.info("PARSER SKIPS (DATA == [] ) " + str);
 //					return;
 //				}
 //			}
-//			
-//			if (nonInstrumentPartialsParsed.contains("wallet")) {
-//				Type type = new TypeToken<MessageGeneric<Wallet>>() {
+//
+//			if (nonInstrumentPartialsParsed.contains("order")) {
+//
+//				Type type = new TypeToken<MessageGeneric<BmOrder>>() {
 //				}.getType();
-//				MessageGeneric<Wallet> msg0 = gson.fromJson(str, type);
-//				ArrayList<Wallet> wallets = msg0.getData();
-//				
-//				if (wallets.size() > 0) {
-//					for (Wallet wallet : wallets) {
-//						prov.listenToWallet(wallet);
+//				MessageGeneric<BmOrder> msg0 = gson.fromJson(str, type);
+//				ArrayList<BmOrder> orders = msg0.getData();
+//
+//				if (orders.size() > 0) {
+//					for (BmOrder order : orders) {
+//						prov.createBookmapOrder(order);
 //					}
 //				}
+//
+//				// specific
+//				nonInstrumentPartialsParsed.remove("order");
 //			}
 //			return;
 //		}
-
-		if (msg.getTable().equals("execution")) {
-			Log.info("PARSER WS EXECUTION " + str);
-			if (msg.getAction().equals("partial")) {
-				nonInstrumentPartialsParsed.add("execution");
-				if (msg.getData().isEmpty()) {
-					Log.info("PARSER SKIPS (DATA == [] ) " + str);
-					return;
-				}
-			}
-
-			if (nonInstrumentPartialsParsed.contains("execution")) {
-				Type type = new TypeToken<MessageGeneric<Execution>>() {
-				}.getType();
-				MessageGeneric<Execution> msg0 = gson.fromJson(str, type);
-				ArrayList<Execution> executions = msg0.getData();
-
-				if (executions.size() > 0) {
-					for (Execution execution : executions) {
-						prov.listenToExecution(execution);
-					}
-				}
-			}
-			return;
-		}
-
-		if (msg.getTable().equals("margin")) {
-			// Log.info("PARSER WS MARGIN " + str);
-			if (msg.getAction().equals("partial")) {
-				nonInstrumentPartialsParsed.add("margin");
-				// instr.setPartialsParsed(partialsParsed);
-				if (msg.getData().isEmpty()) {
-					Log.info("PARSER SKIPS (DATA == [] ) " + str);
-					return;
-				}
-			}
-
-			if (nonInstrumentPartialsParsed.contains("margin")) {
-				Type type = new TypeToken<MessageGeneric<Margin>>() {
-				}.getType();
-				MessageGeneric<Margin> msg0 = gson.fromJson(str, type);
-				ArrayList<Margin> margins = msg0.getData();
-
-				if (margins.size() > 0) {
-					for (Margin margin : margins) {
-						prov.listenToMargin(margin);
-					}
-				}
-			}
-			return;
-		}
-
-		if (msg.getTable().equals("position")) {
-			// Log.info("PARSER WS POSITION " + str);
-			if (msg.getAction().equals("partial")) {
-				nonInstrumentPartialsParsed.add("position");
-				// instr.setPartialsParsed(partialsParsed);
-				if (msg.getData().isEmpty()) {
-					Log.info("PARSER SKIPS (DATA == [] ) " + str);
-					return;
-				}
-			}
-
-			if (nonInstrumentPartialsParsed.contains("position")) {
-				Type type = new TypeToken<MessageGeneric<Position>>() {
-				}.getType();
-				MessageGeneric<Position> msg0 = gson.fromJson(str, type);
-				ArrayList<Position> positions = msg0.getData();
-
-				if (positions.size() > 0) {
-					for (Position position : positions) {
-						prov.listenToPosition(position);
-					}
-				}
-			}
-			return;
-		}
-
-		if (msg.getTable().equals("order")) {
-			Log.info("PARSER WS ORDER " + str);
-			// We need only the snapshot to put
-			// existing orders to Bookmap.
-			// The rest of info comes from Execution.
-			if (msg.getAction().equals("partial")) {
-				nonInstrumentPartialsParsed.add("order");
-				// instr.setPartialsParsed(partialsParsed);
-				if (msg.getData().isEmpty()) {
-					Log.info("PARSER SKIPS (DATA == [] ) " + str);
-					return;
-				}
-			}
-
-			if (nonInstrumentPartialsParsed.contains("order")) {
-
-				Type type = new TypeToken<MessageGeneric<BmOrder>>() {
-				}.getType();
-				MessageGeneric<BmOrder> msg0 = gson.fromJson(str, type);
-				ArrayList<BmOrder> orders = msg0.getData();
-
-				if (orders.size() > 0) {
-					for (BmOrder order : orders) {
-						prov.createBookmapOrder(order);
-					}
-				}
-
-				// specific
-				nonInstrumentPartialsParsed.remove("order");
-			}
-			return;
-		}
-
 
 		// ????????????????
 		if (msg.getTable().equals("orderBookL2")) {
@@ -295,27 +299,27 @@ public class JsonParser {
 				}
 				// Last buy or sell are not set
 			}
-		
-		if (partialsParsed.contains("orderBookL2")) {
-			
-			Type type = new TypeToken<MessageGeneric<DataUnit>>() {
-			}.getType();
-			MessageGeneric<DataUnit> msg0 = gson.fromJson(str, type);
-			processOrderMessage(msg0);
-			
-			if (msg0.getAction().equals("partial")) {
-				msg0.setData(putBestAskToTheHeadOfList(msg0.getData()));
-			}
-			
-			ArrayList<DataUnit> units = msg0.getData();
-			if (units.size() > 0) {
-				for (DataUnit unit : units) {
-					prov.listenOnOrderBookL2(unit);
+
+			if (partialsParsed.contains("orderBookL2")) {
+
+				Type type = new TypeToken<MessageGeneric<DataUnit>>() {
+				}.getType();
+				MessageGeneric<DataUnit> msg0 = gson.fromJson(str, type);
+				processOrderMessage(msg0);
+
+				if (msg0.getAction().equals("partial")) {
+					msg0.setData(putBestAskToTheHeadOfList(msg0.getData()));
+				}
+
+				ArrayList<DataUnit> units = msg0.getData();
+				if (units.size() > 0) {
+					for (DataUnit unit : units) {
+						prov.listenOnOrderBookL2(unit);
+					}
 				}
 			}
+			return;
 		}
-		return;
-	}
 
 		if (msg.getTable().equals("trade")) {
 			// Log.info("PARSER WS TRADE " + str);
@@ -581,17 +585,13 @@ public class JsonParser {
 			book.onUpdate(true, intPrice, 0);
 		}
 	}
-	
-	public <T> MessageGeneric<T> getMess(Class<T> cls, String str, Type type){
-	MessageGeneric<T> msg0 = gson.fromJson(str, type);
-	return msg0;
-	}
 
-	private <T> void func(String str, Topic topic ){
+	@SuppressWarnings("unchecked")
+	private <T> void func(String str, TOPIC topic) {
 		TopicContainer container = ConnectorUtils.containers.get(topic);
 		Type type = container.unitType;
 		MessageGeneric<?> msg0 = gson.fromJson(str, type);
-		
+
 		if (msg0.getAction().equals("partial")) {
 			nonInstrumentPartialsParsed.add(container.name);
 			if (msg0.getData().isEmpty()) {
@@ -601,25 +601,48 @@ public class JsonParser {
 		}
 
 		if (nonInstrumentPartialsParsed.contains(container.name)) {
-			
-			
-				
-			@SuppressWarnings("unchecked")
 			ArrayList<T> units = (ArrayList<T>) msg0.getData();
-
 			if (!units.isEmpty()) {
 				dispatchRawUnits(units, container.cls);
+			}
+
+			if (topic.equals(TOPIC.order)) {
+				performOrderSpecificOp();
+			}
+			if (topic.equals(TOPIC.execution)) {
+				Log.info("PARSER WS EXEC " + str);
 			}
 		}
 		return;
 	}
-	
-	public <T> void dispatchRawUnits(ArrayList<T> units, Class<T> cls){
-		if(cls == Wallet.class ){
-			for (T unit : units) {
+
+	private void performOrderSpecificOp() {
+		nonInstrumentPartialsParsed.remove("order");
+		// we need only the snapshot.
+		// the rest of info comes from execution topic.
+		// it will be a good idea to get unsubscribed from orders
+		// right at this point.
+	}
+
+	public <T> void dispatchRawUnits(ArrayList<T> units, Class<T> cls) {
+
+		for (T unit : units) {
+			if (cls == Wallet.class) {
 				prov.listenToWallet((Wallet) unit);
 			}
+			if (cls == Execution.class) {
+				prov.listenToExecution((Execution) unit);
+			}
+			if (cls == Margin.class) {
+				prov.listenToMargin((Margin) unit);
+			}
+			if (cls == Position.class) {
+				prov.listenToPosition((Position) unit);
+			}
+			if (cls == BmOrder.class) {
+				prov.createBookmapOrder((BmOrder) unit);
+			}
 		}
-		
+
 	}
 }

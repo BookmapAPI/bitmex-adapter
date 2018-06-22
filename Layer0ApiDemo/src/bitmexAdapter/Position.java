@@ -5,7 +5,7 @@ package bitmexAdapter;
  * That means values did not change and the Consumer must use
  * the previous value.
  */
-public class Position {
+public class Position extends RawUnit{
 
 
 	private Long account;
