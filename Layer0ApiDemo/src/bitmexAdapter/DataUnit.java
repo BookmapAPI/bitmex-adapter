@@ -1,6 +1,6 @@
 package bitmexAdapter;
 
-public class DataUnit {
+public class DataUnit extends RawUnit {
 	private String symbol;
 	private long id;
 	private String side;

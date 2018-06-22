@@ -41,14 +41,7 @@ import bitmexAdapter.TradeConnector.GeneralType;
 import bitmexAdapter.TradeConnector.Method;
 
 public class BitmexConnector implements Runnable {
-	// private final String wssUrl = "wss://www.bitmex.com/realtime";
-	// private final String restApi = "https://www.bitmex.com/api/v1";
-	// private final String restActiveInstrUrl =
-	// "https://www.bitmex.com/api/v1/instrument/active";
-	// private String wssUrl = "wss://testnet.bitmex.com/realtime";
-	// private String restApi = "https://testnet.bitmex.com/api/v1";
-	// private String restActiveInstrUrl =
-	// "https://testnet.bitmex.com/api/v1/instrument/active";
+
 	public boolean interruptionNeeded = false;
 	private String wssUrl;
 	private String restApi;

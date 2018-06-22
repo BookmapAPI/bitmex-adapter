@@ -7,7 +7,10 @@ import java.util.Map;
 
 import org.apache.commons.collections.map.HashedMap;
 
+import com.google.gson.reflect.TypeToken;
 import com.ibm.icu.text.SimpleDateFormat;
+
+import bookmap.adapter.Trade;
 
 public class ConnectorUtils {
 	public static final String bitmex_Wss = "wss://www.bitmex.com/realtime";
@@ -17,6 +20,11 @@ public class ConnectorUtils {
 	public static final String testnet_Wss = "wss://testnet.bitmex.com/realtime";
 	public static final String testnet_restApi = "https://testnet.bitmex.com/api/v1";
 	public static final String testnet_restActiveInstrUrl = "https://testnet.bitmex.com/api/v1/instrument/active";
+	
+	public static enum Topic {
+		orderBookL2, trade, //non-authenticated
+		position, wallet, order, margin, execution; //authenticated 
+	};
 	
 	public static String getDateTwentyFourHoursAgoAsUrlEncodedString() {
 		Calendar calendar = Calendar.getInstance();
@@ -39,6 +47,19 @@ public class ConnectorUtils {
 		return z;
 	}
 	
+	public static Map <String, Topic> stringToTopic = new HashMap<>();
+	public static Map <Topic, TopicContainer> containers = new HashMap<>();
+	
+	static {
+		stringToTopic.put("wallet", Topic.wallet);
+		
+//		non-authenticated
+		containers.put(Topic.orderBookL2, new TopicContainer("orderBookL2", false, new TypeToken<DataUnit>() {}.getType(), DataUnit.class));
+		containers.put(Topic.trade, new TopicContainer("trade", false, new TypeToken<MessageGeneric<DataUnit>>() {}.getType(), Trade.class));
+////		authenticated
+		containers.put(Topic.wallet, new TopicContainer("wallet", true, new TypeToken<MessageGeneric<Wallet>>() {}.getType(), Wallet.class));
+		
+	}
 	
 
 }
