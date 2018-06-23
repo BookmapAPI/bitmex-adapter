@@ -43,9 +43,9 @@ import bitmexAdapter.TradeConnector.Method;
 public class BitmexConnector implements Runnable {
 
 	public boolean interruptionNeeded = false;
-	private String wssUrl;
-	private String restApi;
-	private String restActiveInstrUrl;
+	String wssUrl;
+	String restApi;
+	String restActiveInstrUrl;
 
 	private HashMap<String, BmInstrument> activeBmInstrumentsMap = new HashMap<>();
 	// private Set<String> nonInstrumentPartialsParsed = new HashSet<>();
