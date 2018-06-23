@@ -120,13 +120,13 @@ public class Provider extends ExternalLiveBaseProvider {
 	private static String createAlias(String symbol, String exchange, String type) {
 		return symbol;
 	}
-	
-	public static String testReponseForError(String str){
+
+	public static String testReponseForError(String str) {
 		RestAnswer answ = (RestAnswer) JsonParser.gson.fromJson(str, RestAnswer.class);
-		
-		if(answ.getError() != null){
+
+		if (answ.getError() != null) {
 			return answ.getError().getMessage();
-			
+
 		}
 		return null;
 	}
@@ -335,8 +335,8 @@ public class Provider extends ExternalLiveBaseProvider {
 		// Marking all fields as unchanged, since they were just reported and
 		// fields will be marked as changed automatically when modified.
 		builder.markAllUnchanged();
-		
-//		*pending to list to maybe cancel
+
+		// *pending to list to maybe cancel
 		pendingOrders.add(builder);
 
 		if (orderType == OrderType.STP || orderType == OrderType.LMT || orderType == OrderType.STP_LMT
@@ -574,18 +574,18 @@ public class Provider extends ExternalLiveBaseProvider {
 		// here.
 
 		// there is no need in password check for demo purposes
-		boolean isValid = !userPasswordDemoLoginData.password.equals("") 
+		boolean isValid = !userPasswordDemoLoginData.password.equals("")
 				&& !userPasswordDemoLoginData.user.equals("") == true;
-		
-		isCredentialsEmpty = userPasswordDemoLoginData.password.equals("") 
+
+		isCredentialsEmpty = userPasswordDemoLoginData.password.equals("")
 				&& userPasswordDemoLoginData.user.equals("") == true;
-		
+
 		boolean isOneCredentialEmpty = !isCredentialsEmpty && !isValid;
 
 		if (isValid || isCredentialsEmpty) {
-			
+
 			Log.info("CONN HANDLE LGN valid OR empty");
-			
+
 			connector = new BitmexConnector();
 			connr = new TradeConnector();
 			connr.prov = this;
@@ -595,9 +595,10 @@ public class Provider extends ExternalLiveBaseProvider {
 			// Report succesful login
 			adminListeners.forEach(Layer1ApiAdminListener::onLoginSuccessful);
 
-			if(userPasswordDemoLoginData.isDemo == true){
+			if (userPasswordDemoLoginData.isDemo == true) {
 				adminListeners.forEach(l -> l.onSystemTextMessage("You will be connected to testnet.bitex.com",
-						// adminListeners.forEach(l -> l.onSystemTextMessage("This
+						// adminListeners.forEach(l ->
+						// l.onSystemTextMessage("This
 						// provider only supports limit orders",
 						SystemTextMessageType.UNCLASSIFIED));
 				connector.setWssUrl(ConnectorUtils.testnet_Wss);
@@ -616,20 +617,20 @@ public class Provider extends ExternalLiveBaseProvider {
 			connectorThread = new Thread(this.connector);
 			connectorThread.setName("->BitmexAdapter: connector");
 			connectorThread.start();
-		} else if (isOneCredentialEmpty){
+		} else if (isOneCredentialEmpty) {
 			Log.info("CONN HANDLE LGN emptyCredential");
 			// Report failed login
-            adminListeners.forEach(l -> l.onLoginFailed(LoginFailedReason.WRONG_CREDENTIALS,
-                    "Either login or password is empty"));
+			adminListeners.forEach(l -> l.onLoginFailed(LoginFailedReason.WRONG_CREDENTIALS,
+					"Either login or password is empty"));
 		}
 
 	}
-	
-	public void reportWrongCredentials(String reason){
+
+	public void reportWrongCredentials(String reason) {
 		adminListeners.forEach(l -> l.onLoginFailed(LoginFailedReason.WRONG_CREDENTIALS,
-                reason));
+				reason));
 		this.close();
-		
+
 	}
 
 	public void listenOrderOrTrade(MessageGeneric<DataUnit> msg0) {
@@ -707,7 +708,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	public void listenOnOrderBookL2(DataUnit unit) {
-//		Log.info(unit.toString());
+		// Log.info(unit.toString());
 		for (Layer1ApiDataListener listener : dataListeners) {
 			listener.onDepth(unit.getSymbol(), unit.isBid(), unit.getIntPrice(), (int) unit.getSize());
 		}
@@ -912,7 +913,9 @@ public class Provider extends ExternalLiveBaseProvider {
 		} else if (orderExec.getExecType().equals("Replaced")) {
 
 			// quantity has changed
-			if (orderExec.getText().equals("Amended orderQty: Amended via API.\nSubmitted via API.")) {
+			if (orderExec.getText().equals("Amended orderQty: Amended via API.\nSubmitted via API.")
+					|| orderExec.getText()
+							.equals("Amended orderQty: Amend from testnet.bitmex.com\nSubmitted via API.")) {
 				Log.info("PROVIDER: ****LISTEN EXEC - REPLACED QUANTITY");
 				int oldSize = builder.getUnfilled();
 				int newSize = (int) orderExec.getOrderQty();
@@ -925,7 +928,8 @@ public class Provider extends ExternalLiveBaseProvider {
 				tradingListeners.forEach(l -> l.onOrderUpdated(finBuilder.build()));
 
 				Log.info("PROVIDER: *********RESIZED*********");
-			} else if (orderExec.getText().equals("Amended price: Amended via API.\nSubmitted via API.")) {
+			} else if (orderExec.getText().equals("Amended price: Amended via API.\nSubmitted via API.")
+					|| orderExec.getText().equals("Amended price: Amend from testnet.bitmex.com\nSubmitted via API.")) {
 				Log.info("PROVIDER: ****LISTEN EXEC - REPLACED PRICE");
 				// limit price has changed
 				OrderInfoBuilder order = workingOrders.get(builder.getOrderId());
@@ -1242,12 +1246,12 @@ public class Provider extends ExternalLiveBaseProvider {
 	public Layer1ApiProviderSupportedFeatures getSupportedFeatures() {
 		// Expanding parent supported features, reporting basic trading support
 		Layer1ApiProviderSupportedFeaturesBuilder a;
-		
-		if(isCredentialsEmpty){
+
+		if (isCredentialsEmpty) {
 			return super.getSupportedFeatures().toBuilder().build();
 		}
-		
-		a= super.getSupportedFeatures().toBuilder().setTrading(true)
+
+		a = super.getSupportedFeatures().toBuilder().setTrading(true)
 				.setOco(true)
 				.setBrackets(true)
 				.setSupportedOrderDurations(Arrays.asList(new OrderDuration[] { OrderDuration.GTC }))
@@ -1259,8 +1263,7 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		a.setBalanceSupported(true);
 		a.setTrailingStopsAsIndependentOrders(true);
-		
-		
+
 		Log.info("PROVIDER getSupportedFeatures INVOKED");
 		return a.build();
 
@@ -1285,11 +1288,13 @@ public class Provider extends ExternalLiveBaseProvider {
 	@Override
 	public void close() {
 		// Stop events generation
-//		this.connector.socket.close();
+		// this.connector.socket.close();
 		Log.info("PROVIDER CLOSE()");
-		connector.socket.close();
+		if (connector.socket != null) {
+			connector.socket.close();
+		}
 		connector.interruptionNeeded = true;
-//		connectorThread.interrupt();
+		// connectorThread.interrupt();
 		providerThread.interrupt();
 	}
 
