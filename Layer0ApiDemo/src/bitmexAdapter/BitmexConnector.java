@@ -50,9 +50,9 @@ public class BitmexConnector implements Runnable {
 	// private String restActiveInstrUrl =
 	// "https://testnet.bitmex.com/api/v1/instrument/active";
 	public boolean interruptionNeeded = false;
-	private String wssUrl;
-	private String restApi;
-	private String restActiveInstrUrl;
+	String wssUrl;
+	String restApi;
+	String restActiveInstrUrl;
 
 	private HashMap<String, BmInstrument> activeBmInstrumentsMap = new HashMap<>();
 	// private Set<String> nonInstrumentPartialsParsed = new HashSet<>();

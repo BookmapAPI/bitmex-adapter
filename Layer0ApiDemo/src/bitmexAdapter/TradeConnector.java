@@ -79,7 +79,7 @@ public class TradeConnector {
 	// "TagdIwfBWp8YuMbZfocdaVtEO9qoIZla37BCsp3fWAhimLoq";
 	// String restApi = "https://www.bitmex.com";
 	// public final String restApi = "https://testnet.bitmex.com";
-	public final String restApi = "https://testnet.bitmex.com";
+//	public final String restApi = "https://testnet.bitmex.com";
 
 	// private Map<String, TradeConnector.Key> keys = new HashMap<String,
 	// TradeConnector.Key>();
@@ -664,7 +664,8 @@ public class TradeConnector {
 			throws InvalidKeyException, NoSuchAlgorithmException {
 
 		String subPath = subPaths.get(genType);
-		String path = this.restApi + subPath;
+//		String path = this.restApi + subPath;
+		String path = prov.connector.restApi + subPath;
 		long moment = getMoment();
 
 		String response = null;
@@ -770,7 +771,8 @@ public class TradeConnector {
 			throws InvalidKeyException, NoSuchAlgorithmException {
 
 		String subPath = subPaths.get(genType);
-		String path = this.restApi + subPath;
+//		String path = this.restApi + subPath;
+		String path = prov.connector.restApi + subPath;
 		long moment = getMoment();
 
 		String response = null;
