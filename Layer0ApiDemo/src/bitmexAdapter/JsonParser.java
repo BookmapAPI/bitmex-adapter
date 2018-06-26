@@ -105,293 +105,11 @@ public class JsonParser {
 
 		}
 
-		// if (!msg.getTable().equals("orderBookL2")){
-		// Log.info(str);
-		// }
-
-		// if (answ.getData() == null || answ.getData().equals("") ||
-		// answ.getData().equals("[]") ) {
-		// Log.info("PARSER SKIPS " + str);
-		// return;
-		// }
-
-		// if (!msg.getTable().equals("orderBookL2") &&
-		// !msg.getTable().equals("trade")
-		// && !msg.getTable().equals("execution") &&
-		// !msg.getTable().equals("position")
-		// && !msg.getTable().equals("wallet") &&
-		// !msg.getTable().equals("order")
-		// && !msg.getTable().equals("margin")) {
-		// // Log.info("PARSER WS TABLE = " + msg.getTable());
-		// return;
-		// }
-
-		if (ConnectorUtils.stringToTopic.keySet().contains(msg.getTable())
-				&& (msg.getTable().equals("wallet")
-						|| msg.getTable().equals("execution")
-						|| msg.getTable().equals("margin")
-						|| msg.getTable().equals("position")
-						|| msg.getTable().equals("order")
-						|| msg.getTable().equals("trade")
-						|| msg.getTable().equals("orderBookL2")
-
-				)) {
-
-//			if (msg.getTable().equals("orderBookL2"))
-//				Log.info("PARSER WS BookL2");
-
+		if (ConnectorUtils.stringToTopic.keySet().contains(msg.getTable())) {
 			TOPIC topic = ConnectorUtils.stringToTopic.get(msg.getTable());
 			func(str, topic);
 
 		}
-
-		// if (msg.getTable().equals("wallet")) {
-		// if (msg.getAction().equals("partial")) {
-		// nonInstrumentPartialsParsed.add("wallet");
-		// if (msg.getData().isEmpty()) {
-		// Log.info("PARSER SKIPS (DATA == [] ) " + str);
-		// return;
-		// }
-		// }
-		//
-		// if (nonInstrumentPartialsParsed.contains("wallet")) {
-		// Type type = new TypeToken<MessageGeneric<Wallet>>() {
-		// }.getType();
-		// MessageGeneric<Wallet> msg0 = gson.fromJson(str, type);
-		// ArrayList<Wallet> wallets = msg0.getData();
-		//
-		// if (wallets.size() > 0) {
-		// for (Wallet wallet : wallets) {
-		// prov.listenToWallet(wallet);
-		// }
-		// }
-		// }
-		// return;
-		// }
-
-		// if (msg.getTable().equals("execution")) {
-		// Log.info("PARSER WS EXECUTION " + str);
-		// if (msg.getAction().equals("partial")) {
-		// nonInstrumentPartialsParsed.add("execution");
-		// if (msg.getData().isEmpty()) {
-		// Log.info("PARSER SKIPS (DATA == [] ) " + str);
-		// return;
-		// }
-		// }
-		//
-		// if (nonInstrumentPartialsParsed.contains("execution")) {
-		// Type type = new TypeToken<MessageGeneric<Execution>>() {
-		// }.getType();
-		// MessageGeneric<Execution> msg0 = gson.fromJson(str, type);
-		// ArrayList<Execution> executions = msg0.getData();
-		//
-		// if (executions.size() > 0) {
-		// for (Execution execution : executions) {
-		// prov.listenToExecution(execution);
-		// }
-		// }
-		// }
-		// return;
-		// }
-
-		// if (msg.getTable().equals("margin")) {
-		// // Log.info("PARSER WS MARGIN " + str);
-		// if (msg.getAction().equals("partial")) {
-		// nonInstrumentPartialsParsed.add("margin");
-		// // instr.setPartialsParsed(partialsParsed);
-		// if (msg.getData().isEmpty()) {
-		// Log.info("PARSER SKIPS (DATA == [] ) " + str);
-		// return;
-		// }
-		// }
-		//
-		// if (nonInstrumentPartialsParsed.contains("margin")) {
-		// Type type = new TypeToken<MessageGeneric<Margin>>() {
-		// }.getType();
-		// MessageGeneric<Margin> msg0 = gson.fromJson(str, type);
-		// ArrayList<Margin> margins = msg0.getData();
-		//
-		// if (margins.size() > 0) {
-		// for (Margin margin : margins) {
-		// prov.listenToMargin(margin);
-		// }
-		// }
-		// }
-		// return;
-		// }
-		//
-		// if (msg.getTable().equals("position")) {
-		// // Log.info("PARSER WS POSITION " + str);
-		// if (msg.getAction().equals("partial")) {
-		// nonInstrumentPartialsParsed.add("position");
-		// // instr.setPartialsParsed(partialsParsed);
-		// if (msg.getData().isEmpty()) {
-		// Log.info("PARSER SKIPS (DATA == [] ) " + str);
-		// return;
-		// }
-		// }
-		//
-		// if (nonInstrumentPartialsParsed.contains("position")) {
-		// Type type = new TypeToken<MessageGeneric<Position>>() {
-		// }.getType();
-		// MessageGeneric<Position> msg0 = gson.fromJson(str, type);
-		// ArrayList<Position> positions = msg0.getData();
-		//
-		// if (positions.size() > 0) {
-		// for (Position position : positions) {
-		// prov.listenToPosition(position);
-		// }
-		// }
-		// }
-		// return;
-		// }
-
-		// if (msg.getTable().equals("order")) {
-		// Log.info("PARSER WS ORDER " + str);
-		// // We need only the snapshot to put
-		// // existing orders to Bookmap.
-		// // The rest of info comes from Execution.
-		// if (msg.getAction().equals("partial")) {
-		// nonInstrumentPartialsParsed.add("order");
-		// // instr.setPartialsParsed(partialsParsed);
-		// if (msg.getData().isEmpty()) {
-		// Log.info("PARSER SKIPS (DATA == [] ) " + str);
-		// return;
-		// }
-		// }
-		//
-		// if (nonInstrumentPartialsParsed.contains("order")) {
-		//
-		// Type type = new TypeToken<MessageGeneric<BmOrder>>() {
-		// }.getType();
-		// MessageGeneric<BmOrder> msg0 = gson.fromJson(str, type);
-		// ArrayList<BmOrder> orders = msg0.getData();
-		//
-		// if (orders.size() > 0) {
-		// for (BmOrder order : orders) {
-		// prov.createBookmapOrder(order);
-		// }
-		// }
-		//
-		// // specific
-		// nonInstrumentPartialsParsed.remove("order");
-		// }
-		// return;
-		// }
-
-		// ????????????????
-//		if (msg.getTable().equals("orderBookL2")) {
-//
-//			BmInstrument instr = activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
-//			Set<String> partialsParsed = instr.getPartialsParsed();
-//
-//			// Log.info("PARSER WS MARGIN " + str);
-//			if (msg.getAction().equals("partial")) {
-//
-//				partialsParsed.add("orderBookL2");
-//				instr.setPartialsParsed(partialsParsed);
-//				if (msg.getData().isEmpty()) {
-//					Log.info("PARSER SKIPS (DATA == [] ) " + str);
-//					return;
-//				}
-//				if (!instr.getOrderBook().getAskMap().isEmpty()) {// orderbook
-//																	// is filled
-//																	// already
-//																	// (after
-//																	// reconnect)
-//					// reset the book after reconnect
-//					resetBookMapOrderBook(instr);
-//					resetBmInstrumentOrderBook(instr);
-//				}
-//				// Last buy or sell are not set
-//			}
-//
-//			if (partialsParsed.contains("orderBookL2")) {
-//
-//				Type type = new TypeToken<MessageGeneric<DataUnit>>() {
-//				}.getType();
-//				MessageGeneric<DataUnit> msg0 = gson.fromJson(str, type);
-//				processOrderMessage(msg0);
-//
-//				if (msg0.getAction().equals("partial")) {
-//					msg0.setData(putBestAskToTheHeadOfList(msg0.getData()));
-//				}
-//
-//				ArrayList<DataUnit> units = msg0.getData();
-//				if (units.size() > 0) {
-//					for (DataUnit unit : units) {
-//						prov.listenOnOrderBookL2(unit);
-//					}
-//				}
-//			}
-//			return;
-//		}
-
-		// if (msg.getTable().equals("trade")) {
-		// // Log.info("PARSER WS TRADE " + str);
-		//
-		// BmInstrument instr =
-		// activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
-		// Set<String> partialsParsed = instr.getPartialsParsed();
-		//
-		// if (msg.getAction().equals("partial")) {
-		// partialsParsed.add("trade");
-		// instr.setPartialsParsed(partialsParsed);
-		// if (msg.getData().isEmpty()) {
-		// Log.info("PARSER SKIPS (DATA == [] ) " + str);
-		// return;
-		// }
-		// }
-		//
-		// if (partialsParsed.contains("trade")) {
-		// Type type = new TypeToken<MessageGeneric<DataUnit>>() {
-		// }.getType();
-		// MessageGeneric<DataUnit> msg0 = gson.fromJson(str, type);
-		// processTradeMessage(msg0);
-		// ArrayList<DataUnit> units = msg0.getData();
-		//
-		// if (units.size() > 0) {
-		// for (DataUnit unit : units) {
-		// prov.listenOnTrade(unit);
-		// }
-		// }
-		// }
-		// return;
-		// }
-
-		// *****************************ORDERBOOKL2 AND TRADE
-		// if (!instr.isFirstSnapshotParsed()) {//1st snapshot not parsed
-		// if (msg.action.equals("partial")) {//snapshot has come
-		// // action is partial so let's fill in the orderBook
-		// if (!instr.getOrderBook().getAskMap().isEmpty()) {//orderbook is
-		// filled already (after reconnect)
-		// // reset the book after reconnect
-		// resetBookMapOrderBook(instr);
-		// resetBmInstrumentOrderBook(instr);
-		// }
-		// processOrderMessage(msg);
-		// msg.setData(putBestAskToTheHeadOfList(msg.getData()));
-		//
-		// instr.setFirstSnapshotParsed(true);
-		// // this is the trigger for parser to start
-		// // processing every message
-		//
-		// prov.listenOrderOrTrade(msg);
-		// } else {//snapshot has not come yet
-		// return; // otherwise wait for partial
-		// }
-		// } else if (!msg.getTable().equals("execution")) {//1st snapshot
-		// parsed
-		// if (msg.getTable().equals("trade")) {//if trade not order
-		// // Log.info(str);
-		// processTradeMessage(msg);
-		// } else {//if order not trade
-		// processOrderMessage(msg);
-		// }
-		//
-		// prov.listenOrderOrTrade(msg);//for both trade or order
-		// }
-		// *******************END
 	}
 
 	/**
@@ -441,7 +159,8 @@ public class JsonParser {
 				if (msg.getAction().equals("update")) {
 					intPrice = pricesMap.get(unit.getId());
 				} else {// action is partial or insert
-					intPrice = createIntPrice(unit.getPrice(), instr.getTickSize());
+//					intPrice = createIntPrice(unit.getPrice(), instr.getTickSize());
+					intPrice = (int) Math.round(unit.getPrice()/instr.getTickSize());
 					pricesMap.put(unit.getId(), intPrice);
 				}
 			}
@@ -450,100 +169,20 @@ public class JsonParser {
 		}
 	}
 
-	// private void processOrderMessage(Message msg) {
-	// BmInstrument instr =
-	// activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
-	// OrderBook book = instr.getOrderBook();
-	//
-	// for (DataUnit unit : msg.getData()) {
-	// unit.setBid(unit.getSide().equals("Buy"));
-	// HashMap<Long, Integer> pricesMap = instr.getPricesMap();
-	// int intPrice;
-	//
-	// if (msg.getAction().equals("delete")) {
-	// intPrice = pricesMap.get(unit.getId());
-	// unit.setSize(0);
-	// } else {
-	// if (msg.getAction().equals("update")) {
-	// intPrice = pricesMap.get(unit.getId());
-	// } else {// action is partial or insert
-	// intPrice = createIntPrice(unit.getPrice(), instr.getTickSize());
-	// pricesMap.put(unit.getId(), intPrice);
-	// }
-	// }
-	// unit.setIntPrice(intPrice);
-	// book.onUpdate(unit.isBid(), intPrice, unit.getSize());
-	//
-	// //// tracking the last trade price
-	// // if(unit.getSide().equals("Buy")){
-	// // instr.setLastBuy(unit.getPrice());
-	// // } else {
-	// // instr.setLastSell(unit.getPrice());
-	// // }
-	// }
-	// }
+//	private int createIntPrice(double price, double tickSize) {
+//		int intPrice = (int) Math.round(price / tickSize);
+//		return intPrice;
+//	}
 
-	private int createIntPrice(double price, double tickSize) {
-		// BigDecimal pr = new BigDecimal(price, MathContext.DECIMAL32);
-		// BigDecimal ts = new BigDecimal(tickSize, MathContext.DECIMAL32);
-		// BigDecimal res = pr.divide(ts, 0, BigDecimal.ROUND_HALF_UP);
-		// int intPrice = res.intValue();
-
-		int intPrice = (int) Math.round(price / tickSize);
-		// Log.info(price + "=>" + intPrice);
-		return intPrice;
-	}
-
-	// private void processTradeMessage(MessageGeneric<DataUnit> msg) {
-	// BmInstrument instr =
-	// activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
-	//
-	// for (DataUnit unit : msg.getData()) {
-	// unit.setBid(unit.getSide().equals("Buy"));
-	// int intPrice = createIntPrice(unit.getPrice(), instr.getTickSize());
-	// unit.setIntPrice(intPrice);
-	// }
-	// }
 
 	private void processTradeUnit(BmTrade unit) {
 		unit.setBid(unit.getSide().equals("Buy"));
 		BmInstrument instr = activeInstrumentsMap.get(unit.getSymbol());
-		int intPrice = createIntPrice(unit.getPrice(), instr.getTickSize());
+//		int intPrice = createIntPrice(unit.getPrice(), instr.getTickSize());
+		int intPrice = (int) Math.round(unit.getPrice()/ instr.getTickSize());
 		unit.setIntPrice(intPrice);
 	}
 
-	// private void processTradeMessage(Message msg) {
-	// BmInstrument instr =
-	// activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
-	//
-	// for (DataUnit unit : msg.getData()) {
-	// unit.setBid(unit.getSide().equals("Buy"));
-	// int intPrice = createIntPrice(unit.getPrice(), instr.getTickSize());
-	// unit.setIntPrice(intPrice);
-	//
-	// }
-	// }
-
-	// private void processPositionMessage(MessagePosition msgPos) {
-	// // Log.info("EXEC MSG PROCESSED");
-	//
-	// for (Position pos : msgPos.data) {
-	// // BmInstrument instr = activeInstrumentsMap.get(order.getSymbol());
-	// // instr.getPositionQueue().add(order);
-	// prov.listenToPosition(pos);
-	// }
-	//
-	// // Log.info("EXEC MSG PROCESSED ADDED TO THE QUEUE");
-	// }
-
-	// private void processMarginMessage(MessageGeneric<Margin> msg0) {
-	// ArrayList<Margin> arr = (ArrayList<Margin>) msg0.getData();
-	// // LinkedTreeMap <Wallet> arr = msg0.getData();
-	//
-	// for (Margin marg : arr) {
-	// prov.listenToMargin((Margin) marg);
-	// }
-	// }
 
 	/**
 	 * resets orderBooks (both for Bookmap and for BmInstrument) after
@@ -582,10 +221,8 @@ public class JsonParser {
 		units.add(new DataUnit(symbol, bestAsk, false));
 		units.add(new DataUnit(symbol, bestBid, true));
 
-		// Message mess = new Message("orderBookL2", "delete", units);
 		MessageGeneric<DataUnit> mess = new MessageGeneric<>("orderBookL2", "delete", DataUnit.class, units);
 		prov.listenOrderOrTrade(mess);
-		// instr.getQueue().add(mess);
 	}
 
 	private void resetBmInstrumentOrderBook(BmInstrument instr) {
@@ -607,7 +244,7 @@ public class JsonParser {
 	private <T> void func(String str, TOPIC topic) {
 		TopicContainer container = ConnectorUtils.containers.get(topic);
 		Type type = container.unitType;
-		MessageGeneric<?> msg0 = gson.fromJson(str, type);
+		MessageGeneric<T> msg0 = gson.fromJson(str, type);
 
 		if (msg0.getAction().equals("partial")) {
 			nonInstrumentPartialsParsed.add(container.name);
@@ -618,7 +255,6 @@ public class JsonParser {
 			if (topic.equals(TOPIC.orderBookL2)) {
 				performOrderBookL2SpecificOpSetOne((MessageGeneric<DataUnit>) msg0);
 			}
-
 		}
 
 		if (nonInstrumentPartialsParsed.contains(container.name)) {
@@ -629,11 +265,8 @@ public class JsonParser {
 			}
 			
 			if (!units.isEmpty()) {
-				dispatchRawUnits(units, container.cls);
+				dispatchRawUnits(units, container.clazz);
 			}
-
-			
-			
 			if (topic.equals(TOPIC.order)) {
 				performOrderSpecificOp();
 			}
@@ -670,30 +303,23 @@ public class JsonParser {
 		}
 	}
 
-	public <T> void dispatchRawUnits(ArrayList<T> units, Class<T> cls) {
-
+	public <T> void dispatchRawUnits(ArrayList<T> units, Class<?> clazz) {
 		for (T unit : units) {
-			if (cls == Wallet.class) {
+			if (clazz == Wallet.class) {
 				prov.listenToWallet((Wallet) unit);
-			}
-			if (cls == Execution.class) {
+			} else if (clazz == Execution.class) {
 				prov.listenToExecution((Execution) unit);
-			}
-			if (cls == Margin.class) {
+			} else if (clazz == Margin.class) {
 				prov.listenToMargin((Margin) unit);
-			}
-			if (cls == Position.class) {
+			} else if (clazz == Position.class) {
 				prov.listenToPosition((Position) unit);
-			}
-			if (cls == BmOrder.class) {
+			} else if (clazz == BmOrder.class) {
 				prov.createBookmapOrder((BmOrder) unit);
-			}
-			if (cls == BmTrade.class) {
+			} else if (clazz == BmTrade.class) {
 				// specific
 				processTradeUnit((BmTrade) unit);
 				prov.listenOnTrade((BmTrade) unit);
-			}
-			if (cls == DataUnit.class) {
+			} else if (clazz == DataUnit.class) {
 				prov.listenOnOrderBookL2((DataUnit) unit);
 			}
 		}
