@@ -1,8 +1,5 @@
 package velox.api.layer0.live;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -11,22 +8,31 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.Iterator;
-
-import org.apache.commons.lang3.StringUtils;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
+import bitmexAdapter.BitmexConnector;
+import bitmexAdapter.BmInstrument;
+import bitmexAdapter.BmOrder;
+import bitmexAdapter.ConnectorUtils;
+import bitmexAdapter.DataUnit;
+import bitmexAdapter.Execution;
+import bitmexAdapter.JsonParser;
+import bitmexAdapter.Margin;
+import bitmexAdapter.Message;
+import bitmexAdapter.MessageGeneric;
+import bitmexAdapter.Position;
+import bitmexAdapter.RestAnswer;
+import bitmexAdapter.TradeConnector;
+import bitmexAdapter.Wallet;
 import velox.api.layer0.annotations.Layer0LiveModule;
 import velox.api.layer1.Layer1ApiAdminListener;
 import velox.api.layer1.Layer1ApiDataListener;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.data.BalanceInfo;
-import velox.api.layer1.data.BalanceInfo.BalanceInCurrency;
 import velox.api.layer1.data.ExecutionInfo;
 import velox.api.layer1.data.InstrumentInfo;
-import velox.api.layer1.data.InstrumentInfoCrypto;
 import velox.api.layer1.data.Layer1ApiProviderSupportedFeatures;
 import velox.api.layer1.data.Layer1ApiProviderSupportedFeaturesBuilder;
 import velox.api.layer1.data.LoginData;
@@ -46,23 +52,6 @@ import velox.api.layer1.data.StatusInfo;
 import velox.api.layer1.data.SystemTextMessageType;
 import velox.api.layer1.data.TradeInfo;
 import velox.api.layer1.data.UserPasswordDemoLoginData;
-import bitmexAdapter.Answer;
-import bitmexAdapter.BitmexConnector;
-import bitmexAdapter.DataUnit;
-import bitmexAdapter.Execution;
-import bitmexAdapter.JsonParser;
-import bitmexAdapter.Margin;
-import bitmexAdapter.Message;
-import bitmexAdapter.MessageGeneric;
-import bitmexAdapter.Position;
-import bitmexAdapter.RestAnswer;
-import bitmexAdapter.TradeConnector;
-import bitmexAdapter.TradeConnector.Method;
-import bitmexAdapter.Wallet;
-import sun.rmi.transport.tcp.TCPConnection;
-import bitmexAdapter.BmInstrument;
-import bitmexAdapter.BmOrder;
-import bitmexAdapter.ConnectorUtils;
 
 @Layer0LiveModule
 public class Provider extends ExternalLiveBaseProvider {
