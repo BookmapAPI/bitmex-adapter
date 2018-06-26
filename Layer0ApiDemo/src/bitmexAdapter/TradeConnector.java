@@ -88,7 +88,7 @@ public class TradeConnector {
 		order, orderBulk, orderAll, instrument, execution, position;
 	}
 
-	private static final long requestTimeToLive = 1000000;
+	private static final long requestTimeToLive = 86400000;
 	private String orderApiKey;
 	private String orderApiSecret;
 	public Provider prov;
@@ -664,6 +664,8 @@ public class TradeConnector {
 			throws InvalidKeyException, NoSuchAlgorithmException {
 
 		String subPath = subPaths.get(genType);
+		Log.info("TRCONN PATH: " + prov.connector.restApi);
+		Log.info("TRCONN subPath: " + subPath);
 //		String path = this.restApi + subPath;
 		String path = prov.connector.restApi + subPath;
 		long moment = getMoment();
@@ -688,8 +690,9 @@ public class TradeConnector {
 			// subPath, data, moment);
 			// String signature = this.generateSignature(orderApiSecret,
 			// messageBody);
-			// Log.info("TRCONN SIGNATURE:" + signature);
-			// Log.info("TRCONN MOMENT:" + moment);
+			 Log.info("TRCONN SIGNATURE: " + signature);
+			 Log.info("TRCONN MOMENT: " + moment);
+			 Log.info("TRCONN API KEY: " + orderApiKey);
 
 			conn.setRequestMethod(methods.get(method));
 
@@ -703,7 +706,7 @@ public class TradeConnector {
 			conn.setRequestProperty("api-key", orderApiKey);// **************************
 			conn.setRequestProperty("api-signature", signature);
 			conn.setRequestProperty("Content-Length", Integer.toString(data.getBytes("UTF-8").length));
-			// System.out.println(Integer.toString(data.getBytes("UTF-8").length));
+			Log.info("TRCONN CONT LEN: " + Integer.toString(data.getBytes("UTF-8").length));
 
 			OutputStream os = conn.getOutputStream();
 			OutputStreamWriter osw = new OutputStreamWriter(os, "UTF-8");
