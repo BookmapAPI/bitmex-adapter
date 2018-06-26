@@ -48,42 +48,6 @@ public class TradeConnector {
 
 	private static final Gson gson = new GsonBuilder().create();
 
-	// public enum orderParams {
-	// symbol, side, simpleOrderQty, orderQty, price, displayQty, stopPx,
-	// clOrdID, clOrdLinkID, pegOffsetValue, pegPriceType, ordType, timeInForce,
-	// execInst, contingencyType, text;
-	// }
-	//
-	// // Defaults to 'Limit' when price is specified.
-	// // Defaults to 'Stop' when stopPx is specified.
-	// // Defaults to 'StopLimit' when price and stopPx are specified.
-	// public enum paramOrdType {
-	// Market, Limit, Stop, StopLimit, MarketIfTouched, LimitIfTouched,
-	// MarketWithLeftOverAsLimit, Pegged;
-	// }
-	//
-	// public enum paramSide {
-	// Buy, Sell;
-	// }
-	//
-	// public enum paramPegPriceType {
-	// LastPeg, MidPricePeg, MarketPeg, PrimaryPeg, TrailingStopPeg;
-	// }
-
-	// public final String orderApiKey = "PLc0jF_9Jh2-gYU6ye-6BS4q";
-	// public final String orderApiSecret =
-	// "xyMWpfSlONCWCwrntm0GotQN42ia291Vv2aWANlp-f0Kb5-I";
-
-	// final String apiKey = "9lB3AlKaGCM3_ea1Y6-U6Hcd";
-	// final String apiSecret =
-	// "TagdIwfBWp8YuMbZfocdaVtEO9qoIZla37BCsp3fWAhimLoq";
-	// String restApi = "https://www.bitmex.com";
-	// public final String restApi = "https://testnet.bitmex.com";
-//	public final String restApi = "https://testnet.bitmex.com";
-
-	// private Map<String, TradeConnector.Key> keys = new HashMap<String,
-	// TradeConnector.Key>();
-
 	public enum GeneralType {
 		order, orderBulk, orderAll, instrument, execution, position;
 	}
@@ -117,35 +81,6 @@ public class TradeConnector {
 		methods.put(Method.PUT, "PUT");
 		methods.put(Method.DELETE, "DELETE");
 	}
-
-	// public class Key {
-	// private final String apiKey;
-	// private final String apiSecretKey;
-	//
-	// public Key(String apiKey, String apiSecretKey) {
-	// super();
-	// this.apiKey = apiKey;
-	// this.apiSecretKey = apiSecretKey;
-	// }
-	//
-	// public String getApiKey() {
-	// Log.info("TR CONN - APIKEY REQUESTED");
-	// return apiKey;
-	// }
-	//
-	// public String getApiSecretKey() {
-	// Log.info("TR CONN - APISECRET REQUESTED");
-	// return apiSecretKey;
-	// }
-	// }
-	//
-	// public void setKeys(Map<String, TradeConnector.Key> keys) {
-	// this.keys = keys;
-	// }
-	//
-	// public Map<String, TradeConnector.Key> getKeys() {
-	// return keys;
-	// }
 
 	public String getOrderApiKey() {
 		Log.info("TR CONN  - APIKEY REQUESTED");
@@ -188,15 +123,18 @@ public class TradeConnector {
 		return messageBody;
 	}
 
-	public static String generateSignature(String apiSecret, String messageBody)
-			throws NoSuchAlgorithmException, InvalidKeyException {
-		Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
-		SecretKeySpec secretKey = new SecretKeySpec(apiSecret.getBytes(), "HmacSHA256");
-		sha256_HMAC.init(secretKey);
-		byte[] hash = sha256_HMAC.doFinal(messageBody.getBytes());
-		String check = Hex.encodeHexString(hash);
-		// System.out.println("signature\t" + check);
-		return check;
+	public static String generateSignature(String apiSecret, String messageBody) {
+		try {
+			Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
+			SecretKeySpec secretKey = new SecretKeySpec(apiSecret.getBytes(), "HmacSHA256");
+			sha256_HMAC.init(secretKey);
+			byte[] hash = sha256_HMAC.doFinal(messageBody.getBytes());
+			String check = Hex.encodeHexString(hash);
+			// System.out.println("signature\t" + check);
+			return check;
+		} catch (NoSuchAlgorithmException | InvalidKeyException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 	public String get(String address, String key, String signature, long moment, String data) {
@@ -427,29 +365,12 @@ public class TradeConnector {
 		// return data;
 	}
 
-	public void createSendDataArray() {
 
-	}
 
-	public void processNewOrder(String data) {
-
-		try {
-			String res = require(GeneralType.order, Method.POST, data);
-			Log.info(res);
-		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
-			throw new RuntimeException();
-		}
-	}
-
-	public void processNewOrderBulk(String data) {
-
-		try {
-			String res = require(GeneralType.orderBulk, Method.POST, data);
-			Log.info(res);
-		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
-			throw new RuntimeException();
-		}
-	}
+//	public void processNewOrderBulk(String data) {
+//		String res = require(GeneralType.orderBulk, Method.POST, data);
+//		Log.info(res);
+//	}
 
 	public BmOrder cancelOrder(String orderId) {
 
@@ -457,42 +378,28 @@ public class TradeConnector {
 		json.addProperty("orderID", orderId);
 		String data = json.toString();
 
-		try {
-			String res = require(GeneralType.order, Method.DELETE, data);
-			Log.info(res);
-			// BmOrder[] cancelledOrders = JsonParser.getArrayFromJson(res,
-			// BmOrder[].class);
-			// return cancelledOrders[0];
-		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
-			e.printStackTrace();
-		}
-		return null;
+		String res = require(GeneralType.order, Method.DELETE, data);
+		Log.info(res);
+		// BmOrder[] cancelledOrders = JsonParser.getArrayFromJson(res,
+		// BmOrder[].class);
+		// return cancelledOrders[0];
+
+		return null; // ?????????????
 	}
 
 	public void cancelOrder(List<String> orderIds) {
 
-		//// String data = "orderID=";
-		//// for (String id : orderIds){
-		//// data += id + ",";
-		//// }
 		StringBuilder sb = new StringBuilder("");
 		sb.append("orderID=");
 		for (String orderId : orderIds) {
 			sb.append(orderId).append(",");
 		}
 		sb.setLength(sb.length() - 1);
-		//
 
-		// String data1 =
-		// "orderID=83139d2a-f419-1523-9cd9-a74be0af490b,2ab63ecb-1898-ee52-8849-44564654acd0";
 		String data1 = sb.toString();
 
 		Log.info("TR CONN - CANCEL ALL " + data1);
-		try {
-			require0(GeneralType.order, Method.DELETE, data1);
-		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
-			e.printStackTrace();
-		}
+		require(GeneralType.order, Method.DELETE, data1, true);
 
 	}
 
@@ -504,11 +411,8 @@ public class TradeConnector {
 		// json.addProperty("simpleOrderQty", orderQty);
 		String data = json.toString();
 
-		try {
-			require(GeneralType.order, Method.PUT, data);
-		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
-			e.printStackTrace();
-		}
+		require(GeneralType.order, Method.PUT, data);
+
 	}
 
 	public void resizeOrder(List<String> orderIds, long orderQty) {
@@ -527,11 +431,8 @@ public class TradeConnector {
 		String data1 = "orders=" + data;
 
 		Log.info("TR CONN - RESIZE BULK " + data1);
-		try {
-			require(GeneralType.orderBulk, Method.PUT, data1);
-		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
-			e.printStackTrace();
-		}
+
+		require(GeneralType.orderBulk, Method.PUT, data1);
 
 	}
 
@@ -543,14 +444,10 @@ public class TradeConnector {
 		// json.addProperty("simpleOrderQty", orderQty);
 		String data = json.toString();
 
-		try {
-			String res = require(GeneralType.order, Method.PUT, data);
-			Log.info(res);
-			return (BmOrder) gson.fromJson(res, BmOrder.class);
-		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
-			e.printStackTrace();
-		}
-		return null;
+		String res = require(GeneralType.order, Method.PUT, data);
+		Log.info(res);
+		return (BmOrder) gson.fromJson(res, BmOrder.class);
+
 	}
 
 	public void resizePartiallyFilledOrder(List<String> orderIds, long orderQty) {
@@ -569,49 +466,10 @@ public class TradeConnector {
 		String data1 = "orders=" + data;
 
 		Log.info("TR CONN - RESIZE BULK " + data1);
-		try {
-			require(GeneralType.orderBulk, Method.PUT, data1);
-		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
-			e.printStackTrace();
-		}
+		require(GeneralType.orderBulk, Method.PUT, data1);
 
 	}
 
-	// public void moveOrder(OrderMoveParameters params, boolean
-	// isStopTriggered) {
-	// // public void moveOrder(String orderId, OrderMoveParameters params) {
-	// OrderType orderType = OrderType.getTypeFromPrices(params.stopPrice,
-	// params.limitPrice);
-	// JsonObject json = new JsonObject();
-	// json.addProperty("orderID", params.orderId);
-	// if (orderType == OrderType.LMT) {
-	// // json.addProperty("ordType", "Limit");
-	// json.addProperty("price", params.limitPrice);
-	// } else if (orderType == OrderType.STP) {// StopMarket
-	// // json.addProperty("ordType", "Stop");
-	// json.addProperty("stopPx", params.stopPrice);
-	// } else if (orderType == OrderType.STP_LMT) {
-	// // json.addProperty("ordType", "StopLimit");
-	// if (!isStopTriggered) {
-	// json.addProperty("stopPx", params.stopPrice);
-	// }
-	// json.addProperty("price", params.limitPrice);
-	// }
-	//
-	// // JsonObject json = new JsonObject();
-	// // json.addProperty("orderID", orderId);
-	// // json.addProperty("price", price);
-	// String data = json.toString();
-	//
-	// try {
-	// String res = require(GeneralType.order, Method.PUT, data);
-	// Log.info(res);
-	// // return (BmOrder) gson.fromJson(res, BmOrder.class);
-	// } catch (InvalidKeyException | NoSuchAlgorithmException e) {
-	// e.printStackTrace();
-	// }
-	// // return null;
-	// }
 	public JsonObject moveOrderJson(OrderMoveParameters params, boolean isStopTriggered) {
 		// public void moveOrder(String orderId, OrderMoveParameters params) {
 		OrderType orderType = OrderType.getTypeFromPrices(params.stopPrice, params.limitPrice);
@@ -641,36 +499,32 @@ public class TradeConnector {
 	}
 
 	public void moveOrder(String data) {
-		try {
-			String res = require(GeneralType.order, Method.PUT, data);
-			Log.info(res);
-			// return (BmOrder) gson.fromJson(res, BmOrder.class);
-		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
-			e.printStackTrace();
-		}
+
+		String res = require(GeneralType.order, Method.PUT, data);
+		Log.info(res);
+		// return (BmOrder) gson.fromJson(res, BmOrder.class);
 	}
 
 	public void moveOrderBulk(String data) {
-		try {
-			String res = require(GeneralType.orderBulk, Method.PUT, data);
-			Log.info(res);
-			// return (BmOrder) gson.fromJson(res, BmOrder.class);
-		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
-			e.printStackTrace();
-		}
+
+		String res = require(GeneralType.orderBulk, Method.PUT, data);
+		Log.info(res);
+		// return (BmOrder) gson.fromJson(res, BmOrder.class);
+
 	}
 
-	public String require(GeneralType genType, Method method, String data)
-			throws InvalidKeyException, NoSuchAlgorithmException {
+	public String require(GeneralType genType, Method method, String data) {
+		return require(genType, method, data, false);
+	}
 
+	public String require(GeneralType genType, Method method, String data, boolean isOrderListBeingCanceled) {
 		String subPath = subPaths.get(genType);
 		Log.info("TRCONN PATH: " + prov.connector.restApi);
 		Log.info("TRCONN subPath: " + subPath);
-//		String path = this.restApi + subPath;
 		String path = prov.connector.restApi + subPath;
 		long moment = getMoment();
 
-		String response = null;
+		// String response = null;
 
 		try {
 			URL url = new URL(path);
@@ -686,21 +540,17 @@ public class TradeConnector {
 
 			String messageBody = createMessageBody(methods.get(method), subPath, data, moment);
 			String signature = generateSignature(orderApiSecret, messageBody);
-			// String messageBody = this.createMessageBody(methods.get(method),
-			// subPath, data, moment);
-			// String signature = this.generateSignature(orderApiSecret,
-			// messageBody);
-			 Log.info("TRCONN SIGNATURE: " + signature);
-			 Log.info("TRCONN MOMENT: " + moment);
-			 Log.info("TRCONN API KEY: " + orderApiKey);
+
+			Log.info("TRCONN SIGNATURE: " + signature);
+			Log.info("TRCONN MOMENT: " + moment);
+			Log.info("TRCONN API KEY: " + orderApiKey);
 
 			conn.setRequestMethod(methods.get(method));
 
-			if (genType.equals(GeneralType.orderBulk)) {
-				conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-			} else {
-				conn.setRequestProperty("Content-Type", "application/json");
-			}
+			String contentType = genType.equals(GeneralType.orderBulk) || isOrderListBeingCanceled
+					? "application/x-www-form-urlencoded" : "application/json";
+
+			conn.setRequestProperty("Content-Type", contentType);
 			conn.setRequestProperty("Accept", "application/json");
 			conn.setRequestProperty("api-expires", Long.toString(moment));
 			conn.setRequestProperty("api-key", orderApiKey);// **************************
@@ -714,26 +564,9 @@ public class TradeConnector {
 			osw.flush();
 			osw.close();
 
-			// BufferedWriter out =
-			// new BufferedWriter(new
-			// OutputStreamWriter(conn.getOutputStream()));
-			// out.write(json.toString());
-			// out.close();
-
 			Log.info("TR CONN : require : " + path + "\t" + data);
 
-			if (conn.getResponseCode() == 200) {
-
-				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
-				StringBuilder sb = new StringBuilder("");
-				String output = null;
-
-				while ((output = br.readLine()) != null) {
-					sb.append(output);
-				}
-				conn.disconnect();
-				response = sb.toString();
-			} else {
+			if (conn.getResponseCode() != 200) {
 				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getErrorStream())));
 				StringBuilder sb = new StringBuilder("");
 				String output = null;
@@ -744,20 +577,8 @@ public class TradeConnector {
 
 				Log.info("TR CONN * REQUIRE ASNWER " + sb.toString());
 
-				String test = Provider.testReponseForError(sb.toString());
-				if (test != null) {
-					prov.adminListeners.forEach(l -> l.onSystemTextMessage(test,
-							// adminListeners.forEach(l ->
-							// l.onSystemTextMessage("This
-							// provider only supports limit orders",
-							SystemTextMessageType.UNCLASSIFIED));
-
-					for (OrderInfoBuilder builder : prov.pendingOrders) {
-						prov.rejectOrder(builder, test);
-					}
-					prov.pendingOrders.clear();
-				}
-
+				String resp = Provider.testReponseForError(sb.toString());
+				return resp;
 			}
 		} catch (UnknownHostException | NoRouteToHostException e) {
 			// Log.info("NO RESPONSE FROM SERVER");
@@ -767,114 +588,7 @@ public class TradeConnector {
 			// Log.debug("BUFFER READING ERROR");
 			e.printStackTrace();
 		}
-		return response;
-	}
-
-	public String require0(GeneralType genType, Method method, String data)
-			throws InvalidKeyException, NoSuchAlgorithmException {
-
-		String subPath = subPaths.get(genType);
-//		String path = this.restApi + subPath;
-		String path = prov.connector.restApi + subPath;
-		long moment = getMoment();
-
-		String response = null;
-
-		try {
-			URL url = new URL(path);
-			HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
-
-			if (!method.equals(Method.GET)) {
-				// if (method.equals(Method.POST) || method.equals(Method.PUT)){
-				conn.setDoOutput(true);
-			}
-
-			// !!!!!!!!!1 КОСТЫЛЬ
-			conn.setDoOutput(true);
-
-			String messageBody = createMessageBody(methods.get(method), subPath, data, moment);
-			String signature = generateSignature(orderApiSecret, messageBody);
-			// String messageBody = this.createMessageBody(methods.get(method),
-			// subPath, data, moment);
-			// String signature = this.generateSignature(orderApiSecret,
-			// messageBody);
-			// Log.info("TRCONN SIGNATURE:" + signature);
-			// Log.info("TRCONN MOMENT:" + moment);
-
-			conn.setRequestMethod(methods.get(method));
-
-			// if (genType.equals(GeneralType.orderBulk)) {
-			conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-			// } else {
-			// conn.setRequestProperty("Content-Type", "application/json");
-			// }
-			conn.setRequestProperty("Accept", "application/json");
-			conn.setRequestProperty("api-expires", Long.toString(moment));
-			conn.setRequestProperty("api-key", orderApiKey);// **************************
-			conn.setRequestProperty("api-signature", signature);
-			conn.setRequestProperty("Content-Length", Integer.toString(data.getBytes("UTF-8").length));
-			// System.out.println(Integer.toString(data.getBytes("UTF-8").length));
-
-			OutputStream os = conn.getOutputStream();
-			OutputStreamWriter osw = new OutputStreamWriter(os, "UTF-8");
-			osw.write(data);
-			osw.flush();
-			osw.close();
-
-			// BufferedWriter out =
-			// new BufferedWriter(new
-			// OutputStreamWriter(conn.getOutputStream()));
-			// out.write(json.toString());
-			// out.close();
-
-			Log.info("TR CONN : require : " + path + "\t" + data);
-
-			if (conn.getResponseCode() == 200) {
-
-				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
-				StringBuilder sb = new StringBuilder("");
-				String output = null;
-
-				while ((output = br.readLine()) != null) {
-					sb.append(output);
-				}
-				conn.disconnect();
-				response = sb.toString();
-			} else {
-				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getErrorStream())));
-				StringBuilder sb = new StringBuilder("");
-				String output = null;
-
-				while ((output = br.readLine()) != null) {
-					sb.append(output);
-				}
-
-				System.out.println(sb.toString());
-				Log.info("TR CONN * REQUIRE ASNWER " + sb.toString());
-
-				String test = Provider.testReponseForError(sb.toString());
-				if (test != null) {
-					prov.adminListeners.forEach(l -> l.onSystemTextMessage(test,
-							// adminListeners.forEach(l ->
-							// l.onSystemTextMessage("This
-							// provider only supports limit orders",
-							SystemTextMessageType.UNCLASSIFIED));
-
-					for (OrderInfoBuilder builder : prov.pendingOrders) {
-						prov.rejectOrder(builder, test);
-					}
-					prov.pendingOrders.clear();
-				}
-			}
-		} catch (UnknownHostException | NoRouteToHostException e) {
-			// Log.info("NO RESPONSE FROM SERVER");
-		} catch (java.net.SocketException e) {
-			// Log.info("NETWORK IS UNREACHABLE");
-		} catch (IOException e) {
-			// Log.debug("BUFFER READING ERROR");
-			e.printStackTrace();
-		}
-		return response;
+		return null;
 	}
 
 }

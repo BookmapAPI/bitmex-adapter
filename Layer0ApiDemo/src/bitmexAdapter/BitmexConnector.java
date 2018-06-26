@@ -359,8 +359,8 @@ public class BitmexConnector implements Runnable {
 		String addr = "/api/v1/execution?symbol=" + symbol
 				+ "&filter=%7B%22ordStatus%22%3A%22Filled%22%7D&count=100&reverse=false&startTime=" + z;
 		String sign;
-		try {
-			sign = TradeConnector.generateSignature(connr.getOrderApiSecret(),
+
+		sign = TradeConnector.generateSignature(connr.getOrderApiSecret(),
 					TradeConnector.createMessageBody("GET", addr, data1, moment));
 			
 			
@@ -384,9 +384,7 @@ public class BitmexConnector implements Runnable {
 			}
 
 			System.out.println("=> " + st0);
-		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
-			e.printStackTrace();
-		}
+	
 
 		return sum;
 	}

@@ -52,7 +52,7 @@ public class JsonParser {
 	}
 
 	public void parse(String str) {
-		// Log.info("PARSER STR => " + str);
+//		 Log.info("PARSER STR => " + str);
 		// first let's find out what kind of object we have here
 		Answer answ = (Answer) gson.fromJson(str, Answer.class);
 		// Log.info("PARSER ANSW Error " + answ.getError());
@@ -269,10 +269,12 @@ public class JsonParser {
 			}
 			if (topic.equals(TOPIC.order)) {
 				performOrderSpecificOp();
+				Log.info("PARSER WS ORD " + str);
 			}
 			if (topic.equals(TOPIC.execution)) {
 				Log.info("PARSER WS EXEC " + str);
 			}
+
 		}
 		return;
 	}
@@ -304,6 +306,7 @@ public class JsonParser {
 	}
 
 	public <T> void dispatchRawUnits(ArrayList<T> units, Class<?> clazz) {
+//		Log.info("PARSER DISPATCH NEXT");
 		for (T unit : units) {
 			if (clazz == Wallet.class) {
 				prov.listenToWallet((Wallet) unit);
@@ -314,6 +317,8 @@ public class JsonParser {
 			} else if (clazz == Position.class) {
 				prov.listenToPosition((Position) unit);
 			} else if (clazz == BmOrder.class) {
+				BmOrder ord = (BmOrder) unit;
+				Log.info("PARSER DISPATCH ORD ID " + ord.getOrderID());
 				prov.createBookmapOrder((BmOrder) unit);
 			} else if (clazz == BmTrade.class) {
 				// specific
