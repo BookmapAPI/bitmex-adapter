@@ -1,24 +1,20 @@
 package bitmexAdapter;
 
-import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 
-import quickfix.RuntimeError;
+import bitmexAdapter.ConnectorUtils.Topic;
 import velox.api.layer0.live.Provider;
-import bitmexAdapter.ConnectorUtils;
-import bitmexAdapter.Answer.Container;
-import bitmexAdapter.ConnectorUtils.TOPIC;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.layers.utils.OrderBook;
 
@@ -106,8 +102,8 @@ public class JsonParser {
 		}
 
 		if (ConnectorUtils.stringToTopic.keySet().contains(msg.getTable())) {
-			TOPIC topic = ConnectorUtils.stringToTopic.get(msg.getTable());
-			func(str, topic);
+			Topic Topic = ConnectorUtils.stringToTopic.get(msg.getTable());
+			func(str, Topic);
 
 		}
 	}
@@ -241,7 +237,7 @@ public class JsonParser {
 	}
 
 	@SuppressWarnings("unchecked")
-	private <T> void func(String str, TOPIC topic) {
+	private <T> void func(String str, Topic topic) {
 		TopicContainer container = ConnectorUtils.containers.get(topic);
 		Type type = container.unitType;
 		MessageGeneric<T> msg0 = gson.fromJson(str, type);
@@ -252,7 +248,7 @@ public class JsonParser {
 				Log.info("PARSER SKIPS (DATA == [] ) " + str);
 				return;
 			}
-			if (topic.equals(TOPIC.orderBookL2)) {
+			if (topic.equals(Topic.ORDERBOOKL2)) {
 				performOrderBookL2SpecificOpSetOne((MessageGeneric<DataUnit>) msg0);
 			}
 		}
@@ -260,18 +256,18 @@ public class JsonParser {
 		if (nonInstrumentPartialsParsed.contains(container.name)) {
 			ArrayList<T> units = (ArrayList<T>) msg0.getData();
 
-			if (topic.equals(TOPIC.orderBookL2) && !units.isEmpty()) {
+			if (topic.equals(Topic.ORDERBOOKL2) && !units.isEmpty()) {
 				performOrderBookL2SpecificOpSetTwo((MessageGeneric<DataUnit>) msg0);
 			}
 			
 			if (!units.isEmpty()) {
 				dispatchRawUnits(units, container.clazz);
 			}
-			if (topic.equals(TOPIC.order)) {
+			if (topic.equals(Topic.ORDER)) {
 				performOrderSpecificOp();
 				Log.info("PARSER WS ORD " + str);
 			}
-			if (topic.equals(TOPIC.execution)) {
+			if (topic.equals(Topic.EXECUTION)) {
 				Log.info("PARSER WS EXEC " + str);
 			}
 
@@ -282,7 +278,7 @@ public class JsonParser {
 	private void performOrderSpecificOp() {
 		nonInstrumentPartialsParsed.remove("order");
 		// we need only the snapshot.
-		// the rest of info comes from execution topic.
+		// the rest of info comes from execution Topic.
 		// it will be a good idea to get unsubscribed from orders
 		// right at this point.
 	}

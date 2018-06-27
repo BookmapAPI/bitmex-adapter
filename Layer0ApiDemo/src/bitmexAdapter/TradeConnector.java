@@ -1,86 +1,47 @@
 package bitmexAdapter;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.io.UnsupportedEncodingException;
-import java.net.HttpURLConnection;
 import java.net.NoRouteToHostException;
 import java.net.URL;
 import java.net.UnknownHostException;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.EnumMap;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.HttpsURLConnection;
-import javax.xml.bind.DatatypeConverter;
 
 import org.apache.commons.codec.binary.Hex;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
-import bitmexAdapter.TradeConnector.GeneralType;
-import bitmexAdapter.TradeConnector.Method;
-import quickfix.RuntimeError;
+import bitmexAdapter.ConnectorUtils.GeneralType;
+import bitmexAdapter.ConnectorUtils.Method;
 import velox.api.layer0.live.Provider;
 import velox.api.layer1.common.Log;
-import velox.api.layer1.data.OrderInfoBuilder;
 import velox.api.layer1.data.OrderMoveParameters;
 import velox.api.layer1.data.OrderType;
 import velox.api.layer1.data.SimpleOrderSendParameters;
-import velox.api.layer1.data.SystemTextMessageType;
 
 public class TradeConnector {
 
-	private static final Gson gson = new GsonBuilder().create();
 
-	public enum GeneralType {
-		order, orderBulk, orderAll, instrument, execution, position;
-	}
 
-	private static final long requestTimeToLive = 86400000;
+
 	private String orderApiKey;
 	private String orderApiSecret;
 	public Provider prov;
 
-	private EnumMap<GeneralType, String> subPaths = new EnumMap<GeneralType, String>(GeneralType.class);
-	{
-		subPaths.put(GeneralType.order, "/api/v1/order");
-		subPaths.put(GeneralType.orderBulk, "/api/v1/order/bulk");
-		subPaths.put(GeneralType.orderAll, "/api/v1/order/all"); // for
-																	// canceling
-																	// orders
-																	// only
-		subPaths.put(GeneralType.instrument, "/api/v1/instrument");
-		subPaths.put(GeneralType.execution, "/api/v1/execution");
-		subPaths.put(GeneralType.position, "/api/v1/position");
-	}
+	
 
-	public enum Method {
-		GET, PUT, POST, DELETE;
-	}
-
-	private EnumMap<Method, String> methods = new EnumMap<Method, String>(Method.class);
-	{
-		methods.put(Method.GET, "GET");
-		methods.put(Method.POST, "POST");
-		methods.put(Method.PUT, "PUT");
-		methods.put(Method.DELETE, "DELETE");
-	}
+	
 
 	public String getOrderApiKey() {
 		Log.info("TR CONN  - APIKEY REQUESTED");
@@ -100,42 +61,7 @@ public class TradeConnector {
 		this.orderApiSecret = orderApiSecret;
 	}
 
-	public static long getMoment() {
-		return System.currentTimeMillis() + requestTimeToLive;
-	}
 
-	public static String hash256(String data) throws NoSuchAlgorithmException {
-		MessageDigest md = MessageDigest.getInstance("SHA-256");
-		md.update(data.getBytes());
-		return bytesToHex(md.digest());
-	}
-
-	public static String bytesToHex(byte[] bytes) {
-		StringBuffer result = new StringBuffer();
-		for (byte byt : bytes)
-			result.append(Integer.toString((byt & 0xff) + 0x100, 16).substring(1));
-		return result.toString();
-	}
-
-	public static String createMessageBody(String method, String path, String data, long moment) {
-		String messageBody = method + path + Long.toString(moment) + data;
-		// System.out.println("messageBody\t" + messageBody);
-		return messageBody;
-	}
-
-	public static String generateSignature(String apiSecret, String messageBody) {
-		try {
-			Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
-			SecretKeySpec secretKey = new SecretKeySpec(apiSecret.getBytes(), "HmacSHA256");
-			sha256_HMAC.init(secretKey);
-			byte[] hash = sha256_HMAC.doFinal(messageBody.getBytes());
-			String check = Hex.encodeHexString(hash);
-			// System.out.println("signature\t" + check);
-			return check;
-		} catch (NoSuchAlgorithmException | InvalidKeyException e) {
-			throw new RuntimeException(e);
-		}
-	}
 
 	public String get(String address, String key, String signature, long moment, String data) {
 		String response = null;
@@ -378,7 +304,7 @@ public class TradeConnector {
 		json.addProperty("orderID", orderId);
 		String data = json.toString();
 
-		String res = require(GeneralType.order, Method.DELETE, data);
+		String res = require(GeneralType.ORDER, Method.DELETE, data);
 		Log.info(res);
 		// BmOrder[] cancelledOrders = JsonParser.getArrayFromJson(res,
 		// BmOrder[].class);
@@ -399,7 +325,7 @@ public class TradeConnector {
 		String data1 = sb.toString();
 
 		Log.info("TR CONN - CANCEL ALL " + data1);
-		require(GeneralType.order, Method.DELETE, data1, true);
+		require(GeneralType.ORDER, Method.DELETE, data1, true);
 
 	}
 
@@ -411,7 +337,7 @@ public class TradeConnector {
 		// json.addProperty("simpleOrderQty", orderQty);
 		String data = json.toString();
 
-		require(GeneralType.order, Method.PUT, data);
+		require(GeneralType.ORDER, Method.PUT, data);
 
 	}
 
@@ -432,11 +358,11 @@ public class TradeConnector {
 
 		Log.info("TR CONN - RESIZE BULK " + data1);
 
-		require(GeneralType.orderBulk, Method.PUT, data1);
+		require(GeneralType.ORDERBULK, Method.PUT, data1);
 
 	}
 
-	public BmOrder resizePartiallyFilledOrder(String orderId, long orderQty) {
+	public void resizePartiallyFilledOrder(String orderId, long orderQty) {
 
 		JsonObject json = new JsonObject();
 		json.addProperty("orderID", orderId);
@@ -444,9 +370,8 @@ public class TradeConnector {
 		// json.addProperty("simpleOrderQty", orderQty);
 		String data = json.toString();
 
-		String res = require(GeneralType.order, Method.PUT, data);
+		String res = require(GeneralType.ORDER, Method.PUT, data);
 		Log.info(res);
-		return (BmOrder) gson.fromJson(res, BmOrder.class);
 
 	}
 
@@ -466,7 +391,7 @@ public class TradeConnector {
 		String data1 = "orders=" + data;
 
 		Log.info("TR CONN - RESIZE BULK " + data1);
-		require(GeneralType.orderBulk, Method.PUT, data1);
+		require(GeneralType.ORDERBULK, Method.PUT, data1);
 
 	}
 
@@ -500,14 +425,14 @@ public class TradeConnector {
 
 	public void moveOrder(String data) {
 
-		String res = require(GeneralType.order, Method.PUT, data);
+		String res = require(GeneralType.ORDER, Method.PUT, data);
 		Log.info(res);
 		// return (BmOrder) gson.fromJson(res, BmOrder.class);
 	}
 
 	public void moveOrderBulk(String data) {
 
-		String res = require(GeneralType.orderBulk, Method.PUT, data);
+		String res = require(GeneralType.ORDERBULK, Method.PUT, data);
 		Log.info(res);
 		// return (BmOrder) gson.fromJson(res, BmOrder.class);
 
@@ -518,11 +443,11 @@ public class TradeConnector {
 	}
 
 	public String require(GeneralType genType, Method method, String data, boolean isOrderListBeingCanceled) {
-		String subPath = subPaths.get(genType);
+		String subPath = ConnectorUtils.subPaths.get(genType);
 		Log.info("TRCONN PATH: " + prov.connector.restApi);
 		Log.info("TRCONN subPath: " + subPath);
 		String path = prov.connector.restApi + subPath;
-		long moment = getMoment();
+		long moment = ConnectorUtils.getMomentAndTimeToLive();
 
 		// String response = null;
 
@@ -538,16 +463,16 @@ public class TradeConnector {
 			// !!!!!!!!!1 КОСТЫЛЬ
 			conn.setDoOutput(true);
 
-			String messageBody = createMessageBody(methods.get(method), subPath, data, moment);
-			String signature = generateSignature(orderApiSecret, messageBody);
+			String messageBody = ConnectorUtils.createMessageBody(ConnectorUtils.methods.get(method), subPath, data, moment);
+			String signature = ConnectorUtils.generateSignature(orderApiSecret, messageBody);
 
 			Log.info("TRCONN SIGNATURE: " + signature);
 			Log.info("TRCONN MOMENT: " + moment);
 			Log.info("TRCONN API KEY: " + orderApiKey);
 
-			conn.setRequestMethod(methods.get(method));
+			conn.setRequestMethod(ConnectorUtils.methods.get(method));
 
-			String contentType = genType.equals(GeneralType.orderBulk) || isOrderListBeingCanceled
+			String contentType = genType.equals(GeneralType.ORDERBULK) || isOrderListBeingCanceled
 					? "application/x-www-form-urlencoded" : "application/json";
 
 			conn.setRequestProperty("Content-Type", contentType);

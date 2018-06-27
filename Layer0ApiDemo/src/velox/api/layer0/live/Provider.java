@@ -2,13 +2,10 @@ package velox.api.layer0.live;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 
@@ -19,6 +16,7 @@ import bitmexAdapter.BitmexConnector;
 import bitmexAdapter.BmInstrument;
 import bitmexAdapter.BmOrder;
 import bitmexAdapter.ConnectorUtils;
+import bitmexAdapter.ConnectorUtils.GeneralType;
 import bitmexAdapter.DataUnit;
 import bitmexAdapter.Execution;
 import bitmexAdapter.JsonParser;
@@ -28,9 +26,8 @@ import bitmexAdapter.MessageGeneric;
 import bitmexAdapter.Position;
 import bitmexAdapter.RestAnswer;
 import bitmexAdapter.TradeConnector;
+import bitmexAdapter.ConnectorUtils.Method;
 import bitmexAdapter.Wallet;
-import bitmexAdapter.TradeConnector.GeneralType;
-import bitmexAdapter.TradeConnector.Method;
 import velox.api.layer0.annotations.Layer0LiveModule;
 import velox.api.layer1.Layer1ApiAdminListener;
 import velox.api.layer1.Layer1ApiDataListener;
@@ -221,7 +218,7 @@ public class Provider extends ExternalLiveBaseProvider {
 
 			String data1 = createOrdersStringData(ocoParams.orders, "OneCancelsTheOther");
 			// connr.processNewOrderBulk(data1);
-			String res = connr.require(GeneralType.orderBulk, Method.POST, data1);
+			String res = connr.require(GeneralType.ORDERBULK, Method.POST, data1);
 			Log.info(res);
 
 		} else {// Bracket
@@ -240,12 +237,12 @@ public class Provider extends ExternalLiveBaseProvider {
 				array.add(prepareSimpleOrder(takeProfit, clOrdLinkID, "OneCancelsTheOther"));
 
 				// connr.processNewOrderBulk("orders=" + array.toString());
-				String res = connr.require(GeneralType.orderBulk, Method.POST, "orders=" + array.toString());
+				String res = connr.require(GeneralType.ORDERBULK, Method.POST, "orders=" + array.toString());
 				Log.info(res);
 
 			} else {// simple order otherwise
 				JsonObject json = prepareSimpleOrder(orderSendParameters, null, null);
-				String response = connr.require(GeneralType.order, Method.POST, json.toString());
+				String response = connr.require(GeneralType.ORDER, Method.POST, json.toString());
 
 				if (response != null) {
 					passCancelAndClearPendingList(response);
@@ -830,7 +827,9 @@ public class Provider extends ExternalLiveBaseProvider {
 			// 1) modify the list or real order ids to clOrderLinkId and put it
 			// into the relevant map
 			// 2) add a <realOrderId, ClOrdLinkID> pair to another relevant map
-			if (orderExec.getClOrdLinkID() != null && LinkIdToRealIdsMap.containsKey(orderExec.getClOrdLinkID())) {
+			if (orderExec.getClOrdLinkID() != null 
+					&& !orderExec.getClOrdLinkID().equals("") 
+					&& LinkIdToRealIdsMap.containsKey(orderExec.getClOrdLinkID())) {
 				List<String> list = LinkIdToRealIdsMap.get(orderExec.getClOrdLinkID());
 				list.add(realOrderId);
 				LinkIdToRealIdsMap.put(orderExec.getClOrdLinkID(), list);

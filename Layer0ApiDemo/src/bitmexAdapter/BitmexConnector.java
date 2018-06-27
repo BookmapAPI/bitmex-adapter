@@ -3,7 +3,6 @@ package bitmexAdapter;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
 import java.net.NoRouteToHostException;
 import java.net.URI;
 import java.net.URL;
@@ -13,32 +12,21 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.CountDownLatch;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.HttpsURLConnection;
 
-//import velox.api.layer0.live.DemoExternalRealtimeTradingProvider_2;
-import velox.api.layer0.live.Provider;
-import velox.api.layer1.common.Log;
-import velox.api.layer1.data.OrderUpdateParameters;
-import velox.api.layer1.data.SystemTextMessageType;
-
 import org.apache.commons.codec.binary.Hex;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 
-import com.google.gson.JsonObject;
-
-import bitmexAdapter.TradeConnector.GeneralType;
-import bitmexAdapter.TradeConnector.Method;
+//import velox.api.layer0.live.DemoExternalRealtimeTradingProvider_2;
+import velox.api.layer0.live.Provider;
+import velox.api.layer1.common.Log;
+import velox.api.layer1.data.SystemTextMessageType;
 
 public class BitmexConnector implements Runnable {
 
@@ -354,14 +342,14 @@ public class BitmexConnector implements Runnable {
 		String z = ConnectorUtils.getDateTwentyFourHoursAgoAsUrlEncodedString();
 		System.out.println("Z = " + z);
 		int sum = 0;
-		long moment = TradeConnector.getMoment();
+		long moment = ConnectorUtils.getMomentAndTimeToLive();
 		String data1 = "";
 		String addr = "/api/v1/execution?symbol=" + symbol
 				+ "&filter=%7B%22ordStatus%22%3A%22Filled%22%7D&count=100&reverse=false&startTime=" + z;
 		String sign;
 
-		sign = TradeConnector.generateSignature(connr.getOrderApiSecret(),
-					TradeConnector.createMessageBody("GET", addr, data1, moment));
+		sign = ConnectorUtils.generateSignature(connr.getOrderApiSecret(),
+				ConnectorUtils.createMessageBody("GET", addr, data1, moment));
 			
 			
 			String st0 = connr.get("https://testnet.bitmex.com" + addr, connr.getOrderApiKey(), sign, moment, "");
