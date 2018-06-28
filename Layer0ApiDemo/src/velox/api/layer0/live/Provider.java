@@ -61,7 +61,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	public BitmexConnector connector;
 	public TradeConnector connr;
 	private String tempClientId;
-	private HashMap<String, OrderInfoBuilder> workingOrders = new HashMap<>();
+	public HashMap<String, OrderInfoBuilder> workingOrders = new HashMap<>();
 	public List<OrderInfoBuilder> pendingOrders = new ArrayList<>();
 	private long orderCount = 0;
 	private long orderOcoCount = 0;
@@ -223,7 +223,7 @@ public class Provider extends ExternalLiveBaseProvider {
 				SimpleOrderSendParameters takeProfit = createTakeProfit(simpleParams);
 				data = createBracketOrderStringData(simpleParams, stopLoss, takeProfit);
 				genType = GeneralType.ORDERBULK;
-			} else {// Simple order otherwise
+			} else {// Single order otherwise
 				JsonObject json = prepareSimpleOrder(simpleParams, null, null);
 				data = json.toString();
 				genType = GeneralType.ORDER;
@@ -253,7 +253,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	private SimpleOrderSendParameters createStopLoss(SimpleOrderSendParameters simpleParams) {
-		String symbol = TradeConnector.isolateSymbol(simpleParams.alias);
+		String symbol = ConnectorUtils.isolateSymbol(simpleParams.alias);
 		BmInstrument bmInstrument = connector.getActiveInstrumentsMap().get(symbol);
 		double ticksize = bmInstrument.getTickSize();
 		int offsetMultiplier = simpleParams.isBuy ? 1 : -1;
@@ -270,7 +270,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	private SimpleOrderSendParameters createTakeProfit(SimpleOrderSendParameters simpleParams) {
-		String symbol = TradeConnector.isolateSymbol(simpleParams.alias);
+		String symbol = ConnectorUtils.isolateSymbol(simpleParams.alias);
 		BmInstrument bmInstrument = connector.getActiveInstrumentsMap().get(symbol);
 		double ticksize = bmInstrument.getTickSize();
 		int offsetMultiplier = simpleParams.isBuy ? 1 : -1;
@@ -385,10 +385,7 @@ public class Provider extends ExternalLiveBaseProvider {
 					passBracketMoveParameters(orderMoveParameters);
 				} else if (trailingStops.keySet().contains(orderMoveParameters.orderId)) {
 					// trailing stop
-					String id = orderMoveParameters.orderId;
-					double newOffset = trailingStops.get(id) +
-							orderMoveParameters.stopPrice - workingOrders.get(id).getStopPrice();
-					JsonObject json = connr.moveTrailingStepJson(id, newOffset);
+					JsonObject json = connr.moveTrailingStepJson(orderMoveParameters);
 					connr.require(GeneralType.ORDER, Method.PUT, json.toString());
 				} else {// single order
 					JsonObject json = connr.moveOrderJson(orderMoveParameters,
@@ -783,10 +780,7 @@ public class Provider extends ExternalLiveBaseProvider {
 					|| orderExec.getText()
 							.equals("Amended orderQty: Amend from testnet.bitmex.com\nSubmitted via API.")) {
 				Log.info("PROVIDER: ****LISTEN EXEC - REPLACED QUANTITY");
-//				int oldSize = builder.getUnfilled();
-//				int newSize = (int) orderExec.getOrderQty();
-//				Log.info("PROVIDER: ****oldSize " + oldSize + "   newSize " + newSize);
-//				builder.setUnfilled(newSize);
+
 				builder.setUnfilled((int)orderExec.getLeavesQty());
 				final OrderInfoBuilder finBuilder = builder;
 				tradingListeners.forEach(l -> l.onOrderUpdated(finBuilder.build()));
