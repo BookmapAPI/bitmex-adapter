@@ -29,6 +29,7 @@ import velox.api.layer1.common.Log;
 import velox.api.layer1.data.OrderMoveParameters;
 import velox.api.layer1.data.OrderType;
 import velox.api.layer1.data.SimpleOrderSendParameters;
+import velox.api.layer1.layers.utils.OrderBook;
 
 public class TradeConnector {
 
@@ -205,27 +206,27 @@ public class TradeConnector {
 		return sb.toString();
 	}
 
-	public static JsonObject createSendData(SimpleOrderSendParameters params, OrderType orderType, String tempOrderId,
-			String clOrdLinkID, String contingencyType, BmInstrument instr) {
+	public JsonObject createSendData(SimpleOrderSendParameters params, OrderType orderType, String tempOrderId,
+			String clOrdLinkID, String contingencyType) {
 		String symbol = isolateSymbol(params.alias);
+		BmInstrument instr = prov.connector.getActiveInstrumentsMap().get(symbol);
+		OrderBook orderBook = instr.getOrderBook();
+		
 		String side = params.isBuy ? "Buy" : "Sell";
 		Log.info("****SIDE = " + side);
-		// double price = params.limitPrice;
 		double orderQty = params.size;
 
 		JsonObject json = new JsonObject();
 		json.addProperty("symbol", symbol);
 		json.addProperty("side", side);
-		// json.addProperty("simpleOrderQty", orderQty);
-		json.addProperty("orderQty", orderQty);
 		json.addProperty("orderQty", orderQty);
 		json.addProperty("clOrdID", tempOrderId);
-		if (clOrdLinkID != null) {
+//		if (clOrdLinkID != null) {
 			json.addProperty("clOrdLinkID", clOrdLinkID);
-		}
-		if (contingencyType != null) {
+//		}
+//		if (contingencyType != null) {
 			json.addProperty("contingencyType", contingencyType);
-		}
+//		}
 
 		/*
 		 * https://www.bitmex.com/api/explorer/#!/Order/Order_new Send a
@@ -241,21 +242,21 @@ public class TradeConnector {
 		} else if (orderType == OrderType.STP) {// StopMarket
 			json.addProperty("ordType", "Stop");
 			json.addProperty("stopPx", params.stopPrice);
-			json.addProperty("execInst", "LastPrice");// used by stops to
-														// determine triggering
-														// price
+			// used by stops to determine triggering price
+			json.addProperty("execInst", "LastPrice");
 
 			if (params.trailingStep > 0) {
 				Log.info("TR CONN (createSendData) : STP trailing step == " + params.trailingStep);
 				json.addProperty("pegPriceType", "TrailingStopPeg");
 
 				double pegOffset;
+				
 				if (params.isBuy) {
 					pegOffset = params.stopPrice
-							- (double) instr.getOrderBook().getBestAskPriceOrNone() * instr.getTickSize();
+							- (double) orderBook.getBestAskPriceOrNone() * instr.getTickSize();
 				} else {
 					pegOffset = params.stopPrice
-							- (double) instr.getOrderBook().getBestBidPriceOrNone() * instr.getTickSize();
+							- (double) orderBook.getBestBidPriceOrNone() * instr.getTickSize();
 				}
 				json.addProperty("pegOffsetValue", pegOffset);
 				// json.addProperty("pegOffsetValue", ticksize);
@@ -290,6 +291,94 @@ public class TradeConnector {
 		// String data = json.toString();
 		// return data;
 	}
+//	public JsonObject createSendData(SimpleOrderSendParameters params, OrderType orderType, String tempOrderId,
+//			String clOrdLinkID, String contingencyType) {
+//		String symbol = isolateSymbol(params.alias);
+//		BmInstrument instr = prov.connector.getActiveInstrumentsMap().get(symbol);
+//		OrderBook orderBook = instr.getOrderBook();
+//		
+//		String side = params.isBuy ? "Buy" : "Sell";
+//		Log.info("****SIDE = " + side);
+//		// double price = params.limitPrice;
+//		double orderQty = params.size;
+//		
+//		JsonObject json = new JsonObject();
+//		json.addProperty("symbol", symbol);
+//		json.addProperty("side", side);
+//		// json.addProperty("simpleOrderQty", orderQty);
+//		json.addProperty("orderQty", orderQty);
+//		json.addProperty("orderQty", orderQty);
+//		json.addProperty("clOrdID", tempOrderId);
+//		if (clOrdLinkID != null) {
+//			json.addProperty("clOrdLinkID", clOrdLinkID);
+//		}
+//		if (contingencyType != null) {
+//			json.addProperty("contingencyType", contingencyType);
+//		}
+//		
+//		/*
+//		 * https://www.bitmex.com/api/explorer/#!/Order/Order_new Send a
+//		 * simpleOrderQty instead of an orderQty to create an order denominated
+//		 * in the underlying currency. This is useful for opening up a position
+//		 * with 1 XBT of exposure without having to calculate how many contracts
+//		 * it is.
+//		 */
+//		
+//		if (orderType == OrderType.LMT) {
+//			json.addProperty("ordType", "Limit");
+//			json.addProperty("price", params.limitPrice);
+//		} else if (orderType == OrderType.STP) {// StopMarket
+//			json.addProperty("ordType", "Stop");
+//			json.addProperty("stopPx", params.stopPrice);
+//			// used by stops to determine triggering price
+//			json.addProperty("execInst", "LastPrice");
+//			
+//			if (params.trailingStep > 0) {
+//				Log.info("TR CONN (createSendData) : STP trailing step == " + params.trailingStep);
+//				json.addProperty("pegPriceType", "TrailingStopPeg");
+//				
+//				double pegOffset;
+//				
+//				if (params.isBuy) {
+//					pegOffset = params.stopPrice
+//							- (double) orderBook.getBestAskPriceOrNone() * instr.getTickSize();
+//				} else {
+//					pegOffset = params.stopPrice
+//							- (double) orderBook.getBestBidPriceOrNone() * instr.getTickSize();
+//				}
+//				json.addProperty("pegOffsetValue", pegOffset);
+//				// json.addProperty("pegOffsetValue", ticksize);
+//			}
+//			
+//		} else if (orderType == OrderType.STP_LMT) {
+//			Log.info("TR CONN (createSendData) : STP_LMT trailing step == " + params.trailingStep);
+//			json.addProperty("ordType", "StopLimit");
+//			json.addProperty("stopPx", params.stopPrice);
+//			json.addProperty("price", params.limitPrice);
+//			json.addProperty("execInst", "LastPrice");// used by stops to
+//			// determine triggering
+//			// price
+//			
+//			if (params.trailingStep > 0) {
+//				Log.info("TR CONN (createSendData) : STP trailing step == " + params.trailingStep);
+//				json.addProperty("pegPriceType", "TrailingStopPeg");
+//				
+//				double pegOffset;
+//				if (params.isBuy) {
+//					pegOffset = params.stopPrice - instr.getOrderBook().getBestAskPriceOrNone();
+//				} else {
+//					pegOffset = -params.stopPrice + instr.getOrderBook().getBestBidPriceOrNone();
+//				}
+//				json.addProperty("pegOffsetValue", pegOffset);
+//				// json.addProperty("pegOffsetValue", ticksize);
+//			}
+//			
+//		}
+//		
+//		return json;
+//		// String data = json.toString();
+//		// return data;
+//	}
 
 
 
@@ -312,7 +401,7 @@ public class TradeConnector {
 
 		return null; // ?????????????
 	}
-
+	
 	public void cancelOrder(List<String> orderIds) {
 
 		StringBuilder sb = new StringBuilder("");
@@ -333,13 +422,25 @@ public class TradeConnector {
 
 		JsonObject json = new JsonObject();
 		json.addProperty("orderID", orderId);
-		json.addProperty("orderQty", orderQty);
+//		json.addProperty("orderQty", orderQty);
+		json.addProperty("leavesQty", orderQty);
 		// json.addProperty("simpleOrderQty", orderQty);
 		String data = json.toString();
 
 		require(GeneralType.ORDER, Method.PUT, data);
-
 	}
+	
+//	public void resizePartiallyFilledOrder(String orderId, long orderQty) {
+//
+//		JsonObject json = new JsonObject();
+//		json.addProperty("orderID", orderId);
+//		json.addProperty("leavesQty", orderQty);
+//		// json.addProperty("simpleOrderQty", orderQty);
+//		String data = json.toString();
+//
+//		String res = require(GeneralType.ORDER, Method.PUT, data);
+//		Log.info(res);
+//	}
 
 	public void resizeOrder(List<String> orderIds, long orderQty) {
 
@@ -347,6 +448,7 @@ public class TradeConnector {
 		for (String orderId : orderIds) {
 			JsonObject json = new JsonObject();
 			json.addProperty("orderID", orderId);
+//			json.addProperty("orderQty", orderQty);
 			json.addProperty("orderQty", orderQty);
 			// String data = json.toString();
 
@@ -362,18 +464,7 @@ public class TradeConnector {
 
 	}
 
-	public void resizePartiallyFilledOrder(String orderId, long orderQty) {
 
-		JsonObject json = new JsonObject();
-		json.addProperty("orderID", orderId);
-		json.addProperty("leavesQty", orderQty);
-		// json.addProperty("simpleOrderQty", orderQty);
-		String data = json.toString();
-
-		String res = require(GeneralType.ORDER, Method.PUT, data);
-		Log.info(res);
-
-	}
 
 	public void resizePartiallyFilledOrder(List<String> orderIds, long orderQty) {
 
@@ -423,20 +514,20 @@ public class TradeConnector {
 		return json;
 	}
 
-	public void moveOrder(String data) {
+//	public void moveOrder(String data) {
+//
+//		String res = require(GeneralType.ORDER, Method.PUT, data);
+//		Log.info(res);
+//		// return (BmOrder) gson.fromJson(res, BmOrder.class);
+//	}
 
-		String res = require(GeneralType.ORDER, Method.PUT, data);
-		Log.info(res);
-		// return (BmOrder) gson.fromJson(res, BmOrder.class);
-	}
-
-	public void moveOrderBulk(String data) {
-
-		String res = require(GeneralType.ORDERBULK, Method.PUT, data);
-		Log.info(res);
-		// return (BmOrder) gson.fromJson(res, BmOrder.class);
-
-	}
+//	public void moveOrderBulk(String data) {
+//
+//		String res = require(GeneralType.ORDERBULK, Method.PUT, data);
+//		Log.info(res);
+//		// return (BmOrder) gson.fromJson(res, BmOrder.class);
+//
+//	}
 
 	public String require(GeneralType genType, Method method, String data) {
 		return require(genType, method, data, false);
@@ -444,12 +535,10 @@ public class TradeConnector {
 
 	public String require(GeneralType genType, Method method, String data, boolean isOrderListBeingCanceled) {
 		String subPath = ConnectorUtils.subPaths.get(genType);
-		Log.info("TRCONN PATH: " + prov.connector.restApi);
-		Log.info("TRCONN subPath: " + subPath);
+//		Log.info("TRCONN PATH: " + prov.connector.restApi);
+//		Log.info("TRCONN subPath: " + subPath);
 		String path = prov.connector.restApi + subPath;
 		long moment = ConnectorUtils.getMomentAndTimeToLive();
-
-		// String response = null;
 
 		try {
 			URL url = new URL(path);
@@ -466,9 +555,9 @@ public class TradeConnector {
 			String messageBody = ConnectorUtils.createMessageBody(ConnectorUtils.methods.get(method), subPath, data, moment);
 			String signature = ConnectorUtils.generateSignature(orderApiSecret, messageBody);
 
-			Log.info("TRCONN SIGNATURE: " + signature);
-			Log.info("TRCONN MOMENT: " + moment);
-			Log.info("TRCONN API KEY: " + orderApiKey);
+//			Log.info("TRCONN SIGNATURE: " + signature);
+//			Log.info("TRCONN MOMENT: " + moment);
+//			Log.info("TRCONN API KEY: " + orderApiKey);
 
 			conn.setRequestMethod(ConnectorUtils.methods.get(method));
 

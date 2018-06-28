@@ -218,7 +218,10 @@ public class JsonParser {
 		units.add(new DataUnit(symbol, bestBid, true));
 
 		MessageGeneric<DataUnit> mess = new MessageGeneric<>("orderBookL2", "delete", DataUnit.class, units);
-		prov.listenOrderOrTrade(mess);
+		for (DataUnit unit : mess.getData()){
+			prov.listenOnOrderBookL2(unit);
+		}
+//		prov.listenOrderOrTrade(mess);
 	}
 
 	private void resetBmInstrumentOrderBook(BmInstrument instr) {
