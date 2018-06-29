@@ -1,5 +1,8 @@
 package bitmexAdapter;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -48,7 +51,8 @@ public class JsonParser {
 	}
 
 	public void parse(String str) {
-//		 Log.info("PARSER STR => " + str);
+
+		// Log.info("PARSER STR => " + str);
 		// first let's find out what kind of object we have here
 		Answer answ = (Answer) gson.fromJson(str, Answer.class);
 		// Log.info("PARSER ANSW Error " + answ.getError());
@@ -155,8 +159,9 @@ public class JsonParser {
 				if (msg.getAction().equals("update")) {
 					intPrice = pricesMap.get(unit.getId());
 				} else {// action is partial or insert
-//					intPrice = createIntPrice(unit.getPrice(), instr.getTickSize());
-					intPrice = (int) Math.round(unit.getPrice()/instr.getTickSize());
+					// intPrice = createIntPrice(unit.getPrice(),
+					// instr.getTickSize());
+					intPrice = (int) Math.round(unit.getPrice() / instr.getTickSize());
 					pricesMap.put(unit.getId(), intPrice);
 				}
 			}
@@ -165,20 +170,18 @@ public class JsonParser {
 		}
 	}
 
-//	private int createIntPrice(double price, double tickSize) {
-//		int intPrice = (int) Math.round(price / tickSize);
-//		return intPrice;
-//	}
-
+	// private int createIntPrice(double price, double tickSize) {
+	// int intPrice = (int) Math.round(price / tickSize);
+	// return intPrice;
+	// }
 
 	private void processTradeUnit(BmTrade unit) {
 		unit.setBid(unit.getSide().equals("Buy"));
 		BmInstrument instr = activeInstrumentsMap.get(unit.getSymbol());
-//		int intPrice = createIntPrice(unit.getPrice(), instr.getTickSize());
-		int intPrice = (int) Math.round(unit.getPrice()/ instr.getTickSize());
+		// int intPrice = createIntPrice(unit.getPrice(), instr.getTickSize());
+		int intPrice = (int) Math.round(unit.getPrice() / instr.getTickSize());
 		unit.setIntPrice(intPrice);
 	}
-
 
 	/**
 	 * resets orderBooks (both for Bookmap and for BmInstrument) after
@@ -218,10 +221,10 @@ public class JsonParser {
 		units.add(new DataUnit(symbol, bestBid, true));
 
 		MessageGeneric<DataUnit> mess = new MessageGeneric<>("orderBookL2", "delete", DataUnit.class, units);
-		for (DataUnit unit : mess.getData()){
+		for (DataUnit unit : mess.getData()) {
 			prov.listenOnOrderBookL2(unit);
 		}
-//		prov.listenOrderOrTrade(mess);
+		// prov.listenOrderOrTrade(mess);
 	}
 
 	private void resetBmInstrumentOrderBook(BmInstrument instr) {
@@ -247,31 +250,40 @@ public class JsonParser {
 
 		if (msg0.getAction().equals("partial")) {
 			nonInstrumentPartialsParsed.add(container.name);
-			if (msg0.getData().isEmpty()) {
-				Log.info("PARSER SKIPS (DATA == [] ) " + str);
-				return;
-			}
+//			if (msg0.getData().isEmpty()) {
+//				Log.info("PARSER SKIPS (DATA == [] ) " + str);
+//				return;
+//			}
 			if (topic.equals(Topic.ORDERBOOKL2)) {
 				performOrderBookL2SpecificOpSetOne((MessageGeneric<DataUnit>) msg0);
 			}
 		}
 
 		if (nonInstrumentPartialsParsed.contains(container.name)) {
+			if (topic.equals(Topic.ORDER)) {
+				performOrderSpecificOp();
+				Log.info("PARSER WS ORD " + str);
+			}
+
+			if (msg0.getData().isEmpty()) {
+				Log.info("PARSER SKIPS (DATA == [] ) " + str);
+				return;
+			}
+			
 			ArrayList<T> units = (ArrayList<T>) msg0.getData();
 
 			if (topic.equals(Topic.ORDERBOOKL2) && !units.isEmpty()) {
 				performOrderBookL2SpecificOpSetTwo((MessageGeneric<DataUnit>) msg0);
 			}
-			
+
 			if (!units.isEmpty()) {
 				dispatchRawUnits(units, container.clazz);
 			}
-			if (topic.equals(Topic.ORDER)) {
-				performOrderSpecificOp();
-				Log.info("PARSER WS ORD " + str);
-			}
+
 			if (topic.equals(Topic.EXECUTION)) {
 				Log.info("PARSER WS EXEC " + str);
+				write(str);
+
 			}
 
 		}
@@ -280,6 +292,7 @@ public class JsonParser {
 
 	private void performOrderSpecificOp() {
 		nonInstrumentPartialsParsed.remove("order");
+		Log.info("PARSER : ORDER REMOVED FROM PARTIALS.PARSED");
 		// we need only the snapshot.
 		// the rest of info comes from execution Topic.
 		// it will be a good idea to get unsubscribed from orders
@@ -295,7 +308,7 @@ public class JsonParser {
 			resetBmInstrumentOrderBook(instr);
 		}
 	}
-	
+
 	private void performOrderBookL2SpecificOpSetTwo(MessageGeneric<DataUnit> msg) {
 		processOrderMessage(msg);
 
@@ -305,7 +318,7 @@ public class JsonParser {
 	}
 
 	public <T> void dispatchRawUnits(ArrayList<T> units, Class<?> clazz) {
-//		Log.info("PARSER DISPATCH NEXT");
+		// Log.info("PARSER DISPATCH NEXT");
 		for (T unit : units) {
 			if (clazz == Wallet.class) {
 				prov.listenToWallet((Wallet) unit);
@@ -328,5 +341,16 @@ public class JsonParser {
 			}
 		}
 
+	}
+
+	public void write(String str) {
+		
+		try(BufferedWriter bw = new BufferedWriter(new FileWriter("C:\\Bm.log", true));) {
+			bw.write(str);
+			bw.write("\n");
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
 	}
 }
