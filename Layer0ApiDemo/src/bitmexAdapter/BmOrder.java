@@ -20,7 +20,7 @@ public class BmOrder extends RawUnit{
 	
 	private long displayQty;
 	private double stopPx = Double.NaN;
-	private double pegOffsetValue;
+	private double pegOffsetValue = Double.NaN;
 	
 	private String pegPriceType;
 	private String currency;

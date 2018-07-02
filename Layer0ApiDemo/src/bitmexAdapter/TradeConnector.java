@@ -246,7 +246,7 @@ public class TradeConnector {
 			JsonObject json = new JsonObject();
 			json.addProperty("orderID", orderId);
 			// json.addProperty("orderQty", orderQty);
-			json.addProperty("orderQty", orderQty);
+			json.addProperty("leavesQty", orderQty);
 			// String data = json.toString();
 
 			array.add(json);

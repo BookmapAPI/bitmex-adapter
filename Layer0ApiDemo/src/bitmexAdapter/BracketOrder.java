@@ -33,4 +33,8 @@ public class BracketOrder {
 		this.children = children;
 	}
 	
+	public void addChild(String id) {
+		this.children.add(id);
+	}
+	
 }

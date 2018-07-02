@@ -3,6 +3,10 @@ package bitmexAdapter;
 public class Execution extends BmOrder{
 	private String execType;
 	private double lastPx;//from Execution
+	private long lastQty;
+	
+	
+	
 	private long foreignNotional;
 	
 	public long getForeignNotional() {
@@ -23,5 +27,12 @@ public class Execution extends BmOrder{
 	}
 	public void setExecType(String execType) {
 		this.execType = execType;
+	}
+	
+	public long getLastQty() {
+		return lastQty;
+	}
+	public void setLastQty(long lastQty) {
+		this.lastQty = lastQty;
 	}
 }

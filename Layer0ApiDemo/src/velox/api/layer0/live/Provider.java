@@ -28,6 +28,7 @@ import bitmexAdapter.RestAnswer;
 import bitmexAdapter.TradeConnector;
 import bitmexAdapter.ConnectorUtils.Method;
 import bitmexAdapter.Wallet;
+import quickfix.RuntimeError;
 import velox.api.layer0.annotations.Layer0LiveModule;
 import velox.api.layer1.Layer1ApiAdminListener;
 import velox.api.layer1.Layer1ApiDataListener;
@@ -219,8 +220,8 @@ public class Provider extends ExternalLiveBaseProvider {
 			SimpleOrderSendParameters simpleParams = (SimpleOrderSendParameters) orderSendParameters;
 
 			if (isBracketOrder(simpleParams)) {// Bracket
-				SimpleOrderSendParameters stopLoss = createStopLoss(simpleParams);
-				SimpleOrderSendParameters takeProfit = createTakeProfit(simpleParams);
+				SimpleOrderSendParameters stopLoss = createStopLossFromParameters(simpleParams);
+				SimpleOrderSendParameters takeProfit = createTakeProfitFromParameters(simpleParams);
 				data = createBracketOrderStringData(simpleParams, stopLoss, takeProfit);
 				genType = GeneralType.ORDERBULK;
 			} else {// Single order otherwise
@@ -252,7 +253,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		return simpleParams.takeProfitOffset != 0 && simpleParams.stopLossOffset != 0;
 	}
 
-	private SimpleOrderSendParameters createStopLoss(SimpleOrderSendParameters simpleParams) {
+	private SimpleOrderSendParameters createStopLossFromParameters(SimpleOrderSendParameters simpleParams) {
 		String symbol = ConnectorUtils.isolateSymbol(simpleParams.alias);
 		BmInstrument bmInstrument = connector.getActiveInstrumentsMap().get(symbol);
 		double ticksize = bmInstrument.getTickSize();
@@ -269,7 +270,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		return stopLoss;
 	}
 
-	private SimpleOrderSendParameters createTakeProfit(SimpleOrderSendParameters simpleParams) {
+	private SimpleOrderSendParameters createTakeProfitFromParameters(SimpleOrderSendParameters simpleParams) {
 		String symbol = ConnectorUtils.isolateSymbol(simpleParams.alias);
 		BmInstrument bmInstrument = connector.getActiveInstrumentsMap().get(symbol);
 		double ticksize = bmInstrument.getTickSize();
@@ -288,8 +289,8 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	private String createOcoOrdersStringData(List<SimpleOrderSendParameters> ordersList) {
 		String contingencyType = "OneCancelsTheOther";
-		String clOrdLinkID = "LINKED-" + orderOcoCount++;
-//		LinkIdToRealIdsMap.put(clOrdLinkID, new ArrayList<>());
+		String clOrdLinkID = System.currentTimeMillis() + "-LINKED-" + orderOcoCount++;
+		// LinkIdToRealIdsMap.put(clOrdLinkID, new ArrayList<>());
 
 		JsonArray array = new JsonArray();
 		for (SimpleOrderSendParameters simpleParams : ordersList) {
@@ -303,8 +304,8 @@ public class Provider extends ExternalLiveBaseProvider {
 	private String createBracketOrderStringData(SimpleOrderSendParameters simpleParams,
 			SimpleOrderSendParameters stopLoss,
 			SimpleOrderSendParameters takeProfit) {
-		String clOrdLinkID = "LINKED-" + orderOcoCount++;
-//		LinkIdToRealIdsMap.put(clOrdLinkID, new ArrayList<>());
+		String clOrdLinkID = System.currentTimeMillis() + "-LINKED-" + orderOcoCount++;
+		// LinkIdToRealIdsMap.put(clOrdLinkID, new ArrayList<>());
 
 		JsonArray array = new JsonArray();
 		array.add(prepareSimpleOrder(simpleParams, clOrdLinkID, "OneTriggersTheOther"));
@@ -448,48 +449,66 @@ public class Provider extends ExternalLiveBaseProvider {
 
 			connr.resizeOrder(orderResizeParameters.orderId, newSize);
 		} else { // ***** OCO
-			List<String> otherIds = getOtherOCOorderId(builder.getOrderId());
+			List<String> otherIds = getOtherLinkedOrdersId(builder.getOrderId());
 			connr.resizeOrder(otherIds, newSize);
 		}
 	}
 
+	private List<String> getBracketChildren(String parentId){
+		List<String> brackets = LinkIdToRealIdsMap.get(RealToLinkIdMap.get(parentId));
+		List<String> children = new ArrayList<>();
+
+		for (String id : brackets) {
+			if (!id.equals(parentId)) {
+				children.add(id);
+			}
+		}
+		
+		if (children.size() !=2 ){
+			throw new RuntimeException("Bracket children count != 2");
+		}
+		return children;
+	}
+	
 	private void passBracketMoveParameters(OrderMoveParameters orderMoveParameters) {
-		// bracket parent
-		// full list of linked orders with the parent included (the
-		// last in the list)
-		List<String> brackets = LinkIdToRealIdsMap.get(RealToLinkIdMap.get(orderMoveParameters.orderId));
-		double finiteDifference = 0.0;
-		if (!Double.isNaN(orderMoveParameters.limitPrice)) {
-			finiteDifference += orderMoveParameters.limitPrice
-					- workingOrders.get(orderMoveParameters.orderId).getLimitPrice();
-		}
-		if (!Double.isNaN(orderMoveParameters.stopPrice)) {
-			finiteDifference += orderMoveParameters.stopPrice
-					- workingOrders.get(orderMoveParameters.orderId).getStopPrice();
-		}
-
-		String orderOneId = brackets.get(0);
-		OrderMoveParameters moveParamsOne = new OrderMoveParameters(orderOneId,
-				workingOrders.get(orderOneId).getStopPrice() + finiteDifference,
-				workingOrders.get(orderOneId).getLimitPrice() + finiteDifference);
-		String orderTwoId = brackets.get(1);
-		OrderMoveParameters moveParamsTwo = new OrderMoveParameters(orderTwoId,
-				workingOrders.get(orderTwoId).getStopPrice() + finiteDifference,
-				workingOrders.get(orderTwoId).getLimitPrice() + finiteDifference);
-
+		List<String> children = getBracketChildren(orderMoveParameters.orderId);
+		double difference = getDifference(orderMoveParameters);
+		OrderMoveParameters moveParamsOne = getIndividualMoveParameters(children.get(0), difference);
+		OrderMoveParameters moveParamsTwo = getIndividualMoveParameters(children.get(1), difference);
+		
 		JsonArray array = new JsonArray();
 		array.add(connr.moveOrderJson(orderMoveParameters,
 				workingOrders.get(orderMoveParameters.orderId).isStopTriggered()));
 		array.add(connr.moveOrderJson(moveParamsOne,
-				workingOrders.get(orderOneId).isStopTriggered()));
+				workingOrders.get(children.get(0)).isStopTriggered()));
 		array.add(connr.moveOrderJson(moveParamsTwo,
-				workingOrders.get(orderTwoId).isStopTriggered()));
+				workingOrders.get(children.get(1)).isStopTriggered()));
 
 		String data = "orders=" + array.toString();
 		connr.require(GeneralType.ORDERBULK, Method.PUT, data);
 	}
 
-	private List<String> getOtherOCOorderId(String realId) {
+	private double getDifference(OrderMoveParameters orderMoveParameters) {
+		double difference = 0.0;
+		if (!Double.isNaN(orderMoveParameters.limitPrice)) {
+			difference += orderMoveParameters.limitPrice
+					- workingOrders.get(orderMoveParameters.orderId).getLimitPrice();
+		}
+		if (!Double.isNaN(orderMoveParameters.stopPrice)) {
+			difference += orderMoveParameters.stopPrice
+					- workingOrders.get(orderMoveParameters.orderId).getStopPrice();
+		}
+		return difference;
+	}
+
+	private OrderMoveParameters getIndividualMoveParameters(String id, double finiteDifference) {
+		OrderMoveParameters moveParams = new OrderMoveParameters(id,
+				workingOrders.get(id).getStopPrice() + finiteDifference,
+				workingOrders.get(id).getLimitPrice() + finiteDifference);
+		return moveParams;
+	}
+
+	private List<String> getOtherLinkedOrdersId(String realId) {
 		String ocoId = RealToLinkIdMap.get(realId);
 		List<String> otherIds = LinkIdToRealIdsMap.get(ocoId);
 		return otherIds;
@@ -567,7 +586,36 @@ public class Provider extends ExternalLiveBaseProvider {
 		adminListeners.forEach(l -> l.onLoginFailed(LoginFailedReason.WRONG_CREDENTIALS,
 				reason));
 		this.close();
-
+	}
+	
+	private OrderSendParameters createChildrenForPartiallyFillebBracket(Execution exec){
+		List<String> linkedOrders = LinkIdToRealIdsMap.get(exec.getClOrdLinkID());
+		
+		OrderInfoBuilder stopLossBuilder = workingOrders.get(linkedOrders.get(1)); 
+		SimpleOrderSendParameters stopLoss = new SimpleOrderSendParameters(
+				stopLossBuilder.getInstrumentAlias(),
+				stopLossBuilder.isBuy(), // !
+				(int) exec.getLastQty(),
+				stopLossBuilder.getDuration(),
+				Double.NaN, // limitPrice
+				stopLossBuilder.getStopPrice(), // stopPrice
+				1.0);
+		
+		OrderInfoBuilder takeProfitBuilder = workingOrders.get(linkedOrders.get(0));
+		SimpleOrderSendParameters takeProfit = new SimpleOrderSendParameters(
+				takeProfitBuilder.getInstrumentAlias(),
+				takeProfitBuilder.isBuy(), // !
+				(int) exec.getLastQty(),
+				takeProfitBuilder.getDuration(),
+				takeProfitBuilder.getLimitPrice(),
+				Double.NaN, // stopPrice
+				1.0);
+		
+//		List<SimpleOrderSendParameters> orders = new ArrayList<>();
+//		orders.add(stopLoss);
+//		orders.add(takeProfit);
+		OrderSendParameters params = new OcoOrderSendParameters(stopLoss, takeProfit);
+		return params;
 	}
 
 	public void listenOnOrderBookL2(DataUnit unit) {
@@ -601,26 +649,43 @@ public class Provider extends ExternalLiveBaseProvider {
 			// there will be either new id if the order is accepted
 			// or the order will be rejected so no need to keep it in the map
 			workingOrders.remove(tempOrderId);
+			
+			if (exec.getPegPriceType().equals("TrailingStopPeg")){
+				trailingStops.put(exec.getOrderID(), exec.getPegOffsetValue());
+			}
+
 			builder.setOrderId(exec.getOrderID());
 			builder.setStatus(OrderStatus.WORKING);
 			
+			if (exec.getTriggered().equals("NotTriggered")) {
+				//'NotTriggered' really means 'notTriggeredBracketChild'.
+				builder.setStatus(OrderStatus.SUSPENDED);
+			}
+
 			checkIfLinkedAndAddToMaps(exec);
-			
-		} else if (exec.getExecType().equals("Replaced")) {
+
+		} else if (exec.getExecType().equals("Replaced") 
+				|| exec.getExecType().equals("Restated")) {
 			builder.setUnfilled((int) exec.getLeavesQty());
 			builder.setLimitPrice(exec.getPrice());
 			builder.setStopPrice(exec.getStopPx());
 
 		} else if (exec.getExecType().equals("Trade")) {
 			Log.info("PROVIDER: ****LISTEN EXEC - Trade");
-			ExecutionInfo executionInfo = new ExecutionInfo(exec.getOrderID(), (int) exec.getCumQty(), exec.getLastPx(),
+			// ExecutionInfo executionInfo = new
+			// ExecutionInfo(exec.getOrderID(), (int) exec.getCumQty(),
+			// exec.getLastPx(),
+			ExecutionInfo executionInfo = new ExecutionInfo(exec.getOrderID(), (int) exec.getLastQty(),
+					exec.getLastPx(),
 					exec.getExecID(), System.currentTimeMillis());
 			tradingListeners.forEach(l -> l.onOrderExecuted(executionInfo));
 
 			// updating filled orders volume
 			String symbol = exec.getSymbol();
 			BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
-			instr.setExecutionsVolume(instr.getExecutionsVolume() + (int) exec.getCumQty());
+			// instr.setExecutionsVolume(instr.getExecutionsVolume() + (int)
+			// exec.getCumQty());
+			instr.setExecutionsVolume(instr.getExecutionsVolume() + (int) exec.getLastQty());
 
 			// Changing the order itself
 			builder.setAverageFillPrice(exec.getAvgPx());
@@ -630,6 +695,17 @@ public class Provider extends ExternalLiveBaseProvider {
 			if (exec.getOrdStatus().equals("Filled")) {
 				builder.setStatus(OrderStatus.FILLED);
 			}
+//			THIS IS SENDING OCO AFTER BRACKET PARENT HAS BEEB PARTIALLY FULFILLED
+//			UNCOMMENT IF THIS OPTION IS NEEDED
+//			else if (exec.getOrdStatus().equals("PartiallyFilled")){
+//				if(bracketParents.contains(exec.getOrderID())){
+//					sendOrder(createChildrenForPartiallyFillebBracket(exec));
+//					connr.resizeOrder(getBracketChildren(exec.getOrderID()), exec.getLeavesQty());
+//				}
+//			}
+			
+			
+						
 		} else if (exec.getExecType().equals("Canceled")) {
 			Log.info("PROVIDER: ****LISTEN EXEC - CANCELED");
 			builder.setStatus(OrderStatus.CANCELLED);
@@ -646,12 +722,21 @@ public class Provider extends ExternalLiveBaseProvider {
 			if (builder == null) {
 				builder = workingOrders.get(exec.getClOrdID());
 			}
-			 String reason = "The order was rejected: \n" +
-			 exec.getOrdRejReason();
+			String reason = "The order was rejected: \n" +
+					exec.getOrdRejReason();
 			builder.setStatus(OrderStatus.REJECTED);
-//			 Provider can complain to user here explaining what was done wrong
-			 adminListeners.forEach(l -> l.onSystemTextMessage(reason,
-			 SystemTextMessageType.ORDER_FAILURE));
+			// Provider can complain to user here explaining what was done wrong
+			adminListeners.forEach(l -> l.onSystemTextMessage(reason,
+					SystemTextMessageType.ORDER_FAILURE));
+		} else if (exec.getExecType().equals("TriggeredOrActivatedBySystem")) {
+
+			if (exec.getTriggered().equals("StopOrderTriggered")) {
+				Log.info("****LISTEN EXEC - TriggeredOrActivatedBySystem + StopOrderTriggered");
+				builder.setStopTriggered(true);
+			} else if (exec.getTriggered().equals("Triggered")) {
+				Log.info("****LISTEN EXEC - TriggeredOrActivatedBySystem + Triggered");
+				builder.setStatus(OrderStatus.WORKING);
+			}
 		}
 
 		OrderInfoBuilder finalBuilder = builder;
@@ -1388,8 +1473,6 @@ public class Provider extends ExternalLiveBaseProvider {
 	 * must always be invokes before invoking updateCurrentPosition because it
 	 * needs not updated valid position
 	 */
-	
-	
 
 	public void createBookmapOrder(BmOrder order) {
 		Log.info("PROV CR_BM_ORD  **ORD ID " + order.getOrderID());
@@ -1414,27 +1497,27 @@ public class Provider extends ExternalLiveBaseProvider {
 			Log.info("BM ORDER PUT");
 		}
 	}
-	
-	private void checkIfLinkedAndAddToMaps(BmOrder order){
+
+	private void checkIfLinkedAndAddToMaps(BmOrder order) {
 		// if order is linked
-				if (!order.getClOrdLinkID().equals("")) {
-					// add to LinkIdToRealIdsMap
-					if (!LinkIdToRealIdsMap.containsKey(order.getClOrdLinkID())) {
-						LinkIdToRealIdsMap.put(order.getClOrdLinkID(), new LinkedList<String>());
-					}
+		if (!order.getClOrdLinkID().equals("")) {
+			// add to LinkIdToRealIdsMap
+			if (!LinkIdToRealIdsMap.containsKey(order.getClOrdLinkID())) {
+				LinkIdToRealIdsMap.put(order.getClOrdLinkID(), new LinkedList<String>());
+			}
 
-					List<String> tempList = LinkIdToRealIdsMap.get(order.getClOrdLinkID());
-					if (!order.getContingencyType().equals("OneTriggersTheOther")) {
-						tempList.add(0, order.getOrderID());
-					} else {
-						// add to Bracket parents
-						bracketParents.add(order.getOrderID());
-						tempList.add(order.getOrderID());
-					}
+			List<String> tempList = LinkIdToRealIdsMap.get(order.getClOrdLinkID());
+			if (!order.getContingencyType().equals("OneTriggersTheOther")) {
+				tempList.add(0, order.getOrderID());
+			} else {
+				// add to Bracket parents
+				bracketParents.add(order.getOrderID());
+				tempList.add(order.getOrderID());
+			}
 
-					// add to RealToLinkIdMap
-					RealToLinkIdMap.put(order.getOrderID(), order.getClOrdLinkID());
-				}
+			// add to RealToLinkIdMap
+			RealToLinkIdMap.put(order.getOrderID(), order.getClOrdLinkID());
+		}
 	}
 
 	@Override
