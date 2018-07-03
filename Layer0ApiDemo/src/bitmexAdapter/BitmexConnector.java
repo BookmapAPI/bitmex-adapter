@@ -339,7 +339,7 @@ public class BitmexConnector implements Runnable {
 	}
 
 	private int countExecutionsVolume(String symbol) {
-		String z = ConnectorUtils.getDateTwentyFourHoursAgoAsUrlEncodedString();
+		String z = ConnectorUtils.getDateTwentyFourHoursAgoAsUrlEncodedString0();
 		System.out.println("Z = " + z);
 		int sum = 0;
 		long moment = ConnectorUtils.getMomentAndTimeToLive();
@@ -352,7 +352,7 @@ public class BitmexConnector implements Runnable {
 				ConnectorUtils.createMessageBody("GET", addr, data1, moment));
 			
 			
-			String st0 = connr.get("https://testnet.bitmex.com" + addr, connr.getOrderApiKey(), sign, moment, "");
+			String st0 = connr.get("https://testnet.bitmex.com" + addr, connr.getOrderApiKey(), sign, moment);
 			
 //			String test = Provider.testReponseForError(st0);
 //			if(test != null){

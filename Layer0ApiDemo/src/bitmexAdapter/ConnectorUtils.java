@@ -3,6 +3,9 @@ package bitmexAdapter;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.EnumMap;
@@ -86,25 +89,31 @@ public class ConnectorUtils {
 	}
 	
 
-	public static String getDateTwentyFourHoursAgoAsUrlEncodedString() {
-		Calendar calendar = Calendar.getInstance();
-		calendar.add(Calendar.DAY_OF_WEEK, -1);
-		Date date = calendar.getTime();
-		String pattern = "yyyy-MM-dd HH:mm:ss.SSS";
-		SimpleDateFormat sdf = new SimpleDateFormat(pattern);
-		String s = sdf.format(date);
-		System.out.println(s);
-		StringBuilder sb = new StringBuilder();
-		sb.append(s.substring(0, 10));
-		sb.append("T");
-		sb.append(s.substring(11, 13));
-		sb.append("%3A");
-		sb.append(s.substring(14, 16));
-		sb.append("%3A");
-		sb.append(s.substring(17));
-		sb.append("Z");
-		String z = sb.toString();
-		return z;
+//	public static String getDateTwentyFourHoursAgoAsUrlEncodedString() {
+//		Calendar calendar = Calendar.getInstance();
+//		calendar.add(Calendar.DAY_OF_WEEK, -1);
+//		Date date = calendar.getTime();
+//		String pattern = "yyyy-MM-dd HH:mm:ss.SSS";
+//		SimpleDateFormat sdf = new SimpleDateFormat(pattern);
+//		String s = sdf.format(date);
+////		System.out.println(s);
+//		StringBuilder sb = new StringBuilder();
+//		sb.append(s.substring(0, 10));
+//		sb.append("T");
+//		sb.append(s.substring(11, 13));
+//		sb.append("%3A");
+//		sb.append(s.substring(14, 16));
+//		sb.append("%3A");
+//		sb.append(s.substring(17));
+//		sb.append("Z");
+//		String z = sb.toString();
+//		return z;
+//	}
+	
+	public static String getDateTwentyFourHoursAgoAsUrlEncodedString0() {
+		long longTimeAgo = System.currentTimeMillis() - 86400000 - 10800000;
+		String s = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(Instant.ofEpochMilli(longTimeAgo).atZone(ZoneOffset.UTC)) + "Z";
+		return s;
 	}
 	
 	public static long getMomentAndTimeToLive() {

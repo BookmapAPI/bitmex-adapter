@@ -56,7 +56,7 @@ public class TradeConnector {
 		this.orderApiSecret = orderApiSecret;
 	}
 
-	public String get(String address, String key, String signature, long moment, String data) {
+	public String get(String address, String key, String signature, long moment) {
 		String response = null;
 
 		try {
