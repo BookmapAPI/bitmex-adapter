@@ -73,6 +73,15 @@ public class JsonParser {
 			if (answ.getSuccess() == true && answ.getRequest().getOp().equals("authKey")) {
 				prov.connector.webSocketAuthLatch.countDown();
 			}
+			
+			if (answ.getSuccess() == true && answ.getRequest().getOp().equals("unsubscribe")) {
+				String symbol = answ.getUnsubscribeSymbol();
+				if (symbol != null){
+					Log.info("PARSER ANSW **GETTING USUBSCR FROM ORDERBOOK" + symbol);
+					BmInstrument instr = activeInstrumentsMap.get(symbol);
+					instr.clearOrderBook();
+				}
+			}
 
 			if (answ.getSuccess() == null && answ.getError() == null && answ.getTable() == null
 					&& answ.getInfo() == null) {

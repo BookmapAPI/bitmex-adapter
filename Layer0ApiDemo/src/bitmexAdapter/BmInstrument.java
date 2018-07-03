@@ -122,6 +122,10 @@ public class BmInstrument {
 	public OrderBook getOrderBook() {
 			return orderBook;
 	}
+	
+	public void clearOrderBook() {
+		 this.orderBook = new OrderBook();
+	}
 
 	public boolean isSubscribed() {
 		return isSubscribed;
