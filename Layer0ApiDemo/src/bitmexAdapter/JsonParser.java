@@ -354,12 +354,12 @@ public class JsonParser {
 
 	public void write(String str) {
 		
-		try(BufferedWriter bw = new BufferedWriter(new FileWriter("C:\\Bm.log", true));) {
-			bw.write(str);
-			bw.write("\n");
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+//		try(BufferedWriter bw = new BufferedWriter(new FileWriter("C:\\Bm.log", true));) {
+//			bw.write(str);
+//			bw.write("\n");
+//		} catch (IOException e) {
+//			e.printStackTrace();
+//		}
 		
 	}
 }
