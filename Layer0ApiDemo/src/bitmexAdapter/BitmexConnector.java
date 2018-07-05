@@ -163,6 +163,8 @@ public class BitmexConnector implements Runnable {
 			Log.info("BITM CONN ** LATCH IS DOWN");
 
 			if (isReconnecting) {
+				prov.reportRestoredCoonection();
+
 				for (BmInstrument instr : activeBmInstrumentsMap.values()) {
 					if (instr.isSubscribed()) {
 						subscribe(instr);
@@ -294,8 +296,11 @@ public class BitmexConnector implements Runnable {
 
 		launchSnapshotTimer(this, instr);
 
-		if (!prov.isCredentialsEmpty) {//if authenticated
+		if (!prov.isCredentialsEmpty) {// if authenticated
 			instr.setExecutionsVolume(countExecutionsVolume(instr.getSymbol()));
+			reportFilled(instr.getSymbol());
+			reportCancelled(instr.getSymbol());
+
 		}
 	}
 
@@ -342,39 +347,60 @@ public class BitmexConnector implements Runnable {
 		String z = ConnectorUtils.getDateTwentyFourHoursAgoAsUrlEncodedString0();
 		System.out.println("Z = " + z);
 		int sum = 0;
-		long moment = ConnectorUtils.getMomentAndTimeToLive();
-		String data1 = "";
+		// long moment = ConnectorUtils.getMomentAndTimeToLive();
 		String addr = "/api/v1/execution?symbol=" + symbol
 				+ "&filter=%7B%22ordStatus%22%3A%22Filled%22%7D&count=100&reverse=false&startTime=" + z;
-		String sign;
+		// String messagebody = ConnectorUtils.createMessageBody("GET", addr,
+		// "", moment);
+		// String sign =
+		// ConnectorUtils.generateSignature(connr.getOrderApiSecret(),
+		// messagebody);
+		//
+		// Log.info("*** ADDR " + addr);
+		// Log.info("*** MBDY " + messagebody);
+		// Log.info("*** SIGN " + sign);
+		// String st1 = connr.get("https://testnet.bitmex.com" + addr,
+		// connr.getOrderApiKey(), sign, moment);
 
-		sign = ConnectorUtils.generateSignature(connr.getOrderApiSecret(),
-				ConnectorUtils.createMessageBody("GET", addr, data1, moment));
-			
-			
-			String st0 = connr.get("https://testnet.bitmex.com" + addr, connr.getOrderApiKey(), sign, moment);
-			
-//			String test = Provider.testReponseForError(st0);
-//			if(test != null){
-//				prov.adminListeners.forEach(l -> l.onSystemTextMessage(test,
-//						// adminListeners.forEach(l -> l.onSystemTextMessage("This
-//						// provider only supports limit orders",
-//						SystemTextMessageType.UNCLASSIFIED));
-//			}
-
-			BmOrder[] orders = JsonParser.getArrayFromJson(st0, BmOrder[].class);
-			if (orders != null) {
-				for (BmOrder order : orders) {
-					// sum += order.getSimpleOrderQty();
-					sum += order.getOrderQty();
-					// Log.info("VOLUME ELEMENT " + order.getOrderQty());
-				}
+		String st0 = connr.makeRestGetQuery(addr);
+		BmOrder[] orders = JsonParser.getArrayFromJson(st0, BmOrder[].class);
+		if (orders != null && orders.length > 0) {
+			for (BmOrder order : orders) {
+				sum += order.getOrderQty();
+				// Log.info("VOLUME ELEMENT " + order.getOrderQty());
 			}
+		}
 
-			System.out.println("=> " + st0);
-	
-
+		System.out.println("=> " + st0);
 		return sum;
+	}
+
+	private void reportFilled(String symbol) {
+		String z = ConnectorUtils.getDateTwentyFourHoursAgoAsUrlEncodedString0();
+		String addr = "/api/v1/execution?symbol=" + symbol
+				+ "&filter=%7B%22ordStatus%22%3A%20%22Filled%22%7D&count=500&reverse=true&startTime=" + z;
+		String st0 = connr.makeRestGetQuery(addr);
+		
+		Execution[] execs = JsonParser.getArrayFromJson(st0, Execution[].class);
+		if (execs != null && execs.length > 0) {
+			prov.updateExecutionsHistory(execs);
+		}
+
+		System.out.println("=> " + st0);
+	}
+	
+	private void reportCancelled(String symbol) {
+		String z = ConnectorUtils.getDateTwentyFourHoursAgoAsUrlEncodedString0();
+		String addr = "/api/v1/execution?symbol=" + symbol
+				+ "&filter=%7B%22ordStatus%22%3A%20%22Canceled%22%7D&count=500&reverse=true&startTime=" + z;
+		String st0 = connr.makeRestGetQuery(addr);
+		
+		Execution[] execs = JsonParser.getArrayFromJson(st0, Execution[].class);
+		if (execs != null && execs.length > 0) {
+			prov.updateExecutionsHistory(execs);
+		}
+
+		System.out.println("=> " + st0);
 	}
 
 	@Override
@@ -399,6 +425,10 @@ public class BitmexConnector implements Runnable {
 			if (!interruptionNeeded) {
 				wSconnect();
 			}
+			if (!interruptionNeeded) {
+				prov.reportLostCoonection();
+			}
+
 		}
 		if (socket != null) {
 			socket.close();

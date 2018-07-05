@@ -5,7 +5,8 @@ public class Execution extends BmOrder{
 	private double lastPx;//from Execution
 	private long lastQty;
 	
-	
+	//this field is added processing timestamp acquired from Bitmex
+	private long execTransactTime;
 	
 	private long foreignNotional;
 	
@@ -34,5 +35,12 @@ public class Execution extends BmOrder{
 	}
 	public void setLastQty(long lastQty) {
 		this.lastQty = lastQty;
+	}
+	
+	public long getExecTransactTime() {
+		return execTransactTime;
+	}
+	public void setExecTransactTime(long execTransactTime) {
+		this.execTransactTime = execTransactTime;
 	}
 }

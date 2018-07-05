@@ -4,16 +4,20 @@ import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import javax.xml.bind.DatatypeConverter;
 
 import org.apache.commons.codec.binary.Hex;
 
@@ -111,9 +115,23 @@ public class ConnectorUtils {
 //	}
 	
 	public static String getDateTwentyFourHoursAgoAsUrlEncodedString0() {
-		long longTimeAgo = System.currentTimeMillis() - 86400000 - 10800000;
+		long longTimeAgo = System.currentTimeMillis() - 86400000;
 		String s = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(Instant.ofEpochMilli(longTimeAgo).atZone(ZoneOffset.UTC)) + "Z";
 		return s;
+	}
+	
+	public static long transactTimeToLong(String moment) {
+		Calendar calendar = DatatypeConverter.parseDateTime(moment);
+		Date date = calendar.getTime();
+		long time = date.getTime();
+		return time;
+	}
+	
+	public static String longToTransactTime(long moment) {
+		ZonedDateTime zdt = ZonedDateTime.ofInstant(Instant.ofEpochMilli(moment),
+				ZoneId.systemDefault());
+		String time = zdt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) + "Z";
+		return time;
 	}
 	
 	public static long getMomentAndTimeToLive() {
@@ -161,5 +179,22 @@ public class ConnectorUtils {
 			sb.append(symbData[i++]);
 		}
 		return sb.toString();
+	}
+	
+	public static String processRateLimitHeaders(Map<String, List<String>> map){
+//		System.out.print("****CODE = " + conn.getResponseCode());
+//		Map<String, List<String>> map = conn.getHeaderFields();
+//		for (Map.Entry<String, List<String>> entry : map.entrySet()) {
+//			System.out.println("Key : " + entry.getKey() + 
+//	                 " ,Value : " + entry.getValue());
+//		}
+		int rateLimit = Integer.parseInt(map.get("X-RateLimit-Limit").get(0));
+		int rateLimitRemaining = Integer.parseInt(map.get("X-RateLimit-Remaining").get(0));
+		int ratio = 100 * rateLimitRemaining / rateLimit;
+		System.out.println(ratio);
+		if (ratio <= 10){
+			return Integer.toString(ratio);
+		}
+		return null;
 	}
 }

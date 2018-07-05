@@ -12,6 +12,7 @@ import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
+import java.util.Map;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -71,16 +72,6 @@ public class TradeConnector {
 			conn.setRequestProperty("api-key", key);
 			conn.setRequestProperty("api-signature", signature);
 
-			// *********
-			// conn.setRequestProperty("Content-Length",
-			// Integer.toString(data.getBytes("UTF-8").length));
-			// System.out.println(Integer.toString(data.getBytes("UTF-8").length));
-			// OutputStream os = conn.getOutputStream();
-			// OutputStreamWriter osw = new OutputStreamWriter(os, "UTF-8");
-			// osw.write(data);
-			// osw.flush();
-			// osw.close();
-
 			if (conn.getResponseCode() == 200) {
 				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
 				StringBuilder sb = new StringBuilder("");
@@ -91,7 +82,39 @@ public class TradeConnector {
 				}
 				conn.disconnect();
 				response = sb.toString();
+				
+				Map<String, List<String>> map = conn.getHeaderFields();
+				for (Map.Entry<String, List<String>> entry : map.entrySet()) {
+					System.out.println("Key : " + entry.getKey() + 
+			                 " ,Value : " + entry.getValue());
+				}
+				
+				int rateLimit = Integer.parseInt(map.get("X-RateLimit-Limit").get(0));
+				int rateLimitRemaining = Integer.parseInt(map.get("X-RateLimit-Remaining").get(0));
+				int ratio = 100 * rateLimitRemaining / rateLimit;
+				long rateLimitReset = Long.parseLong(map.get("X-RateLimit-Reset").get(0));
+				System.out.println(ratio);
+				System.out.println(rateLimitReset);
+//				String reset =  String.format("%d:%02d:%02d", rateLimitReset / 3600000, (rateLimitReset % 3600) / 60000, (rateLimitReset % 60000));
+//				System.out.println(reset);
+				
 			} else {
+				
+				System.out.print("****CODE = " + conn.getResponseCode());
+				Map<String, List<String>> map = conn.getHeaderFields();
+				for (Map.Entry<String, List<String>> entry : map.entrySet()) {
+					System.out.println("Key : " + entry.getKey() + 
+			                 " ,Value : " + entry.getValue());
+				}
+				
+				int rateLimit = Integer.parseInt(map.get("X-RateLimit-Limit").get(0));
+				int rateLimitRemaining = Integer.parseInt(map.get("X-RateLimit-Remaining").get(0));
+				int ratio = 100 * rateLimitRemaining / rateLimit;
+				long rateLimitReset = Long.parseLong(map.get("X-RateLimit-Reset").get(0));
+				System.out.println(ratio);
+				System.out.println(rateLimitReset);
+				
+				
 				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getErrorStream())));
 				StringBuilder sb = new StringBuilder("");
 				String output = null;
@@ -99,8 +122,67 @@ public class TradeConnector {
 				while ((output = br.readLine()) != null) {
 					sb.append(output);
 				}
-
 				System.out.println(sb.toString());
+			}
+		} catch (UnknownHostException | NoRouteToHostException e) {
+			// Log.info("NO RESPONSE FROM SERVER");
+		} catch (java.net.SocketException e) {
+			// Log.info("NETWORK IS UNREACHABLE");
+		} catch (IOException e) {
+			// Log.debug("BUFFER READING ERROR");
+			e.printStackTrace();
+		}
+		return response;
+	}
+	
+	public String makeRestGetQuery(String address) {
+		String addr = address;
+		long moment = ConnectorUtils.getMomentAndTimeToLive();
+		String messageBody = ConnectorUtils.createMessageBody("GET", addr, "",
+				moment);
+		String signature = ConnectorUtils.generateSignature(orderApiSecret, messageBody);
+		String response = null;
+		
+		Log.info("*** ADDR CR " + addr);
+		Log.info("*** MBDY CR " + messageBody);
+		Log.info("*** SIGN CR " + signature);
+		
+		try {
+			URL url = new URL(prov.connector.restApi +  addr);
+			Log.info("url\t" + addr);
+			HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
+			conn.setRequestMethod("GET");
+			
+			// conn.setRequestProperty("Content-Type", "application/json");
+			conn.setRequestProperty("Accept", "application/json");
+			conn.setRequestProperty("api-expires", Long.toString(moment));
+			conn.setRequestProperty("api-key", orderApiKey);
+			conn.setRequestProperty("api-signature", signature);
+			
+			if (conn.getResponseCode() == 200) {
+				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
+				StringBuilder sb = new StringBuilder("");
+				String output = null;
+				
+				while ((output = br.readLine()) != null) {
+					sb.append(output);
+				}
+//				conn.disconnect();
+				String rateLimitIfExists = ConnectorUtils.processRateLimitHeaders(conn.getHeaderFields());
+				if(rateLimitIfExists != null){
+					
+				}
+				
+				response = sb.toString();
+			} else {
+				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getErrorStream())));
+				StringBuilder sb = new StringBuilder("");
+				String output = null;
+				
+				while ((output = br.readLine()) != null) {
+					sb.append(output);
+				}
+				Log.info("TR CONN makeRestGetQery err: " + sb.toString());
 			}
 		} catch (UnknownHostException | NoRouteToHostException e) {
 			// Log.info("NO RESPONSE FROM SERVER");
@@ -215,7 +297,7 @@ public class TradeConnector {
 
 	}
 
-	public void resizeOrder(String orderId, long orderQty) {
+	public String resizeOrder(String orderId, long orderQty) {
 
 		JsonObject json = new JsonObject();
 		json.addProperty("orderID", orderId);
@@ -223,8 +305,7 @@ public class TradeConnector {
 		json.addProperty("leavesQty", orderQty);
 		// json.addProperty("simpleOrderQty", orderQty);
 		String data = json.toString();
-
-		require(GeneralType.ORDER, Method.PUT, data);
+		return data;
 	}
 
 	// public void resizePartiallyFilledOrder(String orderId, long orderQty) {
@@ -239,7 +320,7 @@ public class TradeConnector {
 	// Log.info(res);
 	// }
 
-	public void resizeOrder(List<String> orderIds, long orderQty) {
+	public String resizeOrder(List<String> orderIds, long orderQty) {
 
 		JsonArray array = new JsonArray();
 		for (String orderId : orderIds) {
@@ -247,18 +328,12 @@ public class TradeConnector {
 			json.addProperty("orderID", orderId);
 			// json.addProperty("orderQty", orderQty);
 			json.addProperty("leavesQty", orderQty);
-			// String data = json.toString();
-
 			array.add(json);
 		}
 
-		String data = array.toString();
-		String data1 = "orders=" + data;
-
-		Log.info("TR CONN - RESIZE BULK " + data1);
-
-		require(GeneralType.ORDERBULK, Method.PUT, data1);
-
+		String data = "orders=" + array.toString();
+		Log.info("TR CONN - RESIZE BULK " + data);
+		return data;
 	}
 
 	public void resizePartiallyFilledOrder(List<String> orderIds, long orderQty) {
@@ -361,6 +436,11 @@ public class TradeConnector {
 			osw.close();
 
 			Log.info("TR CONN : require : " + path + "\t" + data);
+			
+			String rateLimitIfExists = ConnectorUtils.processRateLimitHeaders(conn.getHeaderFields());
+			if(rateLimitIfExists != null){
+				prov.pushRateLimitWarning(rateLimitIfExists);
+			}
 
 			if (conn.getResponseCode() != 200) {
 				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getErrorStream())));
