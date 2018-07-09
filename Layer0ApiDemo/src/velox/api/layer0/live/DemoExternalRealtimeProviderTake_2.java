@@ -228,7 +228,7 @@ public class DemoExternalRealtimeProviderTake_2 extends ExternalLiveBaseProvider
 
 			// CONNECTOR
 //			this.connector = new BitmexConnector();
-			this.connector.setTrConn(connr);
+			this.connector.setTradeConnector(connr);
 			Thread thread = new Thread(this.connector);
 			thread.setName("->BitmexAdapter: connector");
 			thread.start();

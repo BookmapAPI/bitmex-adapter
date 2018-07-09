@@ -590,8 +590,8 @@ public class Provider extends ExternalLiveBaseProvider {
 			// CONNECTOR
 			// this.connector = new BitmexConnector();
 
-			this.connector.prov = this;
-			this.connector.setTrConn(connr);
+			this.connector.provider = this;
+			this.connector.setTradeConnector(connr);
 			connectorThread = new Thread(this.connector);
 			connectorThread.setName("->BitmexAdapter: connector");
 			connectorThread.start();
@@ -721,7 +721,7 @@ public class Provider extends ExternalLiveBaseProvider {
 			// else if (exec.getOrdStatus().equals("PartiallyFilled")){
 			// if(bracketParents.contains(exec.getOrderID())){
 			// sendOrder(createChildrenForPartiallyFillebBracket(exec));
-			// connr.resizeOrder(getBracketChildren(exec.getOrderID()),
+			// tradeConnector.resizeOrder(getBracketChildren(exec.getOrderID()),
 			// exec.getLeavesQty());
 			// }
 			// }

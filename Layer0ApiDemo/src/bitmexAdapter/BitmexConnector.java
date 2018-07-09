@@ -45,15 +45,15 @@ public class BitmexConnector implements Runnable {
 
 	public boolean isReconnecting = false;
 
-	public Provider prov;
-	TradeConnector connr;
+	public Provider provider;
+	TradeConnector tradeConnector;
 
-	public TradeConnector getTrConn() {
-		return connr;
+	public TradeConnector getTradeConnector() {
+		return tradeConnector;
 	}
 
-	public void setTrConn(TradeConnector trConn) {
-		this.connr = trConn;
+	public void setTradeConnector(TradeConnector tradeConnector) {
+		this.tradeConnector = tradeConnector;
 	}
 
 	public CountDownLatch getWebSocketStartingLatch() {
@@ -82,8 +82,8 @@ public class BitmexConnector implements Runnable {
 	public String wssAuthTwo() {
 		String method = "GET";
 		String subPath = "/realtime";
-		String orderAPiKEy = connr.getOrderApiKey();
-		String orderApiSecret = connr.getOrderApiSecret();
+		String orderAPiKEy = tradeConnector.getOrderApiKey();
+		String orderApiSecret = tradeConnector.getOrderApiSecret();
 		long moment = getMoment();
 
 		String data = "";
@@ -98,7 +98,7 @@ public class BitmexConnector implements Runnable {
 		return res;
 	}
 
-	public void wSconnect() {
+	public void wcConnect() {
 		SslContextFactory ssl = new SslContextFactory();
 		WebSocketClient client = new WebSocketClient(ssl);
 		Log.info("BITM CONN ** WSCONNECT STARTED");
@@ -109,7 +109,7 @@ public class BitmexConnector implements Runnable {
 			this.socket = socket;
 			this.parser.setActiveInstrumentsMap(Collections.unmodifiableMap(activeBmInstrumentsMap));
 			this.socket.setParser(parser);
-			parser.prov = this.prov;
+			parser.prov = this.provider;
 
 			Log.info("BITM CONN ** WSCONNECT CLIENT STARTING");
 
@@ -121,8 +121,8 @@ public class BitmexConnector implements Runnable {
 			client.connect(socket, echoUri, request);
 			this.socket.getOpeningLatch().await();
 
-			if (prov.isCredentialsEmpty) {// no authentication is needed
-				prov.adminListeners.forEach(
+			if (provider.isCredentialsEmpty) {// no authentication is needed
+				provider.adminListeners.forEach(
 						l -> l.onSystemTextMessage("You are not subscribed to topics that require authentication",
 								SystemTextMessageType.UNCLASSIFIED));
 			} else {// authentication needed
@@ -138,7 +138,7 @@ public class BitmexConnector implements Runnable {
 			Log.info("BITM CONN ** LATCH IS DOWN");
 
 			if (isReconnecting) {
-				prov.reportRestoredCoonection();
+				provider.reportRestoredCoonection();
 
 				for (BmInstrument instr : activeBmInstrumentsMap.values()) {
 					if (instr.isSubscribed()) {
@@ -265,7 +265,7 @@ public class BitmexConnector implements Runnable {
 //		better to turn on off while debugging
 //		launchSnapshotTimer(this, instr);
 
-		if (!prov.isCredentialsEmpty) {// if authenticated
+		if (!provider.isCredentialsEmpty) {// if authenticated
 			instr.setExecutionsVolume(countExecutionsVolume(instr.getSymbol()));
 			reportFilled(instr.getSymbol());
 			reportCancelled(instr.getSymbol());
@@ -322,16 +322,16 @@ public class BitmexConnector implements Runnable {
 		// String messagebody = ConnectorUtils.createMessageBody("GET", addr,
 		// "", moment);
 		// String sign =
-		// ConnectorUtils.generateSignature(connr.getOrderApiSecret(),
+		// ConnectorUtils.generateSignature(tradeConnector.getOrderApiSecret(),
 		// messagebody);
 		//
 		// Log.info("*** ADDR " + addr);
 		// Log.info("*** MBDY " + messagebody);
 		// Log.info("*** SIGN " + sign);
-		// String st1 = connr.get("https://testnet.bitmex.com" + addr,
-		// connr.getOrderApiKey(), sign, moment);
+		// String st1 = tradeConnector.get("https://testnet.bitmex.com" + addr,
+		// tradeConnector.getOrderApiKey(), sign, moment);
 
-		String st0 = connr.makeRestGetQuery(addr);
+		String st0 = tradeConnector.makeRestGetQuery(addr);
 		UnitOrder[] orders = JsonParser.getArrayFromJson(st0, UnitOrder[].class);
 		if (orders != null && orders.length > 0) {
 			for (UnitOrder order : orders) {
@@ -348,11 +348,11 @@ public class BitmexConnector implements Runnable {
 		String z = ConnectorUtils.getDateTwentyFourHoursAgoAsUrlEncodedString0();
 		String addr = "/api/v1/execution?symbol=" + symbol
 				+ "&filter=%7B%22ordStatus%22%3A%20%22Filled%22%7D&count=500&reverse=true&startTime=" + z;
-		String st0 = connr.makeRestGetQuery(addr);
+		String st0 = tradeConnector.makeRestGetQuery(addr);
 
 		UnitExecution[] execs = JsonParser.getArrayFromJson(st0, UnitExecution[].class);
 		if (execs != null && execs.length > 0) {
-			prov.updateExecutionsHistory(execs);
+			provider.updateExecutionsHistory(execs);
 		}
 
 		System.out.println("=> " + st0);
@@ -362,11 +362,11 @@ public class BitmexConnector implements Runnable {
 		String z = ConnectorUtils.getDateTwentyFourHoursAgoAsUrlEncodedString0();
 		String addr = "/api/v1/execution?symbol=" + symbol
 				+ "&filter=%7B%22ordStatus%22%3A%20%22Canceled%22%7D&count=500&reverse=true&startTime=" + z;
-		String st0 = connr.makeRestGetQuery(addr);
+		String st0 = tradeConnector.makeRestGetQuery(addr);
 
 		UnitExecution[] execs = JsonParser.getArrayFromJson(st0, UnitExecution[].class);
 		if (execs != null && execs.length > 0) {
-			prov.updateExecutionsHistory(execs);
+			provider.updateExecutionsHistory(execs);
 		}
 
 		System.out.println("=> " + st0);
@@ -392,10 +392,10 @@ public class BitmexConnector implements Runnable {
 					continue;
 			}
 			if (!interruptionNeeded) {
-				wSconnect();
+				wcConnect();
 			}
 			if (!interruptionNeeded) {
-				prov.reportLostCoonection();
+				provider.reportLostCoonection();
 			}
 
 		}

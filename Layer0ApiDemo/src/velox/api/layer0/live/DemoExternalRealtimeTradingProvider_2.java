@@ -122,7 +122,7 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 //		// tempClientId = simpleParameters.clientId;
 //		// Log.info("CLIENT ID " + tempClientId);
 //		// Log.info("***Order gets sent to BitMex");
-//		// UnitOrder ord = connr.processNewOrder(simpleParameters);
+//		// UnitOrder ord = tradeConnector.processNewOrder(simpleParameters);
 //		// String bmId = ord.getOrderID();
 //		// Log.info("BM_ID " + bmId);
 //		// // ****************** TO BITMEX ENDS
@@ -164,7 +164,7 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 //			tempClientId = simpleParameters.clientId;
 //			Log.info("CLIENT ID " + tempClientId);
 //			Log.info("***Order gets sent to BitMex");
-//			UnitOrder ord = connr.processNewOrder(simpleParameters, orderType);
+//			UnitOrder ord = tradeConnector.processNewOrder(simpleParameters, orderType);
 //			if (ord == null) {
 //				rejectOrder(builder);
 //			} else {
@@ -283,11 +283,11 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 //
 //				// Cancel order with provided ID
 //				OrderCancelParameters orderCancelParameters = (OrderCancelParameters) orderUpdateParameters;
-//				connr.cancelOrder(orderCancelParameters.orderId);
+//				tradeConnector.cancelOrder(orderCancelParameters.orderId);
 //
 //				OrderInfoBuilder builder = workingOrders.get(orderCancelParameters.orderId);
 //
-//				String symbol = connr.isolateSymbol(builder.getInstrumentAlias());
+//				String symbol = tradeConnector.isolateSymbol(builder.getInstrumentAlias());
 //				BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
 //				if (builder.isBuy()) {
 //					instr.setBuyOrdersCount(instr.getBuyOrdersCount() - builder.getUnfilled());
@@ -308,7 +308,7 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 //				Log.info("RESIZE ORDER BY " + orderResizeParameters.size);
 //
 //				int newSize = orderResizeParameters.size;
-//				UnitOrder ord = connr.resizeOrder(orderResizeParameters.orderId, newSize);
+//				UnitOrder ord = tradeConnector.resizeOrder(orderResizeParameters.orderId, newSize);
 //
 //				OrderInfoBuilder builder = workingOrders.get(orderResizeParameters.orderId);
 //
@@ -317,7 +317,7 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 //				}
 //				int oldSize = builder.getUnfilled();
 //
-//				String symbol = connr.isolateSymbol(ord.getSymbol());
+//				String symbol = tradeConnector.isolateSymbol(ord.getSymbol());
 //				BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
 //				if (builder.isBuy()) {
 //					instr.setBuyOrdersCount(instr.getBuyOrdersCount() + newSize - oldSize);
@@ -344,7 +344,7 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 //				// Change stop/limit prices of an order with provided ID
 //				OrderMoveParameters orderMoveParameters = (OrderMoveParameters) orderUpdateParameters;
 //
-//				connr.moveOrder(orderMoveParameters.orderId, orderMoveParameters.limitPrice);
+//				tradeConnector.moveOrder(orderMoveParameters.orderId, orderMoveParameters.limitPrice);
 //				OrderInfoBuilder order = workingOrders.get(orderMoveParameters.orderId);
 //				// No need to update stop price as this demo only supports limit
 //				// orders
@@ -411,7 +411,7 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 //						// that's because order price is a raw value and
 //						// instrument bid/ask are level numbers.
 //
-//						String symbol = connr.isolateSymbol(instrument.alias);
+//						String symbol = tradeConnector.isolateSymbol(instrument.alias);
 //						BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
 //
 //						BlockingQueue<UnitOrder> messages = instr.getExecutionQueue();
@@ -457,7 +457,7 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 //		synchronized (instruments) {
 //			for (Instrument instrument : instruments.values()) {
 //				// *******************POSITION
-//				String symbol = connr.isolateSymbol(instrument.alias);
+//				String symbol = tradeConnector.isolateSymbol(instrument.alias);
 //				BmInstrument bmInstrument = connector.getActiveInstrumentsMap().get(symbol);
 //
 //				BlockingQueue<UnitPosition> messPos = bmInstrument.getPositionQueue();
