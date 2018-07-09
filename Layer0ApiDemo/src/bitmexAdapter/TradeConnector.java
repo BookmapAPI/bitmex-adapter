@@ -8,27 +8,16 @@ import java.io.OutputStreamWriter;
 import java.net.NoRouteToHostException;
 import java.net.URL;
 import java.net.UnknownHostException;
-import java.security.InvalidKeyException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Map;
-
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.HttpsURLConnection;
-
-import org.apache.commons.codec.binary.Hex;
-
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-
 import bitmexAdapter.ConnectorUtils.GeneralType;
 import bitmexAdapter.ConnectorUtils.Method;
 import velox.api.layer0.live.Provider;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.data.OrderMoveParameters;
-import velox.api.layer1.data.OrderSendParameters;
 import velox.api.layer1.data.OrderType;
 import velox.api.layer1.data.SimpleOrderSendParameters;
 import velox.api.layer1.layers.utils.OrderBook;
@@ -65,7 +54,6 @@ public class TradeConnector {
 			Log.info("url\t" + address);
 			HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
 			conn.setRequestMethod("GET");
-
 			// conn.setRequestProperty("Content-Type", "application/json");
 			conn.setRequestProperty("Accept", "application/json");
 			conn.setRequestProperty("api-expires", Long.toString(moment));
@@ -95,11 +83,7 @@ public class TradeConnector {
 				long rateLimitReset = Long.parseLong(map.get("X-RateLimit-Reset").get(0));
 				System.out.println(ratio);
 				System.out.println(rateLimitReset);
-//				String reset =  String.format("%d:%02d:%02d", rateLimitReset / 3600000, (rateLimitReset % 3600) / 60000, (rateLimitReset % 60000));
-//				System.out.println(reset);
-				
 			} else {
-				
 				System.out.print("****CODE = " + conn.getResponseCode());
 				Map<String, List<String>> map = conn.getHeaderFields();
 				for (Map.Entry<String, List<String>> entry : map.entrySet()) {
@@ -125,11 +109,11 @@ public class TradeConnector {
 				System.out.println(sb.toString());
 			}
 		} catch (UnknownHostException | NoRouteToHostException e) {
-			// Log.info("NO RESPONSE FROM SERVER");
+			 Log.info("NO RESPONSE FROM SERVER");
 		} catch (java.net.SocketException e) {
-			// Log.info("NETWORK IS UNREACHABLE");
+			 Log.info("NETWORK IS UNREACHABLE");
 		} catch (IOException e) {
-			// Log.debug("BUFFER READING ERROR");
+			 Log.debug("BUFFER READING ERROR");
 			e.printStackTrace();
 		}
 		return response;
@@ -152,7 +136,6 @@ public class TradeConnector {
 			Log.info("url\t" + addr);
 			HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
 			conn.setRequestMethod("GET");
-			
 			// conn.setRequestProperty("Content-Type", "application/json");
 			conn.setRequestProperty("Accept", "application/json");
 			conn.setRequestProperty("api-expires", Long.toString(moment));
@@ -170,7 +153,7 @@ public class TradeConnector {
 //				conn.disconnect();
 				String rateLimitIfExists = ConnectorUtils.processRateLimitHeaders(conn.getHeaderFields());
 				if(rateLimitIfExists != null){
-					
+					prov.pushRateLimitWarning(rateLimitIfExists);
 				}
 				
 				response = sb.toString();
@@ -185,11 +168,11 @@ public class TradeConnector {
 				Log.info("TR CONN makeRestGetQery err: " + sb.toString());
 			}
 		} catch (UnknownHostException | NoRouteToHostException e) {
-			// Log.info("NO RESPONSE FROM SERVER");
+			 Log.info("NO RESPONSE FROM SERVER");
 		} catch (java.net.SocketException e) {
-			// Log.info("NETWORK IS UNREACHABLE");
+			 Log.info("NETWORK IS UNREACHABLE");
 		} catch (IOException e) {
-			// Log.debug("BUFFER READING ERROR");
+			 Log.debug("BUFFER READING ERROR");
 			e.printStackTrace();
 		}
 		return response;
@@ -217,12 +200,8 @@ public class TradeConnector {
 		json.addProperty("side", side);
 		json.addProperty("orderQty", orderQty);
 		json.addProperty("clOrdID", tempOrderId);
-		// if (clOrdLinkID != null) {
 		json.addProperty("clOrdLinkID", clOrdLinkID);
-		// }
-		// if (contingencyType != null) {
 		json.addProperty("contingencyType", contingencyType);
-		// }
 
 		/*
 		 * https://www.bitmex.com/api/explorer/#!/Order/Order_new Send a
@@ -262,113 +241,73 @@ public class TradeConnector {
 
 		}
 		return json;
-		
 	}
-	
 
 	public UnitOrder cancelOrder(String orderId) {
-
 		JsonObject json = new JsonObject();
 		json.addProperty("orderID", orderId);
 		String data = json.toString();
-
 		String res = require(GeneralType.ORDER, Method.DELETE, data);
-		Log.info(res);
-		// UnitOrder[] cancelledOrders = JsonParser.getArrayFromJson(res,
-		// UnitOrder[].class);
-		// return cancelledOrders[0];
-
-		return null; // ?????????????
+		Log.info("TR CONN cancel order " + res);
+		return null;
 	}
 
 	public void cancelOrder(List<String> orderIds) {
-
 		StringBuilder sb = new StringBuilder("");
 		sb.append("orderID=");
 		for (String orderId : orderIds) {
 			sb.append(orderId).append(",");
 		}
 		sb.setLength(sb.length() - 1);
-
 		String data1 = sb.toString();
-
 		Log.info("TR CONN - CANCEL ALL " + data1);
 		require(GeneralType.ORDER, Method.DELETE, data1, true);
-
 	}
 
 	public String resizeOrder(String orderId, long orderQty) {
-
 		JsonObject json = new JsonObject();
 		json.addProperty("orderID", orderId);
-		// json.addProperty("orderQty", orderQty);
 		json.addProperty("leavesQty", orderQty);
-		// json.addProperty("simpleOrderQty", orderQty);
 		String data = json.toString();
 		return data;
 	}
 
-	// public void resizePartiallyFilledOrder(String orderId, long orderQty) {
-	//
-	// JsonObject json = new JsonObject();
-	// json.addProperty("orderID", orderId);
-	// json.addProperty("leavesQty", orderQty);
-	// // json.addProperty("simpleOrderQty", orderQty);
-	// String data = json.toString();
-	//
-	// String res = require(GeneralType.ORDER, Method.PUT, data);
-	// Log.info(res);
-	// }
-
 	public String resizeOrder(List<String> orderIds, long orderQty) {
-
 		JsonArray array = new JsonArray();
 		for (String orderId : orderIds) {
 			JsonObject json = new JsonObject();
 			json.addProperty("orderID", orderId);
-			// json.addProperty("orderQty", orderQty);
 			json.addProperty("leavesQty", orderQty);
 			array.add(json);
 		}
-
 		String data = "orders=" + array.toString();
 		Log.info("TR CONN - RESIZE BULK " + data);
 		return data;
 	}
 
 	public void resizePartiallyFilledOrder(List<String> orderIds, long orderQty) {
-
 		JsonArray array = new JsonArray();
 		for (String orderId : orderIds) {
 			JsonObject json = new JsonObject();
 			json.addProperty("orderID", orderId);
 			json.addProperty("leavesQty", orderQty);
-			// String data = json.toString();
-
 			array.add(json);
 		}
-
 		String data = array.toString();
 		String data1 = "orders=" + data;
-
 		Log.info("TR CONN - RESIZE BULK " + data1);
 		require(GeneralType.ORDERBULK, Method.PUT, data1);
-
 	}
 
 	public JsonObject moveOrderJson(OrderMoveParameters params, boolean isStopTriggered) {
-		// public void moveOrder(String orderId, OrderMoveParameters params) {
 		OrderType orderType = OrderType.getTypeFromPrices(params.stopPrice, params.limitPrice);
 		JsonObject json = new JsonObject();
 		json.addProperty("orderID", params.orderId);
 		if (orderType == OrderType.LMT) {
-			// json.addProperty("ordType", "Limit");
 			json.addProperty("price", params.limitPrice);
 		} else if (orderType == OrderType.STP) {// StopMarket
-			// json.addProperty("ordType", "Stop");
 			json.addProperty("stopPx", params.stopPrice);
 		} else if (orderType == OrderType.STP_LMT) {
-			// json.addProperty("ordType", "StopLimit");
 			if (!isStopTriggered) {
 				json.addProperty("stopPx", params.stopPrice);
 			}
@@ -391,8 +330,6 @@ public class TradeConnector {
 
 	public String require(GeneralType genType, Method method, String data, boolean isOrderListBeingCanceled) {
 		String subPath = ConnectorUtils.subPaths.get(genType);
-		// Log.info("TRCONN PATH: " + prov.connector.restApi);
-		// Log.info("TRCONN subPath: " + subPath);
 		String path = prov.connector.restApi + subPath;
 		long moment = ConnectorUtils.getMomentAndTimeToLive();
 
@@ -404,27 +341,20 @@ public class TradeConnector {
 				// if (method.equals(Method.POST) || method.equals(Method.PUT)){
 				conn.setDoOutput(true);
 			}
-
 			// !!!!!!!!!1 КОСТЫЛЬ
 			conn.setDoOutput(true);
 
 			String messageBody = ConnectorUtils.createMessageBody(ConnectorUtils.methods.get(method), subPath, data,
 					moment);
 			String signature = ConnectorUtils.generateSignature(orderApiSecret, messageBody);
-
-			// Log.info("TRCONN SIGNATURE: " + signature);
-			// Log.info("TRCONN MOMENT: " + moment);
-			// Log.info("TRCONN API KEY: " + orderApiKey);
-
 			conn.setRequestMethod(ConnectorUtils.methods.get(method));
-
 			String contentType = genType.equals(GeneralType.ORDERBULK) || isOrderListBeingCanceled
 					? "application/x-www-form-urlencoded" : "application/json";
 
 			conn.setRequestProperty("Content-Type", contentType);
 			conn.setRequestProperty("Accept", "application/json");
 			conn.setRequestProperty("api-expires", Long.toString(moment));
-			conn.setRequestProperty("api-key", orderApiKey);// **************************
+			conn.setRequestProperty("api-key", orderApiKey);
 			conn.setRequestProperty("api-signature", signature);
 			conn.setRequestProperty("Content-Length", Integer.toString(data.getBytes("UTF-8").length));
 			Log.info("TRCONN CONT LEN: " + Integer.toString(data.getBytes("UTF-8").length));
@@ -436,7 +366,6 @@ public class TradeConnector {
 			osw.close();
 
 			Log.info("TR CONN : require : " + path + "\t" + data);
-			
 			String rateLimitIfExists = ConnectorUtils.processRateLimitHeaders(conn.getHeaderFields());
 			if(rateLimitIfExists != null){
 				prov.pushRateLimitWarning(rateLimitIfExists);
@@ -450,18 +379,16 @@ public class TradeConnector {
 				while ((output = br.readLine()) != null) {
 					sb.append(output);
 				}
-
 				Log.info("TR CONN * REQUIRE ASNWER " + sb.toString());
-
 				String resp = Provider.testReponseForError(sb.toString());
 				return resp;
 			}
 		} catch (UnknownHostException | NoRouteToHostException e) {
-			// Log.info("NO RESPONSE FROM SERVER");
+			 Log.info("NO RESPONSE FROM SERVER");
 		} catch (java.net.SocketException e) {
-			// Log.info("NETWORK IS UNREACHABLE");
+			 Log.info("NETWORK IS UNREACHABLE");
 		} catch (IOException e) {
-			// Log.debug("BUFFER READING ERROR");
+			 Log.debug("BUFFER READING ERROR");
 			e.printStackTrace();
 		}
 		return null;

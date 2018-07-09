@@ -97,9 +97,11 @@ public class UnitWallet extends UnitData{
 	public String getScript() {
 		return script;
 	}
+	
 //	public String getWithdrawalLock() {
 //		return withdrawalLock;
 //	}
+	
 	public void setPrevDeposited(Long prevDeposited) {
 		this.prevDeposited = prevDeposited;
 	}

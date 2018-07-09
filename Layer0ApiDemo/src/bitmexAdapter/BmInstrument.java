@@ -1,14 +1,11 @@
 package bitmexAdapter;
 
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-
 import velox.api.layer1.common.Log;
 import velox.api.layer1.layers.utils.OrderBook;
 
@@ -21,9 +18,6 @@ public class BmInstrument {
 	private long multiplier;
 	private long underlyingToSettleMultiplier;
 	private String settlCurrency;
-
-	
-
 	private boolean isSubscribed = false;
 	private boolean isFirstSnapshotParsed = false;
 	
@@ -37,24 +31,12 @@ public class BmInstrument {
 	
 	private Set<String> partialsParsed = new HashSet<>();
 
-	
 	private double lastBuy = Double.NaN;
 	private double lastSell = Double.NaN;
-	
 	private int executionsVolume = 0;
 	private int sellOrdersCount = 0;
 	private int buyOrdersCount = 0;
-	
-	
 
-	//	This is a temporary solution
-	// Generally there must be one queue for any so called dataUnit, no matter which, 
-	//either order update data or trade or position or whatever
-	private BlockingQueue<UnitOrder> executionQueue = new LinkedBlockingQueue<>();
-	private BlockingQueue<UnitPosition> positionQueue = new LinkedBlockingQueue<>();
-
-
-	
 
 	public BmInstrument(String symbol, double tickSize) {
 		super();
@@ -96,8 +78,6 @@ public class BmInstrument {
 
 	public String getSubscribeReq() {
 		return "{\"op\":\"subscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\"]}";
-//		return "{\"op\":\"subscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\",\"order:" + this.symbol + "\"]}";
-//		return "{\"op\":\"subscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\",\"order:" + this.symbol + "\",\"execution:" + this.symbol + "\"]}";
 	}
 
 	public String getUnSubscribeReq() {
@@ -151,22 +131,6 @@ public class BmInstrument {
 		this.isFirstSnapshotParsed = isFirstSnapshotParsed;
 	}
 	
-	public BlockingQueue<UnitOrder> getExecutionQueue() {
-		return executionQueue;
-	}
-
-	public void setExecutionQueue(BlockingQueue<UnitOrder> executionQueue) {
-		this.executionQueue = executionQueue;
-	}
-
-	public BlockingQueue<UnitPosition> getPositionQueue() {
-		return positionQueue;
-	}
-
-	public void setPositionQueue(BlockingQueue<UnitPosition> positionQueue) {
-		this.positionQueue = positionQueue;
-	}
-
 	public UnitPosition getValidPosition() {
 		return validPosition;
 	}
@@ -232,6 +196,4 @@ public class BmInstrument {
 	public void setLastSell(double lastSell) {
 		this.lastSell = lastSell;
 	}
-	
-	
 }

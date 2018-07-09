@@ -14,8 +14,8 @@ public class UnitOrder extends UnitRaw{
 	
 	
 	
-	private double simpleOrderQty; // or int?
-	private long orderQty;// ot int?
+	private double simpleOrderQty;
+	private long orderQty;
 	private double price = Double.NaN;
 	
 	private long displayQty;
@@ -45,7 +45,8 @@ public class UnitOrder extends UnitRaw{
 	private String text;
 	private String transactTime;
 	private String timestamp;
-	private boolean isSnapshot;//is set manually
+	
+	private boolean isSnapshot;//is set by connector
 	
 	public boolean isSnapshot() {
 		return isSnapshot;

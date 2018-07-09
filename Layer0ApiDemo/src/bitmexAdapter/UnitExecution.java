@@ -5,7 +5,7 @@ public class UnitExecution extends UnitOrder{
 	private double lastPx;//from UnitExecution
 	private long lastQty;
 	
-	//this field is added processing timestamp acquired from Bitmex
+	//this field is set as the result processing timestamp acquired from Bitmex
 	private long execTransactTime;
 	
 	private long foreignNotional;

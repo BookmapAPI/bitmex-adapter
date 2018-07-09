@@ -12,6 +12,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.CountDownLatch;
 
 import javax.crypto.Mac;
@@ -36,8 +38,6 @@ public class BitmexConnector implements Runnable {
 	String restActiveInstrUrl;
 
 	private HashMap<String, BmInstrument> activeBmInstrumentsMap = new HashMap<>();
-	// private Set<String> nonInstrumentPartialsParsed = new HashSet<>();
-
 	private CountDownLatch webSocketStartingLatch = new CountDownLatch(1);
 	public CountDownLatch webSocketAuthLatch = new CountDownLatch(1);
 	public ClientSocket socket;
@@ -45,10 +45,7 @@ public class BitmexConnector implements Runnable {
 
 	public boolean isReconnecting = false;
 
-	// КОСТЫЛИ
 	public Provider prov;
-	// public DemoExternalRealtimeTradingProvider_2 provider;
-
 	TradeConnector connr;
 
 	public TradeConnector getTrConn() {
@@ -58,7 +55,6 @@ public class BitmexConnector implements Runnable {
 	public void setTrConn(TradeConnector trConn) {
 		this.connr = trConn;
 	}
-	// END КОСТЫЛЬ
 
 	public CountDownLatch getWebSocketStartingLatch() {
 		return webSocketStartingLatch;
@@ -86,7 +82,6 @@ public class BitmexConnector implements Runnable {
 	public String wssAuthTwo() {
 		String method = "GET";
 		String subPath = "/realtime";
-		// String subPath = "";
 		String orderAPiKEy = connr.getOrderApiKey();
 		String orderApiSecret = connr.getOrderApiSecret();
 		long moment = getMoment();
@@ -97,8 +92,6 @@ public class BitmexConnector implements Runnable {
 		try {
 			String messageBody = createMessageBody(method, subPath, data, moment);
 			String signature = generateSignature(orderApiSecret, messageBody);
-			// res = "?api-nonce=" + moment + "&api-signature=" + signature +
-			// "&api-key=" + orderAPiKEy;
 			res = "{\"op\": \"authKey\", \"args\": [\"" + orderAPiKEy + "\", " + moment + ", \"" + signature + "\"]}";
 		} catch (InvalidKeyException | NoSuchAlgorithmException e) {
 		}
@@ -115,10 +108,7 @@ public class BitmexConnector implements Runnable {
 			ClientSocket socket = new ClientSocket();
 			this.socket = socket;
 			this.parser.setActiveInstrumentsMap(Collections.unmodifiableMap(activeBmInstrumentsMap));
-			// this.parser.setNonInstrumentPartialsParsed(Collections.unmodifiableSet(nonInstrumentPartialsParsed));
 			this.socket.setParser(parser);
-
-			// **********передача парсеру провайдера
 			parser.prov = this.prov;
 
 			Log.info("BITM CONN ** WSCONNECT CLIENT STARTING");
@@ -127,10 +117,6 @@ public class BitmexConnector implements Runnable {
 			URI echoUri = new URI(wssUrl);
 			ClientUpgradeRequest request = new ClientUpgradeRequest();
 
-			// АВТОРИЗАЦИЯ ВЕБСОКЕТ 1
-			// request = wssAuth();
-			// Log.info("*********WSS AUTH");
-
 			Log.info("BITM CONN ** WSCONNECT CLIENT CONNECTTING");
 			client.connect(socket, echoUri, request);
 			this.socket.getOpeningLatch().await();
@@ -138,14 +124,9 @@ public class BitmexConnector implements Runnable {
 			if (prov.isCredentialsEmpty) {// no authentication is needed
 				prov.adminListeners.forEach(
 						l -> l.onSystemTextMessage("You are not subscribed to topics that require authentication",
-								// adminListeners.forEach(l ->
-								// l.onSystemTextMessage("This
-								// provider only supports limit orders",
 								SystemTextMessageType.UNCLASSIFIED));
 			} else {// authentication needed
-				// АВТОРИЗАЦИЯ ВЕБСОКЕТ 1
 				Log.info("BITM CONN ** WSCONNECT AUTH");
-
 				String mes = wssAuthTwo();
 				Log.info("AUTH MESSAGE PASSED");
 				this.socket.sendMessage(mes);
@@ -153,13 +134,7 @@ public class BitmexConnector implements Runnable {
 				socket.sendMessage(
 						"{\"op\":\"subscribe\", \"args\":[\"position\",\"wallet\",\"margin\",\"execution\",\"order\"]}");
 			}
-			// socket.sendMessage("{\"op\":\"subscribe\",
-			// \"args\":[\"position\",\"wallet\",\"margin\"]}");
-
-			// Log.info("SENDING AUTH MESSAGE PASSED");
-
 			this.webSocketStartingLatch.countDown();
-
 			Log.info("BITM CONN ** LATCH IS DOWN");
 
 			if (isReconnecting) {
@@ -177,12 +152,6 @@ public class BitmexConnector implements Runnable {
 
 			// WAITING FOR THE SOCKET TO CLOSE
 			socket.getClosingLatch().await();
-			// for (BmInstrument instr : activeBmInstrumentsMap.values()) {
-			// instr.setInstrumentPartialsParsed(new HashMap<String,
-			// Boolean>());
-			// // instr.setFirstSnapshotParsed(false);
-			// }
-
 			this.socket = null;
 			isReconnecting = true;
 
@@ -202,7 +171,7 @@ public class BitmexConnector implements Runnable {
 			try {
 				client.stop();
 			} catch (Exception e) {
-				// Log.debug("CLIENT STOPPING TROUBLE");
+				Log.debug("CLIENT STOPPING TROUBLE");
 				e.printStackTrace();
 				throw new RuntimeException(e);
 			}
@@ -243,11 +212,11 @@ public class BitmexConnector implements Runnable {
 				response = sb.toString();
 			}
 		} catch (UnknownHostException | NoRouteToHostException e) {
-			// Log.info("NO RESPONSE FROM SERVER");
+			Log.info("NO RESPONSE FROM SERVER");
 		} catch (java.net.SocketException e) {
-			// Log.info("NETWORK IS UNREACHABLE");
+			Log.info("NETWORK IS UNREACHABLE");
 		} catch (IOException e) {
-			// Log.debug("BUFFER READING ERROR");
+			Log.debug("BUFFER READING ERROR");
 			e.printStackTrace();
 		}
 		return response;
@@ -264,7 +233,6 @@ public class BitmexConnector implements Runnable {
 			for (BmInstrument instr : instrs) {
 				this.activeBmInstrumentsMap.put(instr.getSymbol(), instr);
 			}
-
 			activeBmInstrumentsMap.notify();
 		}
 	}
@@ -274,18 +242,17 @@ public class BitmexConnector implements Runnable {
 	}
 
 	private void launchSnapshotTimer(BitmexConnector connector, BmInstrument instr) {
-		// TimerTask task = new TimerTask() {
-		// @Override
-		// public void run() {
-		// if (!instr.getPartialsParsed().contains("orderBookL2")) {
-		// connector.unSubscribe(instr);
-		// connector.subscribe(instr);
-		// }
-		// }
-		// };
-		//
-		// Timer timer = new Timer();
-		// timer.schedule(task, 10000);
+		TimerTask task = new TimerTask() {
+			@Override
+			public void run() {
+				if (!instr.getPartialsParsed().contains("orderBookL2")) {
+					connector.unSubscribe(instr);
+					connector.subscribe(instr);
+				}
+			}
+		};
+		Timer timer = new Timer();
+		timer.schedule(task, 10000);
 	}
 
 	public void subscribe(BmInstrument instr) {
@@ -293,8 +260,10 @@ public class BitmexConnector implements Runnable {
 		instr.setSubscribed(true);
 
 		sendWebsocketMessage(instr.getSubscribeReq());
-
-		launchSnapshotTimer(this, instr);
+		
+//		this is should normally be called in general.
+//		better to turn on off while debugging
+//		launchSnapshotTimer(this, instr);
 
 		if (!prov.isCredentialsEmpty) {// if authenticated
 			instr.setExecutionsVolume(countExecutionsVolume(instr.getSymbol()));
@@ -380,7 +349,7 @@ public class BitmexConnector implements Runnable {
 		String addr = "/api/v1/execution?symbol=" + symbol
 				+ "&filter=%7B%22ordStatus%22%3A%20%22Filled%22%7D&count=500&reverse=true&startTime=" + z;
 		String st0 = connr.makeRestGetQuery(addr);
-		
+
 		UnitExecution[] execs = JsonParser.getArrayFromJson(st0, UnitExecution[].class);
 		if (execs != null && execs.length > 0) {
 			prov.updateExecutionsHistory(execs);
@@ -388,13 +357,13 @@ public class BitmexConnector implements Runnable {
 
 		System.out.println("=> " + st0);
 	}
-	
+
 	private void reportCancelled(String symbol) {
 		String z = ConnectorUtils.getDateTwentyFourHoursAgoAsUrlEncodedString0();
 		String addr = "/api/v1/execution?symbol=" + symbol
 				+ "&filter=%7B%22ordStatus%22%3A%20%22Canceled%22%7D&count=500&reverse=true&startTime=" + z;
 		String st0 = connr.makeRestGetQuery(addr);
-		
+
 		UnitExecution[] execs = JsonParser.getArrayFromJson(st0, UnitExecution[].class);
 		if (execs != null && execs.length > 0) {
 			prov.updateExecutionsHistory(execs);

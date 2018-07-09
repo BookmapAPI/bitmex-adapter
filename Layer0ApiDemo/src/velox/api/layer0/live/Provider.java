@@ -70,21 +70,19 @@ public class Provider extends ExternalLiveBaseProvider {
 	private long orderOcoCount = 0;
 	public boolean isCredentialsEmpty = false;
 
-	// for ocoOrders
-	// Map <clOrdLinkID, List <realIds>>
-	// Map<realid, clOrderLinkID>
+/*	 for ocoOrders
+	 Map <clOrdLinkID, List <realIds>>
+	 Map<realid, clOrderLinkID>*/
 	private Map<String, List<String>> LinkIdToRealIdsMap = new HashMap<>();
 	private Map<String, String> RealToLinkIdMap = new HashMap<>();
 	private Set<String> bracketParents = new HashSet<>();
 
-	// <id, trailingStep>
+//	 <id, trailingStep>
 	private Map<String, Double> trailingStops = new HashMap<>();
-
 	private List<String> batchCancels = new LinkedList<>();
 	private Map<String, BalanceInfo.BalanceInCurrency> balanceMap = new HashMap<>();
 
 	protected class Instrument {
-
 		protected final String alias;
 		protected final double pips;
 
@@ -240,9 +238,6 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	private void passCancelMessageIfNeededAndClearPendingList(String response) {
 		if (response != null) {// if Bitmex responds with an error
-			// adminListeners.forEach(l -> l.onSystemTextMessage(response,
-			// SystemTextMessageType.UNCLASSIFIED));
-
 			for (OrderInfoBuilder builder : pendingOrders) {
 				rejectOrder(builder, response);
 			}
@@ -292,7 +287,6 @@ public class Provider extends ExternalLiveBaseProvider {
 	private String createOcoOrdersStringData(List<SimpleOrderSendParameters> ordersList) {
 		String contingencyType = "OneCancelsTheOther";
 		String clOrdLinkID = System.currentTimeMillis() + "-LINKED-" + orderOcoCount++;
-		// LinkIdToRealIdsMap.put(clOrdLinkID, new ArrayList<>());
 
 		JsonArray array = new JsonArray();
 		for (SimpleOrderSendParameters simpleParams : ordersList) {
@@ -307,7 +301,6 @@ public class Provider extends ExternalLiveBaseProvider {
 			SimpleOrderSendParameters stopLoss,
 			SimpleOrderSendParameters takeProfit) {
 		String clOrdLinkID = System.currentTimeMillis() + "-LINKED-" + orderOcoCount++;
-		// LinkIdToRealIdsMap.put(clOrdLinkID, new ArrayList<>());
 
 		JsonArray array = new JsonArray();
 		array.add(prepareSimpleOrder(simpleParams, clOrdLinkID, "OneTriggersTheOther"));
@@ -339,8 +332,8 @@ public class Provider extends ExternalLiveBaseProvider {
 		// fields will be marked as changed automatically when modified.
 		builder.markAllUnchanged();
 
-		// pending orders are added to the list to cancel them later
-		// if Bitmex reports an error trying placing orders
+/*		 pending orders are added to the list to cancel them later
+		 if Bitmex reports an error trying placing orders*/
 		pendingOrders.add(builder);
 
 		Log.info("***Order gets sent to BitMex");
@@ -354,16 +347,14 @@ public class Provider extends ExternalLiveBaseProvider {
 	public void rejectOrder(OrderInfoBuilder builder, String reas) {
 		String reason = "The order was rejected: \n" + reas;
 		Log.info("***Order gets REJECTED");
-		// Necessary fields are already populated, so just change status to
-		// rejected and send
+/*		 Necessary fields are already populated, so just change status to
+		 rejected and send*/
 		builder.setStatus(OrderStatus.REJECTED);
 		tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
 		builder.markAllUnchanged();
 
 		// Provider can complain to user here explaining what was done wrong
 		adminListeners.forEach(l -> l.onSystemTextMessage(reason,
-				// adminListeners.forEach(l -> l.onSystemTextMessage("This
-				// provider only supports limit orders",
 				SystemTextMessageType.ORDER_FAILURE));
 	}
 
@@ -382,8 +373,6 @@ public class Provider extends ExternalLiveBaseProvider {
 				Log.info("***Change stop/limit prices of an order with provided ID");
 				// Change stop/limit prices of an order with provided ID
 				OrderMoveParameters orderMoveParameters = (OrderMoveParameters) orderUpdateParameters;
-				// OrderInfoBuilder builder =
-				// workingOrders.get(orderMoveParameters.orderId);
 
 				if (bracketParents.contains(orderMoveParameters.orderId)) {
 					passBracketMoveParameters(orderMoveParameters);
@@ -399,19 +388,18 @@ public class Provider extends ExternalLiveBaseProvider {
 			} else {
 				throw new UnsupportedOperationException("Unsupported order type");
 			}
-
 		}
 	}
 
 	private void passCancelParameters(OrderCancelParameters orderCancelParameters) {
 		if (orderCancelParameters.batchEnd == true) {
-			// This is the end of the batch or a single cancel.
-			// But if this order is an OCO or Bracket component
-			// we need to cancel the whole OCO or Bracket
+			/* This is the end of the batch or a single cancel.
+			 But if this order is an OCO or Bracket component
+			 we need to cancel the whole OCO or Bracket*/
 			if (batchCancels.size() == 0) {
-				// the batch list is empty so this is a single order
-				// if an order is a part of OCO or Bracket
-				// we have to cancel all orders with the same linkedId
+				/* the batch list is empty so this is a single order
+				 if an order is a part of OCO or Bracket
+				 we have to cancel all orders with the same linkedId*/
 				if (RealToLinkIdMap.keySet().contains(orderCancelParameters.orderId)) {
 					List<String> bunchOfOrdersToCancel = LinkIdToRealIdsMap
 							.get(RealToLinkIdMap.get(orderCancelParameters.orderId));
@@ -422,18 +410,17 @@ public class Provider extends ExternalLiveBaseProvider {
 					connr.cancelOrder(orderCancelParameters.orderId);
 					Log.info("***PROV ** SINGLE CANCEl");
 				}
-			} else {// This is the batch end.
-				// We'll add cancel to the list
-				// then perform canceling
-				// then clear the list
+			} else {
+				 /*This is the batch end. We add cancel to the list
+				 then perform canceling then clear the list*/
 				batchCancels.add(orderCancelParameters.orderId);
 				connr.cancelOrder(batchCancels);
 				batchCancels.clear();
 				Log.info("***PROV ** BATCH CANCEl");
 
 			}
-		} else {// this is not the end of batch so just add it to the
-				// list
+		} else {/*this is not the end of batch so just add it to the
+				list*/
 			batchCancels.add(orderCancelParameters.orderId);
 		}
 	}
@@ -456,12 +443,10 @@ public class Provider extends ExternalLiveBaseProvider {
 			type = GeneralType.ORDERBULK;
 			data = connr.resizeOrder(otherIds, newSize);
 		}
-
 		setPendingStatus(pendingIds, OrderStatus.PENDING_MODIFY);
 		String response = connr.require(type, Method.PUT, data);
 		passCancelMessageIfNeededAndClearPendingListForResize(pendingIds, response);
 		Log.info("PROVIDER SEND ORDER RESPONSE " + response);
-
 	}
 
 	private void setPendingStatus(List<String> pendingIds, OrderStatus status) {
@@ -483,7 +468,6 @@ public class Provider extends ExternalLiveBaseProvider {
 			for (String id : pendingIds) {
 				OrderInfoBuilder builder = workingOrders.get(id);
 				builder.setStatus(OrderStatus.WORKING);
-				// OrderInfoBuilder finalBuilder = builder;
 				tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
 				builder.markAllUnchanged();
 			}
@@ -649,22 +633,17 @@ public class Provider extends ExternalLiveBaseProvider {
 				Double.NaN, // stopPrice
 				1.0);
 
-		// List<SimpleOrderSendParameters> orders = new ArrayList<>();
-		// orders.add(stopLoss);
-		// orders.add(takeProfit);
 		OrderSendParameters params = new OcoOrderSendParameters(stopLoss, takeProfit);
 		return params;
 	}
 
-	public void listenOnOrderBookL2(UnitData unit) {
-		// Log.info(unit.toString());
+	public void listenForOrderBookL2(UnitData unit) {
 		for (Layer1ApiDataListener listener : dataListeners) {
 			listener.onDepth(unit.getSymbol(), unit.isBid(), unit.getIntPrice(), (int) unit.getSize());
 		}
 	}
 
-	public void listenOnTrade(UnitData unit) {
-		// Log.info("***Provider TRADE " + unit.toString());
+	public void listenForTrade(UnitData unit) {
 		for (Layer1ApiDataListener listener : dataListeners) {
 			final boolean isOtc = false;
 			listener.onTrade(unit.getSymbol(), unit.getIntPrice(), (int) unit.getSize(),
@@ -672,7 +651,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		}
 	}
 
-	public void listenToExecution(UnitExecution exec) {
+	public void listenForExecution(UnitExecution exec) {
 		OrderInfoBuilder builder = workingOrders.get(exec.getOrderID());
 
 		if (builder == null) {
@@ -795,7 +774,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		}
 	}
 
-	public void listenToPosition(UnitPosition pos) {
+	public void listenForPosition(UnitPosition pos) {
 		String symbol = pos.getSymbol();
 		BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
 		UnitPosition validPosition = instr.getValidPosition();
@@ -813,7 +792,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		tradingListeners.forEach(l -> l.onStatus(info));
 	}
 
-	public void listenToWallet(UnitWallet wallet) {
+	public void listenForWallet(UnitWallet wallet) {
 		long tempMultiplier = 100000000;// temp
 		Double balance = (double) wallet.getAmount() / tempMultiplier;
 		// PNLs and NetLiquidityValue are taken from UnitMargin topic
@@ -842,7 +821,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		tradingListeners.forEach(l -> l.onBalance(info));
 	}
 
-	public void listenToMargin(UnitMargin margin) {
+	public void listenForMargin(UnitMargin margin) {
 		long tempMultiplier = 100000000;// temp
 		String currency = margin.getCurrency();
 		BalanceInfo.BalanceInCurrency currentBic = balanceMap.get(margin.getCurrency());
@@ -891,11 +870,6 @@ public class Provider extends ExternalLiveBaseProvider {
 					exec.getClientId(),
 					false);
 
-			// You need to set these fields, otherwise Bookmap might not handle
-			// order correctly
-
-			// OrderStatus status = exec.getExecType().equals("Filled") ?
-			// OrderStatus.FILLED : OrderStatus.CANCELLED;
 			OrderStatus status = exec.getOrdStatus().equals("Filled") ? OrderStatus.FILLED : OrderStatus.CANCELLED;
 
 			builder.setStopPrice(exec.getStopPx())
@@ -904,7 +878,6 @@ public class Provider extends ExternalLiveBaseProvider {
 					.setFilled((int) exec.getOrderQty())
 					.setDuration(OrderDuration.GTC)
 					.setStatus(status)
-					// .setAverageFillPrice(exec.getLastPx())
 					.setModificationUtcTime(exec.getExecTransactTime());
 
 			tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
@@ -913,15 +886,14 @@ public class Provider extends ExternalLiveBaseProvider {
 						exec.getLastPx(),
 						exec.getExecID(), exec.getExecTransactTime());
 				tradingListeners.forEach(l -> l.onOrderExecuted(executionInfo));
-			} else if (status.equals(OrderStatus.CANCELLED)) {
-
-			}
-
+			} 
+//			else if (status.equals(OrderStatus.CANCELLED)) {
+//
+//			}
 		}
 	}
 
 	private void updateValidPosition(UnitPosition validPosition, UnitPosition pos) {
-
 		if (validPosition.getAccount().equals(0L)) {
 			if (pos.getAccount() != null) {
 				validPosition.setAccount(pos.getAccount());
@@ -1001,7 +973,6 @@ public class Provider extends ExternalLiveBaseProvider {
 				bracketParents.add(order.getOrderID());
 				tempList.add(order.getOrderID());
 			}
-
 			// add to RealToLinkIdMap
 			RealToLinkIdMap.put(order.getOrderID(), order.getClOrdLinkID());
 		}
@@ -1043,13 +1014,11 @@ public class Provider extends ExternalLiveBaseProvider {
 	@Override
 	public void close() {
 		// Stop events generation
-		// this.connector.socket.close();
 		Log.info("PROVIDER CLOSE()");
 		if (connector.socket != null) {
 			connector.socket.close();
 		}
 		connector.interruptionNeeded = true;
-		// connectorThread.interrupt();
 		providerThread.interrupt();
 	}
 

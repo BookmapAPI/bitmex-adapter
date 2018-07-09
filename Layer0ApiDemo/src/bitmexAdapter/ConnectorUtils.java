@@ -182,12 +182,6 @@ public class ConnectorUtils {
 	}
 	
 	public static String processRateLimitHeaders(Map<String, List<String>> map){
-//		System.out.print("****CODE = " + conn.getResponseCode());
-//		Map<String, List<String>> map = conn.getHeaderFields();
-//		for (Map.Entry<String, List<String>> entry : map.entrySet()) {
-//			System.out.println("Key : " + entry.getKey() + 
-//	                 " ,Value : " + entry.getValue());
-//		}
 		int rateLimit = Integer.parseInt(map.get("X-RateLimit-Limit").get(0));
 		int rateLimitRemaining = Integer.parseInt(map.get("X-RateLimit-Remaining").get(0));
 		int ratio = 100 * rateLimitRemaining / rateLimit;
