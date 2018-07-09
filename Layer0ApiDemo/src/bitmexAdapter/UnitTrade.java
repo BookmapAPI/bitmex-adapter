@@ -1,13 +1,13 @@
 package bitmexAdapter;
 
-public class BmTrade extends DataUnit{
+public class UnitTrade extends UnitData{
 
-	public BmTrade() {
+	public UnitTrade() {
 		super();
 		// TODO Auto-generated constructor stub
 	}
 
-	public BmTrade(String symbol, int intPrice, boolean isBid) {
+	public UnitTrade(String symbol, int intPrice, boolean isBid) {
 		super(symbol, intPrice, isBid);
 		// TODO Auto-generated constructor stub
 	}

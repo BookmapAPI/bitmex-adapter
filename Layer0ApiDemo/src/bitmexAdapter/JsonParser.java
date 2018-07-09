@@ -54,28 +54,28 @@ public class JsonParser {
 
 		// Log.info("PARSER STR => " + str);
 		// first let's find out what kind of object we have here
-		Answer answ = (Answer) gson.fromJson(str, Answer.class);
+		ResponseByWebSocket responseWs = (ResponseByWebSocket) gson.fromJson(str, ResponseByWebSocket.class);
 		// Log.info("PARSER ANSW Error " + answ.getError());
-		if (answ.getTable() == null) {
+		if (responseWs.getTable() == null) {
 			Log.info("PARSER STR => " + str);
 
-			if (answ.getInfo() != null) {
+			if (responseWs.getInfo() != null) {
 				return;
 			}
 
-			if (answ.getStatus() != null && answ.getStatus() != 200) {
+			if (responseWs.getStatus() != null && responseWs.getStatus() != 200) {
 				prov.connector.socket.close();
-				Log.info(answ.getError());
-				prov.reportWrongCredentials(answ.getError());
+				Log.info(responseWs.getError());
+				prov.reportWrongCredentials(responseWs.getError());
 				return;
 			}
 
-			if (answ.getSuccess() == true && answ.getRequest().getOp().equals("authKey")) {
+			if (responseWs.getSuccess() == true && responseWs.getRequest().getOp().equals("authKey")) {
 				prov.connector.webSocketAuthLatch.countDown();
 			}
 			
-			if (answ.getSuccess() == true && answ.getRequest().getOp().equals("unsubscribe")) {
-				String symbol = answ.getUnsubscribeSymbol();
+			if (responseWs.getSuccess() == true && responseWs.getRequest().getOp().equals("unsubscribe")) {
+				String symbol = responseWs.getUnsubscribeSymbol();
 				if (symbol != null){
 					Log.info("PARSER ANSW **GETTING USUBSCR FROM ORDERBOOK" + symbol);
 					BmInstrument instr = activeInstrumentsMap.get(symbol);
@@ -83,18 +83,18 @@ public class JsonParser {
 				}
 			}
 
-			if (answ.getSuccess() == null && answ.getError() == null && answ.getTable() == null
-					&& answ.getInfo() == null) {
+			if (responseWs.getSuccess() == null && responseWs.getError() == null && responseWs.getTable() == null
+					&& responseWs.getInfo() == null) {
 				Log.info("PARSER FAILS TO PARSE " + str);
 				throw new RuntimeException();
 			}
 
-			if (answ.getSuccess() != null || answ.getInfo() != null) {
+			if (responseWs.getSuccess() != null || responseWs.getInfo() != null) {
 				Log.info("PARSER service MSG " + str);
 				return;
 			}
 
-			if (answ.getError() != null) {
+			if (responseWs.getError() != null) {
 				Log.info("PARSER ERROR MSG " + str);
 				BmErrorMessage error = new Gson().fromJson(str, BmErrorMessage.class);
 				Log.info(error.getMessage());
@@ -129,7 +129,7 @@ public class JsonParser {
 	 * which looks pretty weird To avoid this bestAsk is moved to the beginning
 	 * of the list
 	 **/
-	private ArrayList<DataUnit> putBestAskToTheHeadOfList(ArrayList<DataUnit> units) {
+	private ArrayList<UnitData> putBestAskToTheHeadOfList(ArrayList<UnitData> units) {
 		if (units.size() < 2)
 			return units;
 
@@ -150,13 +150,13 @@ public class JsonParser {
 	/*
 	 * setting missing values for dataunits' fields adding missing prices to
 	 * <id,intPrice> map updating the orderBook This refers to order book
-	 * updates only BmTrade orders are processed in processTradeMsg method
+	 * updates only UnitTrade orders are processed in processTradeMsg method
 	 */
-	private void processOrderMessage(MessageGeneric<DataUnit> msg) {
+	private void processOrderMessage(MessageGeneric<UnitData> msg) {
 		BmInstrument instr = activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
 		OrderBook book = instr.getOrderBook();
 
-		for (DataUnit unit : msg.getData()) {
+		for (UnitData unit : msg.getData()) {
 			unit.setBid(unit.getSide().equals("Buy"));
 			HashMap<Long, Integer> pricesMap = instr.getPricesMap();
 			int intPrice;
@@ -184,7 +184,7 @@ public class JsonParser {
 	// return intPrice;
 	// }
 
-	private void processTradeUnit(BmTrade unit) {
+	private void processTradeUnit(UnitTrade unit) {
 		unit.setBid(unit.getSide().equals("Buy"));
 		BmInstrument instr = activeInstrumentsMap.get(unit.getSymbol());
 		// int intPrice = createIntPrice(unit.getPrice(), instr.getTickSize());
@@ -202,7 +202,7 @@ public class JsonParser {
 	private void resetBookMapOrderBook(BmInstrument instr) {
 		// Extracting lists of levels from ask and Bid maps
 		String symbol = instr.getSymbol();
-		ArrayList<DataUnit> units = new ArrayList<>();
+		ArrayList<UnitData> units = new ArrayList<>();
 
 		TreeMap<Integer, Long> askMap = instr.getOrderBook().getAskMap();
 		ArrayList<Integer> askList = new ArrayList<>(askMap.keySet());
@@ -212,7 +212,7 @@ public class JsonParser {
 		askList.remove(i);
 
 		for (Integer intPrice : askList) {
-			units.add(new DataUnit(symbol, intPrice, false));
+			units.add(new UnitData(symbol, intPrice, false));
 		}
 
 		TreeMap<Integer, Long> bidMap = instr.getOrderBook().getBidMap();
@@ -223,14 +223,14 @@ public class JsonParser {
 		bidList.remove(bidList.get(i));
 
 		for (Integer intPrice : bidList) {
-			units.add(new DataUnit(symbol, intPrice, true));
+			units.add(new UnitData(symbol, intPrice, true));
 		}
 
-		units.add(new DataUnit(symbol, bestAsk, false));
-		units.add(new DataUnit(symbol, bestBid, true));
+		units.add(new UnitData(symbol, bestAsk, false));
+		units.add(new UnitData(symbol, bestBid, true));
 
-		MessageGeneric<DataUnit> mess = new MessageGeneric<>("orderBookL2", "delete", DataUnit.class, units);
-		for (DataUnit unit : mess.getData()) {
+		MessageGeneric<UnitData> mess = new MessageGeneric<>("orderBookL2", "delete", UnitData.class, units);
+		for (UnitData unit : mess.getData()) {
 			prov.listenOnOrderBookL2(unit);
 		}
 		// prov.listenOrderOrTrade(mess);
@@ -264,7 +264,7 @@ public class JsonParser {
 //				return;
 //			}
 			if (topic.equals(Topic.ORDERBOOKL2)) {
-				performOrderBookL2SpecificOpSetOne((MessageGeneric<DataUnit>) msg0);
+				performOrderBookL2SpecificOpSetOne((MessageGeneric<UnitData>) msg0);
 			}
 		}
 
@@ -282,7 +282,7 @@ public class JsonParser {
 			ArrayList<T> units = (ArrayList<T>) msg0.getData();
 
 			if (topic.equals(Topic.ORDERBOOKL2) && !units.isEmpty()) {
-				performOrderBookL2SpecificOpSetTwo((MessageGeneric<DataUnit>) msg0);
+				performOrderBookL2SpecificOpSetTwo((MessageGeneric<UnitData>) msg0);
 			}
 
 			if (!units.isEmpty()) {
@@ -308,7 +308,7 @@ public class JsonParser {
 		// right at this point.
 	}
 
-	private void performOrderBookL2SpecificOpSetOne(MessageGeneric<DataUnit> msg) {
+	private void performOrderBookL2SpecificOpSetOne(MessageGeneric<UnitData> msg) {
 		BmInstrument instr = activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
 		if (!instr.getOrderBook().getAskMap().isEmpty()) {
 			// orderbook is filled already (after reconnect).
@@ -318,7 +318,7 @@ public class JsonParser {
 		}
 	}
 
-	private void performOrderBookL2SpecificOpSetTwo(MessageGeneric<DataUnit> msg) {
+	private void performOrderBookL2SpecificOpSetTwo(MessageGeneric<UnitData> msg) {
 		processOrderMessage(msg);
 
 		if (msg.getAction().equals("partial")) {
@@ -329,24 +329,24 @@ public class JsonParser {
 	public <T> void dispatchRawUnits(ArrayList<T> units, Class<?> clazz) {
 		// Log.info("PARSER DISPATCH NEXT");
 		for (T unit : units) {
-			if (clazz == Wallet.class) {
-				prov.listenToWallet((Wallet) unit);
-			} else if (clazz == Execution.class) {
-				prov.listenToExecution((Execution) unit);
-			} else if (clazz == Margin.class) {
-				prov.listenToMargin((Margin) unit);
-			} else if (clazz == Position.class) {
-				prov.listenToPosition((Position) unit);
-			} else if (clazz == BmOrder.class) {
-				BmOrder ord = (BmOrder) unit;
+			if (clazz == UnitWallet.class) {
+				prov.listenToWallet((UnitWallet) unit);
+			} else if (clazz == UnitExecution.class) {
+				prov.listenToExecution((UnitExecution) unit);
+			} else if (clazz == UnitMargin.class) {
+				prov.listenToMargin((UnitMargin) unit);
+			} else if (clazz == UnitPosition.class) {
+				prov.listenToPosition((UnitPosition) unit);
+			} else if (clazz == UnitOrder.class) {
+				UnitOrder ord = (UnitOrder) unit;
 				Log.info("PARSER DISPATCH ORD ID " + ord.getOrderID());
-				prov.createBookmapOrder((BmOrder) unit);
-			} else if (clazz == BmTrade.class) {
+				prov.createBookmapOrder((UnitOrder) unit);
+			} else if (clazz == UnitTrade.class) {
 				// specific
-				processTradeUnit((BmTrade) unit);
-				prov.listenOnTrade((BmTrade) unit);
-			} else if (clazz == DataUnit.class) {
-				prov.listenOnOrderBookL2((DataUnit) unit);
+				processTradeUnit((UnitTrade) unit);
+				prov.listenOnTrade((UnitTrade) unit);
+			} else if (clazz == UnitData.class) {
+				prov.listenOnOrderBookL2((UnitData) unit);
 			}
 		}
 

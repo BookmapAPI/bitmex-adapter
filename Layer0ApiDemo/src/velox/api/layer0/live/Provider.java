@@ -14,20 +14,20 @@ import com.google.gson.JsonObject;
 
 import bitmexAdapter.BitmexConnector;
 import bitmexAdapter.BmInstrument;
-import bitmexAdapter.BmOrder;
+import bitmexAdapter.UnitOrder;
 import bitmexAdapter.ConnectorUtils;
 import bitmexAdapter.ConnectorUtils.GeneralType;
-import bitmexAdapter.DataUnit;
-import bitmexAdapter.Execution;
+import bitmexAdapter.UnitData;
+import bitmexAdapter.UnitExecution;
 import bitmexAdapter.JsonParser;
-import bitmexAdapter.Margin;
+import bitmexAdapter.UnitMargin;
 import bitmexAdapter.Message;
 import bitmexAdapter.MessageGeneric;
-import bitmexAdapter.Position;
-import bitmexAdapter.RestAnswer;
+import bitmexAdapter.UnitPosition;
+import bitmexAdapter.ResponseByRest;
 import bitmexAdapter.TradeConnector;
 import bitmexAdapter.ConnectorUtils.Method;
-import bitmexAdapter.Wallet;
+import bitmexAdapter.UnitWallet;
 import quickfix.RuntimeError;
 import velox.api.layer0.annotations.Layer0LiveModule;
 import velox.api.layer1.Layer1ApiAdminListener;
@@ -116,7 +116,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	public static String testReponseForError(String str) {
-		RestAnswer answ = (RestAnswer) JsonParser.gson.fromJson(str, RestAnswer.class);
+		ResponseByRest answ = (ResponseByRest) JsonParser.gson.fromJson(str, ResponseByRest.class);
 
 		if (answ.getError() != null) {
 			return answ.getError().getMessage();
@@ -626,7 +626,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		this.close();
 	}
 
-	private OrderSendParameters createChildrenForPartiallyFillebBracket(Execution exec) {
+	private OrderSendParameters createChildrenForPartiallyFillebBracket(UnitExecution exec) {
 		List<String> linkedOrders = LinkIdToRealIdsMap.get(exec.getClOrdLinkID());
 
 		OrderInfoBuilder stopLossBuilder = workingOrders.get(linkedOrders.get(1));
@@ -656,14 +656,14 @@ public class Provider extends ExternalLiveBaseProvider {
 		return params;
 	}
 
-	public void listenOnOrderBookL2(DataUnit unit) {
+	public void listenOnOrderBookL2(UnitData unit) {
 		// Log.info(unit.toString());
 		for (Layer1ApiDataListener listener : dataListeners) {
 			listener.onDepth(unit.getSymbol(), unit.isBid(), unit.getIntPrice(), (int) unit.getSize());
 		}
 	}
 
-	public void listenOnTrade(DataUnit unit) {
+	public void listenOnTrade(UnitData unit) {
 		// Log.info("***Provider TRADE " + unit.toString());
 		for (Layer1ApiDataListener listener : dataListeners) {
 			final boolean isOtc = false;
@@ -672,7 +672,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		}
 	}
 
-	public void listenToExecution(Execution exec) {
+	public void listenToExecution(UnitExecution exec) {
 		OrderInfoBuilder builder = workingOrders.get(exec.getOrderID());
 
 		if (builder == null) {
@@ -795,10 +795,10 @@ public class Provider extends ExternalLiveBaseProvider {
 		}
 	}
 
-	public void listenToPosition(Position pos) {
+	public void listenToPosition(UnitPosition pos) {
 		String symbol = pos.getSymbol();
 		BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
-		Position validPosition = instr.getValidPosition();
+		UnitPosition validPosition = instr.getValidPosition();
 
 		updateValidPosition(validPosition, pos);
 
@@ -813,10 +813,10 @@ public class Provider extends ExternalLiveBaseProvider {
 		tradingListeners.forEach(l -> l.onStatus(info));
 	}
 
-	public void listenToWallet(Wallet wallet) {
+	public void listenToWallet(UnitWallet wallet) {
 		long tempMultiplier = 100000000;// temp
 		Double balance = (double) wallet.getAmount() / tempMultiplier;
-		// PNLs and NetLiquidityValue are taken from Margin topic
+		// PNLs and NetLiquidityValue are taken from UnitMargin topic
 		Double previousDayBalance = (double) wallet.getPrevAmount() / tempMultiplier;
 		Double netLiquidityValue = 0.0;// to be calculated
 		String currency = wallet.getCurrency();
@@ -842,7 +842,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		tradingListeners.forEach(l -> l.onBalance(info));
 	}
 
-	public void listenToMargin(Margin margin) {
+	public void listenToMargin(UnitMargin margin) {
 		long tempMultiplier = 100000000;// temp
 		String currency = margin.getCurrency();
 		BalanceInfo.BalanceInCurrency currentBic = balanceMap.get(margin.getCurrency());
@@ -880,8 +880,8 @@ public class Provider extends ExternalLiveBaseProvider {
 		adminListeners.forEach(l -> l.onConnectionRestored());
 	}
 
-	public void updateExecutionsHistory(Execution[] execs) {
-		for (Execution exec : execs) {
+	public void updateExecutionsHistory(UnitExecution[] execs) {
+		for (UnitExecution exec : execs) {
 			exec.setExecTransactTime(ConnectorUtils.transactTimeToLong(exec.getTransactTime()));
 
 			final OrderInfoBuilder builder = new OrderInfoBuilder(
@@ -920,7 +920,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		}
 	}
 
-	private void updateValidPosition(Position validPosition, Position pos) {
+	private void updateValidPosition(UnitPosition validPosition, UnitPosition pos) {
 
 		if (validPosition.getAccount().equals(0L)) {
 			if (pos.getAccount() != null) {
@@ -961,7 +961,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	 * needs not updated valid position
 	 */
 
-	public void createBookmapOrder(BmOrder order) {
+	public void createBookmapOrder(UnitOrder order) {
 		Log.info("PROV CR_BM_ORD  **ORD ID " + order.getOrderID());
 		boolean isBuy = order.getSide().equals("Buy") ? true : false;
 		OrderType type = OrderType.getTypeFromPrices(order.getStopPx(), order.getPrice());
@@ -985,7 +985,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		}
 	}
 
-	private void checkIfLinkedAndAddToMaps(BmOrder order) {
+	private void checkIfLinkedAndAddToMaps(UnitOrder order) {
 		// if order is linked
 		if (!order.getClOrdLinkID().equals("")) {
 			// add to LinkIdToRealIdsMap

@@ -33,7 +33,7 @@ public class BmInstrument {
 	private OrderBook orderBook = new OrderBook();
 	private BlockingQueue<Message> queue = new LinkedBlockingQueue<>();
 	private HashMap<Long, Integer> pricesMap = new HashMap<>();
-	private Position validPosition = new Position(0L, "", "", 0L, 0L, 0L, 0D);
+	private UnitPosition validPosition = new UnitPosition(0L, "", "", 0L, 0L, 0L, 0D);
 	
 	private Set<String> partialsParsed = new HashSet<>();
 
@@ -50,8 +50,8 @@ public class BmInstrument {
 	//	This is a temporary solution
 	// Generally there must be one queue for any so called dataUnit, no matter which, 
 	//either order update data or trade or position or whatever
-	private BlockingQueue<BmOrder> executionQueue = new LinkedBlockingQueue<>();
-	private BlockingQueue<Position> positionQueue = new LinkedBlockingQueue<>();
+	private BlockingQueue<UnitOrder> executionQueue = new LinkedBlockingQueue<>();
+	private BlockingQueue<UnitPosition> positionQueue = new LinkedBlockingQueue<>();
 
 
 	
@@ -151,27 +151,27 @@ public class BmInstrument {
 		this.isFirstSnapshotParsed = isFirstSnapshotParsed;
 	}
 	
-	public BlockingQueue<BmOrder> getExecutionQueue() {
+	public BlockingQueue<UnitOrder> getExecutionQueue() {
 		return executionQueue;
 	}
 
-	public void setExecutionQueue(BlockingQueue<BmOrder> executionQueue) {
+	public void setExecutionQueue(BlockingQueue<UnitOrder> executionQueue) {
 		this.executionQueue = executionQueue;
 	}
 
-	public BlockingQueue<Position> getPositionQueue() {
+	public BlockingQueue<UnitPosition> getPositionQueue() {
 		return positionQueue;
 	}
 
-	public void setPositionQueue(BlockingQueue<Position> positionQueue) {
+	public void setPositionQueue(BlockingQueue<UnitPosition> positionQueue) {
 		this.positionQueue = positionQueue;
 	}
 
-	public Position getValidPosition() {
+	public UnitPosition getValidPosition() {
 		return validPosition;
 	}
 
-	public void setValidPosition(Position validPosition) {
+	public void setValidPosition(UnitPosition validPosition) {
 		this.validPosition = validPosition;
 	}
 

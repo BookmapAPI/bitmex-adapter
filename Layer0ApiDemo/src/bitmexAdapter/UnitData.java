@@ -1,6 +1,6 @@
 package bitmexAdapter;
 
-public class DataUnit extends RawUnit {
+public class UnitData extends UnitRaw {
 	private String symbol;
 	private long id;
 	private String side;
@@ -10,14 +10,14 @@ public class DataUnit extends RawUnit {
 	private boolean isBid;
 	
 	//this constructor is only used to create dataunits for the delete message
-	public DataUnit(String symbol, int intPrice, boolean isBid) {
+	public UnitData(String symbol, int intPrice, boolean isBid) {
 		super();
 		this.symbol = symbol;
 		this.intPrice = intPrice;
 		this.isBid = isBid;
 	}
 	
-	public DataUnit() {
+	public UnitData() {
 		super();
 	}
 
@@ -79,7 +79,7 @@ public class DataUnit extends RawUnit {
 
 	@Override
 	public String toString() {
-		return "DataUnit [intPrice=" + intPrice + ", symbol=" + symbol + ", id=" + id + ", side=" + side + ", size="
+		return "UnitData [intPrice=" + intPrice + ", symbol=" + symbol + ", id=" + id + ", side=" + side + ", size="
 				+ size + ", price=" + price + "]";
 	}
 

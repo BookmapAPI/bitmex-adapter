@@ -266,7 +266,7 @@ public class TradeConnector {
 	}
 	
 
-	public BmOrder cancelOrder(String orderId) {
+	public UnitOrder cancelOrder(String orderId) {
 
 		JsonObject json = new JsonObject();
 		json.addProperty("orderID", orderId);
@@ -274,8 +274,8 @@ public class TradeConnector {
 
 		String res = require(GeneralType.ORDER, Method.DELETE, data);
 		Log.info(res);
-		// BmOrder[] cancelledOrders = JsonParser.getArrayFromJson(res,
-		// BmOrder[].class);
+		// UnitOrder[] cancelledOrders = JsonParser.getArrayFromJson(res,
+		// UnitOrder[].class);
 		// return cancelledOrders[0];
 
 		return null; // ?????????????

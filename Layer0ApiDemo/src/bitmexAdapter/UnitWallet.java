@@ -1,6 +1,6 @@
 package bitmexAdapter;
 
-public class Wallet extends DataUnit{
+public class UnitWallet extends UnitData{
 
 	private Long account;
 	
@@ -185,7 +185,7 @@ public class Wallet extends DataUnit{
 //	}
 	@Override
 	public String toString() {
-		return "Wallet [prevAmount=" + prevAmount + ", deposited=" + deposited + ", amount=" + amount + "]";
+		return "UnitWallet [prevAmount=" + prevAmount + ", deposited=" + deposited + ", amount=" + amount + "]";
 	}
 	
 

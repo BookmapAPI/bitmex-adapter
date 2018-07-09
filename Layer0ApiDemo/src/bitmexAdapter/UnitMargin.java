@@ -1,6 +1,6 @@
 package bitmexAdapter;
 
-public class Margin extends RawUnit{
+public class UnitMargin extends UnitRaw{
 
 	private Long account;
 	private String currency;

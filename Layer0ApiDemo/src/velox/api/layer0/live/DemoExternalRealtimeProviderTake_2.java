@@ -19,7 +19,7 @@ import velox.api.layer1.data.TradeInfo;
 import velox.api.layer1.data.UserPasswordDemoLoginData;
 
 import bitmexAdapter.BitmexConnector;
-import bitmexAdapter.DataUnit;
+import bitmexAdapter.UnitData;
 import bitmexAdapter.Message;
 import bitmexAdapter.TradeConnector;
 import bitmexAdapter.BmInstrument;
@@ -60,16 +60,16 @@ public class DemoExternalRealtimeProviderTake_2 extends ExternalLiveBaseProvider
 				// Log.info("***********NULL POINTER AT MESSAGE " + message);
 				// }
 
-				List<DataUnit> units = message.data;
+				List<UnitData> units = message.data;
 
 				if (message.table.equals("orderBookL2")) {
-					for (DataUnit unit : units) {
+					for (UnitData unit : units) {
 						for (Layer1ApiDataListener listener : dataListeners) {
 							listener.onDepth(symbol, unit.isBid(), unit.getIntPrice(), (int) unit.getSize());
 						}
 					}
 				} else {
-					for (DataUnit unit : units) {
+					for (UnitData unit : units) {
 						for (Layer1ApiDataListener listener : dataListeners) {
 							final boolean isOtc = false;
 							listener.onTrade(symbol, unit.getIntPrice(), (int) unit.getSize(),

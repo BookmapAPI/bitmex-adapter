@@ -1,5 +1,5 @@
 package bitmexAdapter;
 
-public class RawUnit {
+public class UnitRaw {
 
 }

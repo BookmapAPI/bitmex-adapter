@@ -1,8 +1,6 @@
 package bitmexAdapter;
 
-import bitmexAdapter.Answer.ContainerReq;
-
-public class RestAnswer {
+public class ResponseByRest {
 
 	public Container error;
 

@@ -363,9 +363,9 @@ public class BitmexConnector implements Runnable {
 		// connr.getOrderApiKey(), sign, moment);
 
 		String st0 = connr.makeRestGetQuery(addr);
-		BmOrder[] orders = JsonParser.getArrayFromJson(st0, BmOrder[].class);
+		UnitOrder[] orders = JsonParser.getArrayFromJson(st0, UnitOrder[].class);
 		if (orders != null && orders.length > 0) {
-			for (BmOrder order : orders) {
+			for (UnitOrder order : orders) {
 				sum += order.getOrderQty();
 				// Log.info("VOLUME ELEMENT " + order.getOrderQty());
 			}
@@ -381,7 +381,7 @@ public class BitmexConnector implements Runnable {
 				+ "&filter=%7B%22ordStatus%22%3A%20%22Filled%22%7D&count=500&reverse=true&startTime=" + z;
 		String st0 = connr.makeRestGetQuery(addr);
 		
-		Execution[] execs = JsonParser.getArrayFromJson(st0, Execution[].class);
+		UnitExecution[] execs = JsonParser.getArrayFromJson(st0, UnitExecution[].class);
 		if (execs != null && execs.length > 0) {
 			prov.updateExecutionsHistory(execs);
 		}
@@ -395,7 +395,7 @@ public class BitmexConnector implements Runnable {
 				+ "&filter=%7B%22ordStatus%22%3A%20%22Canceled%22%7D&count=500&reverse=true&startTime=" + z;
 		String st0 = connr.makeRestGetQuery(addr);
 		
-		Execution[] execs = JsonParser.getArrayFromJson(st0, Execution[].class);
+		UnitExecution[] execs = JsonParser.getArrayFromJson(st0, UnitExecution[].class);
 		if (execs != null && execs.length > 0) {
 			prov.updateExecutionsHistory(execs);
 		}

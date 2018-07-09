@@ -1,6 +1,6 @@
 package bitmexAdapter;
 
-public class Answer {
+public class ResponseByWebSocket {
 	private String table;
 	private String action;
 	private Integer status;

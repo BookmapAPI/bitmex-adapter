@@ -58,14 +58,14 @@ public class ConnectorUtils {
 		stringToTopic.put("order", Topic.ORDER);
 		
 //		non-authenticated
-		containers.put(Topic.ORDERBOOKL2, new TopicContainer("orderBookL2", false, new TypeToken<MessageGeneric<DataUnit>>() {}.getType(), DataUnit.class));
-		containers.put(Topic.TRADE, new TopicContainer("trade", false, new TypeToken<MessageGeneric<BmTrade>>() {}.getType(), BmTrade.class));
+		containers.put(Topic.ORDERBOOKL2, new TopicContainer("orderBookL2", false, new TypeToken<MessageGeneric<UnitData>>() {}.getType(), UnitData.class));
+		containers.put(Topic.TRADE, new TopicContainer("trade", false, new TypeToken<MessageGeneric<UnitTrade>>() {}.getType(), UnitTrade.class));
 //		authenticated
-		containers.put(Topic.WALLET, new TopicContainer("wallet", true, new TypeToken<MessageGeneric<Wallet>>() {}.getType(), Wallet.class));
-		containers.put(Topic.EXECUTION, new TopicContainer("execution", true, new TypeToken<MessageGeneric<Execution>>() {}.getType(), Execution.class));
-		containers.put(Topic.MARGIN, new TopicContainer("margin", true, new TypeToken<MessageGeneric<Margin>>() {}.getType(), Margin.class));
-		containers.put(Topic.POSITION, new TopicContainer("position", true, new TypeToken<MessageGeneric<Position>>() {}.getType(), Position.class));
-		containers.put(Topic.ORDER, new TopicContainer("order", true, new TypeToken<MessageGeneric<BmOrder>>() {}.getType(), BmOrder.class));
+		containers.put(Topic.WALLET, new TopicContainer("wallet", true, new TypeToken<MessageGeneric<UnitWallet>>() {}.getType(), UnitWallet.class));
+		containers.put(Topic.EXECUTION, new TopicContainer("execution", true, new TypeToken<MessageGeneric<UnitExecution>>() {}.getType(), UnitExecution.class));
+		containers.put(Topic.MARGIN, new TopicContainer("margin", true, new TypeToken<MessageGeneric<UnitMargin>>() {}.getType(), UnitMargin.class));
+		containers.put(Topic.POSITION, new TopicContainer("position", true, new TypeToken<MessageGeneric<UnitPosition>>() {}.getType(), UnitPosition.class));
+		containers.put(Topic.ORDER, new TopicContainer("order", true, new TypeToken<MessageGeneric<UnitOrder>>() {}.getType(), UnitOrder.class));
 		
 	}
 	

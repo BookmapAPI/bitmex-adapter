@@ -1,8 +1,8 @@
 package bitmexAdapter;
 
-public class Execution extends BmOrder{
+public class UnitExecution extends UnitOrder{
 	private String execType;
-	private double lastPx;//from Execution
+	private double lastPx;//from UnitExecution
 	private long lastQty;
 	
 	//this field is added processing timestamp acquired from Bitmex
