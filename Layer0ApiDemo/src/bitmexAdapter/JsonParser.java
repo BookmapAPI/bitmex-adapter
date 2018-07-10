@@ -22,7 +22,7 @@ import velox.api.layer1.common.Log;
 import velox.api.layer1.layers.utils.OrderBook;
 
 public class JsonParser {
-	public Provider prov;
+	private Provider provider;
 
 	public static <T> T[] getArrayFromJson(String input, Class<T[]> cls) {
 		return (T[]) new Gson().fromJson(input, cls);
@@ -37,11 +37,14 @@ public class JsonParser {
 	}
 
 	public static final Gson gson = new GsonBuilder().create();
-	// private Set<String> partialsParsed = new HashSet<>();
 
 	private Map<String, BmInstrument> activeInstrumentsMap = new HashMap<>();
 	private Set<String> nonInstrumentPartialsParsed = new HashSet<>();
 
+	public void setProvider(Provider provider) {
+		this.provider = provider;
+	}
+	
 	public void setNonInstrumentPartialsParsed(Set<String> nonInstrumentPartialsParsed) {
 		this.nonInstrumentPartialsParsed = nonInstrumentPartialsParsed;
 	}
@@ -57,27 +60,27 @@ public class JsonParser {
 		ResponseByWebSocket responseWs = (ResponseByWebSocket) gson.fromJson(str, ResponseByWebSocket.class);
 		// Log.info("PARSER ANSW Error " + answ.getError());
 		if (responseWs.getTable() == null) {
-			Log.info("PARSER STR => " + str);
+			Log.info("[BITMEX] JsonParser parser: table = null  => " + str);
 
 			if (responseWs.getInfo() != null) {
 				return;
 			}
 
 			if (responseWs.getStatus() != null && responseWs.getStatus() != 200) {
-				prov.connector.socket.close();
+//				provider.connector.getSocket().close();
 				Log.info(responseWs.getError());
-				prov.reportWrongCredentials(responseWs.getError());
+				provider.reportWrongCredentials(responseWs.getError());
 				return;
 			}
 
 			if (responseWs.getSuccess() == true && responseWs.getRequest().getOp().equals("authKey")) {
-				prov.connector.webSocketAuthLatch.countDown();
+				provider.getConnector().getWebSocketAuthLatch().countDown();
 			}
 			
 			if (responseWs.getSuccess() == true && responseWs.getRequest().getOp().equals("unsubscribe")) {
 				String symbol = responseWs.getUnsubscribeSymbol();
 				if (symbol != null){
-					Log.info("PARSER ANSW **GETTING USUBSCR FROM ORDERBOOK" + symbol);
+					Log.info("[BITMEX] JsonParser parser: getting unsbscrd fom orderBookL2, symbol = " + symbol);
 					BmInstrument instr = activeInstrumentsMap.get(symbol);
 					instr.clearOrderBook();
 				}
@@ -85,17 +88,17 @@ public class JsonParser {
 
 			if (responseWs.getSuccess() == null && responseWs.getError() == null && responseWs.getTable() == null
 					&& responseWs.getInfo() == null) {
-				Log.info("PARSER FAILS TO PARSE " + str);
+				Log.info("[BITMEX] JsonParser parser: parser fails to parse " + str);
 				throw new RuntimeException();
 			}
 
 			if (responseWs.getSuccess() != null || responseWs.getInfo() != null) {
-				Log.info("PARSER service MSG " + str);
+				Log.info("[BITMEX] JsonParser parser: service message " + str);
 				return;
 			}
 
 			if (responseWs.getError() != null) {
-				Log.info("PARSER ERROR MSG " + str);
+				Log.info("[BITMEX] JsonParser parser: errro message " + str);
 				BmErrorMessage error = new Gson().fromJson(str, BmErrorMessage.class);
 				Log.info(error.getMessage());
 				return;
@@ -110,13 +113,13 @@ public class JsonParser {
 
 		// skip a messages if it contains empty data
 		if (msg.getData() == null) {
-			Log.info("PARSER SKIPS (DATA == NULL ) " + str);
+			Log.info("[BITMEX] JsonParser parser: data == null =>" + str);
 
 		}
 
 		if (ConnectorUtils.stringToTopic.keySet().contains(msg.getTable())) {
 			Topic Topic = ConnectorUtils.stringToTopic.get(msg.getTable());
-			func(str, Topic);
+			preprocessMessage(str, Topic);
 
 		}
 	}
@@ -231,7 +234,7 @@ public class JsonParser {
 
 		MessageGeneric<UnitData> mess = new MessageGeneric<>("orderBookL2", "delete", UnitData.class, units);
 		for (UnitData unit : mess.getData()) {
-			prov.listenForOrderBookL2(unit);
+			provider.listenForOrderBookL2(unit);
 		}
 		// provider.listenOrderOrTrade(mess);
 	}
@@ -252,18 +255,17 @@ public class JsonParser {
 	}
 
 	@SuppressWarnings("unchecked")
-	private <T> void func(String str, Topic topic) {
+	private <T> void preprocessMessage(String str, Topic topic) {
 		TopicContainer container = ConnectorUtils.containers.get(topic);
 		Type type = container.unitType;
 		MessageGeneric<T> msg0 = gson.fromJson(str, type);
 
 		if (msg0.getAction().equals("partial")) {
 			nonInstrumentPartialsParsed.add(container.name);
-//			if (msg0.getData().isEmpty()) {
-//				Log.info("PARSER SKIPS (DATA == [] ) " + str);
-//				return;
-//			}
+
 			if (topic.equals(Topic.ORDERBOOKL2)) {
+				BmInstrument instr = activeInstrumentsMap.get(((MessageGeneric<UnitData>)msg0).getData().get(0).getSymbol());
+				instr.setOrderBookSnapshotParsed(true);
 				performOrderBookL2SpecificOpSetOne((MessageGeneric<UnitData>) msg0);
 			}
 		}
@@ -271,11 +273,11 @@ public class JsonParser {
 		if (nonInstrumentPartialsParsed.contains(container.name)) {
 			if (topic.equals(Topic.ORDER)) {
 				performOrderSpecificOp();
-				Log.info("PARSER WS ORD " + str);
+				Log.info("[BITMEX] JsonParser preprocessMessage: (order)" + str);
 			}
 
 			if (msg0.getData().isEmpty()) {
-				Log.info("PARSER SKIPS (DATA == [] ) " + str);
+				Log.info("[BITMEX] JsonParser preprocessMessage: skips data == [] => " + str);
 				return;
 			}
 			
@@ -290,9 +292,7 @@ public class JsonParser {
 			}
 
 			if (topic.equals(Topic.EXECUTION)) {
-				Log.info("PARSER WS EXEC " + str);
-				write(str);
-
+				Log.info("[BITMEX] JsonParser parser: execution => " + str);
 			}
 
 		}
@@ -301,7 +301,7 @@ public class JsonParser {
 
 	private void performOrderSpecificOp() {
 		nonInstrumentPartialsParsed.remove("order");
-		Log.info("PARSER : ORDER REMOVED FROM PARTIALS.PARSED");
+		Log.info("[BITMEX] JsonParser performOrderSpecificOp: 'order' removed from partialsParsed");
 		// we need only the snapshot.
 		// the rest of info comes from execution Topic.
 		// it will be a good idea to get unsubscribed from orders
@@ -330,36 +330,26 @@ public class JsonParser {
 		// Log.info("PARSER DISPATCH NEXT");
 		for (T unit : units) {
 			if (clazz == UnitWallet.class) {
-				prov.listenForWallet((UnitWallet) unit);
+				provider.listenForWallet((UnitWallet) unit);
 			} else if (clazz == UnitExecution.class) {
-				prov.listenForExecution((UnitExecution) unit);
+				provider.listenForExecution((UnitExecution) unit);
 			} else if (clazz == UnitMargin.class) {
-				prov.listenForMargin((UnitMargin) unit);
+				provider.listenForMargin((UnitMargin) unit);
 			} else if (clazz == UnitPosition.class) {
-				prov.listenForPosition((UnitPosition) unit);
+				provider.listenForPosition((UnitPosition) unit);
 			} else if (clazz == UnitOrder.class) {
 				UnitOrder ord = (UnitOrder) unit;
-				Log.info("PARSER DISPATCH ORD ID " + ord.getOrderID());
-				prov.createBookmapOrder((UnitOrder) unit);
+				Log.info("[BITMEX] JsonParser dispatchRawUnits: orderId" + ord.getOrderID());
+				provider.createBookmapOrder((UnitOrder) unit);
 			} else if (clazz == UnitTrade.class) {
 				// specific
 				processTradeUnit((UnitTrade) unit);
-				prov.listenForTrade((UnitTrade) unit);
+				provider.listenForTrade((UnitTrade) unit);
 			} else if (clazz == UnitData.class) {
-				prov.listenForOrderBookL2((UnitData) unit);
+				provider.listenForOrderBookL2((UnitData) unit);
 			}
 		}
 
 	}
 
-	public void write(String str) {
-		
-//		try(BufferedWriter bw = new BufferedWriter(new FileWriter("C:\\Bm.log", true));) {
-//			bw.write(str);
-//			bw.write("\n");
-//		} catch (IOException e) {
-//			e.printStackTrace();
-//		}
-		
-	}
 }

@@ -26,15 +26,17 @@ public class TradeConnector {
 
 	private String orderApiKey;
 	private String orderApiSecret;
-	public Provider prov;
+	private Provider provider;
+
+	public void setProvider(Provider provider) {
+		this.provider = provider;
+	}
 
 	public String getOrderApiKey() {
-		Log.info("TR CONN  - APIKEY REQUESTED");
 		return orderApiKey;
 	}
 
 	public String getOrderApiSecret() {
-		Log.info("TR CONN  - APISECRET REQUESTED");
 		return orderApiSecret;
 	}
 
@@ -46,79 +48,77 @@ public class TradeConnector {
 		this.orderApiSecret = orderApiSecret;
 	}
 
-	public String get(String address, String key, String signature, long moment) {
-		String response = null;
+//	public String get(String address, String key, String signature, long moment) {
+//		String response = null;
+//
+//		try {
+//			URL url = new URL(address);
+//			HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
+//			conn.setRequestMethod("GET");
+//			// conn.setRequestProperty("Content-Type", "application/json");
+//			conn.setRequestProperty("Accept", "application/json");
+//			conn.setRequestProperty("api-expires", Long.toString(moment));
+//			conn.setRequestProperty("api-key", key);
+//			conn.setRequestProperty("api-signature", signature);
+//
+//			if (conn.getResponseCode() == 200) {
+//				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
+//				StringBuilder sb = new StringBuilder("");
+//				String output = null;
+//
+//				while ((output = br.readLine()) != null) {
+//					sb.append(output);
+//				}
+//				conn.disconnect();
+//				response = sb.toString();
+//
+//				Map<String, List<String>> map = conn.getHeaderFields();
+//				for (Map.Entry<String, List<String>> entry : map.entrySet()) {
+//					System.out.println("Key : " + entry.getKey() +
+//							" ,Value : " + entry.getValue());
+//				}
+//
+//				int rateLimit = Integer.parseInt(map.get("X-RateLimit-Limit").get(0));
+//				int rateLimitRemaining = Integer.parseInt(map.get("X-RateLimit-Remaining").get(0));
+//				int ratio = 100 * rateLimitRemaining / rateLimit;
+//				long rateLimitReset = Long.parseLong(map.get("X-RateLimit-Reset").get(0));
+//				System.out.println(ratio);
+//				System.out.println(rateLimitReset);
+//			} else {
+//				System.out.print("****CODE = " + conn.getResponseCode());
+//				Map<String, List<String>> map = conn.getHeaderFields();
+//				for (Map.Entry<String, List<String>> entry : map.entrySet()) {
+//					System.out.println("Key : " + entry.getKey() +
+//							" ,Value : " + entry.getValue());
+//				}
+//
+//				int rateLimit = Integer.parseInt(map.get("X-RateLimit-Limit").get(0));
+//				int rateLimitRemaining = Integer.parseInt(map.get("X-RateLimit-Remaining").get(0));
+//				int ratio = 100 * rateLimitRemaining / rateLimit;
+//				long rateLimitReset = Long.parseLong(map.get("X-RateLimit-Reset").get(0));
+//				System.out.println(ratio);
+//				System.out.println(rateLimitReset);
+//
+//				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getErrorStream())));
+//				StringBuilder sb = new StringBuilder("");
+//				String output = null;
+//
+//				while ((output = br.readLine()) != null) {
+//					sb.append(output);
+//				}
+//				System.out.println(sb.toString());
+//			}
+//		} catch (UnknownHostException | NoRouteToHostException e) {
+//			Log.info("[BITMEX] TradeConnector get: no response from server");
+//		} catch (java.net.SocketException e) {
+//			Log.info("[BITMEX] TradeConnector get: network is unreachable");
+//		} catch (IOException e) {
+//			Log.info("[BITMEX] TradeConnector get: buffer reading error");
+//			e.printStackTrace();
+//		}
+//		return response;
+//	}
 
-		try {
-			URL url = new URL(address);
-			Log.info("url\t" + address);
-			HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
-			conn.setRequestMethod("GET");
-			// conn.setRequestProperty("Content-Type", "application/json");
-			conn.setRequestProperty("Accept", "application/json");
-			conn.setRequestProperty("api-expires", Long.toString(moment));
-			conn.setRequestProperty("api-key", key);
-			conn.setRequestProperty("api-signature", signature);
-
-			if (conn.getResponseCode() == 200) {
-				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
-				StringBuilder sb = new StringBuilder("");
-				String output = null;
-
-				while ((output = br.readLine()) != null) {
-					sb.append(output);
-				}
-				conn.disconnect();
-				response = sb.toString();
-				
-				Map<String, List<String>> map = conn.getHeaderFields();
-				for (Map.Entry<String, List<String>> entry : map.entrySet()) {
-					System.out.println("Key : " + entry.getKey() + 
-			                 " ,Value : " + entry.getValue());
-				}
-				
-				int rateLimit = Integer.parseInt(map.get("X-RateLimit-Limit").get(0));
-				int rateLimitRemaining = Integer.parseInt(map.get("X-RateLimit-Remaining").get(0));
-				int ratio = 100 * rateLimitRemaining / rateLimit;
-				long rateLimitReset = Long.parseLong(map.get("X-RateLimit-Reset").get(0));
-				System.out.println(ratio);
-				System.out.println(rateLimitReset);
-			} else {
-				System.out.print("****CODE = " + conn.getResponseCode());
-				Map<String, List<String>> map = conn.getHeaderFields();
-				for (Map.Entry<String, List<String>> entry : map.entrySet()) {
-					System.out.println("Key : " + entry.getKey() + 
-			                 " ,Value : " + entry.getValue());
-				}
-				
-				int rateLimit = Integer.parseInt(map.get("X-RateLimit-Limit").get(0));
-				int rateLimitRemaining = Integer.parseInt(map.get("X-RateLimit-Remaining").get(0));
-				int ratio = 100 * rateLimitRemaining / rateLimit;
-				long rateLimitReset = Long.parseLong(map.get("X-RateLimit-Reset").get(0));
-				System.out.println(ratio);
-				System.out.println(rateLimitReset);
-				
-				
-				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getErrorStream())));
-				StringBuilder sb = new StringBuilder("");
-				String output = null;
-
-				while ((output = br.readLine()) != null) {
-					sb.append(output);
-				}
-				System.out.println(sb.toString());
-			}
-		} catch (UnknownHostException | NoRouteToHostException e) {
-			 Log.info("NO RESPONSE FROM SERVER");
-		} catch (java.net.SocketException e) {
-			 Log.info("NETWORK IS UNREACHABLE");
-		} catch (IOException e) {
-			 Log.debug("BUFFER READING ERROR");
-			e.printStackTrace();
-		}
-		return response;
-	}
-	
 	public String makeRestGetQuery(String address) {
 		String addr = address;
 		long moment = ConnectorUtils.getMomentAndTimeToLive();
@@ -126,14 +126,9 @@ public class TradeConnector {
 				moment);
 		String signature = ConnectorUtils.generateSignature(orderApiSecret, messageBody);
 		String response = null;
-		
-		Log.info("*** ADDR CR " + addr);
-		Log.info("*** MBDY CR " + messageBody);
-		Log.info("*** SIGN CR " + signature);
-		
+
 		try {
-			URL url = new URL(prov.connector.restApi +  addr);
-			Log.info("url\t" + addr);
+			URL url = new URL(provider.getConnector().getRestApi() + addr);
 			HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
 			conn.setRequestMethod("GET");
 			// conn.setRequestProperty("Content-Type", "application/json");
@@ -141,46 +136,45 @@ public class TradeConnector {
 			conn.setRequestProperty("api-expires", Long.toString(moment));
 			conn.setRequestProperty("api-key", orderApiKey);
 			conn.setRequestProperty("api-signature", signature);
-			
+
 			if (conn.getResponseCode() == 200) {
 				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
 				StringBuilder sb = new StringBuilder("");
 				String output = null;
-				
+
 				while ((output = br.readLine()) != null) {
 					sb.append(output);
 				}
-//				conn.disconnect();
+				// conn.disconnect();
 				String rateLimitIfExists = ConnectorUtils.processRateLimitHeaders(conn.getHeaderFields());
-				if(rateLimitIfExists != null){
-					prov.pushRateLimitWarning(rateLimitIfExists);
+				if (rateLimitIfExists != null) {
+					provider.pushRateLimitWarning(rateLimitIfExists);
 				}
-				
+
 				response = sb.toString();
 			} else {
 				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getErrorStream())));
 				StringBuilder sb = new StringBuilder("");
 				String output = null;
-				
+
 				while ((output = br.readLine()) != null) {
 					sb.append(output);
 				}
-				Log.info("TR CONN makeRestGetQery err: " + sb.toString());
+				Log.info("[BITMEX] TradeConnector makeRestGetQery err: " + sb.toString());
 			}
 		} catch (UnknownHostException | NoRouteToHostException e) {
-			 Log.info("NO RESPONSE FROM SERVER");
+			Log.info("[BITMEX] TradeConnector makeRestGetQuery: no response from server");
 		} catch (java.net.SocketException e) {
-			 Log.info("NETWORK IS UNREACHABLE");
+			Log.info("[BITMEX] TradeConnector makeRestGetQuery: network is unreachable");
 		} catch (IOException e) {
-			 Log.debug("BUFFER READING ERROR");
+			Log.info("[BITMEX] TradeConnector makeRestGetQuery: buffer reading error");
 			e.printStackTrace();
 		}
 		return response;
 	}
 
-
 	private double getPegOffset(String symbol, double stopPrice) {
-		BmInstrument instr = prov.connector.getActiveInstrumentsMap().get(symbol);
+		BmInstrument instr = provider.getConnector().getActiveInstrumentsMap().get(symbol);
 		OrderBook orderBook = instr.getOrderBook();
 		double pegOffset;
 		pegOffset = stopPrice
@@ -192,7 +186,6 @@ public class TradeConnector {
 			String clOrdLinkID, String contingencyType) {
 		String symbol = ConnectorUtils.isolateSymbol(params.alias);
 		String side = params.isBuy ? "Buy" : "Sell";
-		Log.info("****SIDE = " + side);
 		double orderQty = params.size;
 
 		JsonObject json = new JsonObject();
@@ -214,32 +207,26 @@ public class TradeConnector {
 		if (orderType == OrderType.LMT) {
 			json.addProperty("ordType", "Limit");
 			json.addProperty("price", params.limitPrice);
-		} else if (orderType == OrderType.STP) {// StopMarket
-			json.addProperty("ordType", "Stop");
+		} else {// has to do with STP
 			json.addProperty("stopPx", params.stopPrice);
-			// used by stops to determine triggering price
-			json.addProperty("execInst", "LastPrice");
 
-			if (params.trailingStep > 0) {
-				Log.info("TR CONN (createSendData) : STP trailing step == " + params.trailingStep);
-				json.addProperty("pegPriceType", "TrailingStopPeg");
-				json.addProperty("pegOffsetValue", getPegOffset(symbol, params.stopPrice));
+			if (orderType == OrderType.STP) {// StopMarket
+				json.addProperty("ordType", "Stop");
+			} else if (orderType == OrderType.STP_LMT) {
+				Log.info("[BITMEX] TradeConnector createSendData: STP_LMT trailing step == " + params.trailingStep);
+				json.addProperty("ordType", "StopLimit");
+				json.addProperty("price", params.limitPrice);
 			}
 
-		} else if (orderType == OrderType.STP_LMT) {
-			Log.info("TR CONN (createSendData) : STP_LMT trailing step == " + params.trailingStep);
-			json.addProperty("ordType", "StopLimit");
-			json.addProperty("stopPx", params.stopPrice);
-			json.addProperty("price", params.limitPrice);
 			// used by stops to determine triggering price
 			json.addProperty("execInst", "LastPrice");
 			if (params.trailingStep > 0) {
-				Log.info("TR CONN (createSendData) : STP trailing step == " + params.trailingStep);
+				Log.info("[BITMEX] TradeConnector createSendData: STP trailing step == " + params.trailingStep);
 				json.addProperty("pegPriceType", "TrailingStopPeg");
 				json.addProperty("pegOffsetValue", getPegOffset(symbol, params.stopPrice));
 			}
-
 		}
+
 		return json;
 	}
 
@@ -248,7 +235,7 @@ public class TradeConnector {
 		json.addProperty("orderID", orderId);
 		String data = json.toString();
 		String res = require(GeneralType.ORDER, Method.DELETE, data);
-		Log.info("TR CONN cancel order " + res);
+		Log.info("[BITMEX] TradeConnector cancelOrder: " + res);
 		return null;
 	}
 
@@ -260,7 +247,7 @@ public class TradeConnector {
 		}
 		sb.setLength(sb.length() - 1);
 		String data1 = sb.toString();
-		Log.info("TR CONN - CANCEL ALL " + data1);
+		Log.info("[BITMEX] TradeConnector cancelOrder (bulk): " + data1);
 		require(GeneralType.ORDER, Method.DELETE, data1, true);
 	}
 
@@ -281,23 +268,24 @@ public class TradeConnector {
 			array.add(json);
 		}
 		String data = "orders=" + array.toString();
-		Log.info("TR CONN - RESIZE BULK " + data);
+		Log.info("[BITMEX] TradeConnector resizeOrder (bulk): " + data);
 		return data;
 	}
 
-	public void resizePartiallyFilledOrder(List<String> orderIds, long orderQty) {
-		JsonArray array = new JsonArray();
-		for (String orderId : orderIds) {
-			JsonObject json = new JsonObject();
-			json.addProperty("orderID", orderId);
-			json.addProperty("leavesQty", orderQty);
-			array.add(json);
-		}
-		String data = array.toString();
-		String data1 = "orders=" + data;
-		Log.info("TR CONN - RESIZE BULK " + data1);
-		require(GeneralType.ORDERBULK, Method.PUT, data1);
-	}
+	// public void resizePartiallyFilledOrder(List<String> orderIds, long
+	// orderQty) {
+	// JsonArray array = new JsonArray();
+	// for (String orderId : orderIds) {
+	// JsonObject json = new JsonObject();
+	// json.addProperty("orderID", orderId);
+	// json.addProperty("leavesQty", orderQty);
+	// array.add(json);
+	// }
+	// String data = array.toString();
+	// String data1 = "orders=" + data;
+	// Log.info("TR CONN - RESIZE BULK " + data1);
+	// require(GeneralType.ORDERBULK, Method.PUT, data1);
+	// }
 
 	public JsonObject moveOrderJson(OrderMoveParameters params, boolean isStopTriggered) {
 		OrderType orderType = OrderType.getTypeFromPrices(params.stopPrice, params.limitPrice);
@@ -319,7 +307,8 @@ public class TradeConnector {
 	public JsonObject moveTrailingStepJson(OrderMoveParameters params) {
 		JsonObject json = new JsonObject();
 		json.addProperty("orderID", params.orderId);
-		String symbol = ConnectorUtils.isolateSymbol(prov.workingOrders.get(params.orderId).getInstrumentAlias());
+		String symbol = ConnectorUtils
+				.isolateSymbol(provider.getWorkingOrders().get(params.orderId).getInstrumentAlias());
 		json.addProperty("pegOffsetValue", getPegOffset(symbol, params.stopPrice));
 		return json;
 	}
@@ -330,7 +319,7 @@ public class TradeConnector {
 
 	public String require(GeneralType genType, Method method, String data, boolean isOrderListBeingCanceled) {
 		String subPath = ConnectorUtils.subPaths.get(genType);
-		String path = prov.connector.restApi + subPath;
+		String path = provider.getConnector().getRestApi() + subPath;
 		long moment = ConnectorUtils.getMomentAndTimeToLive();
 
 		try {
@@ -357,7 +346,6 @@ public class TradeConnector {
 			conn.setRequestProperty("api-key", orderApiKey);
 			conn.setRequestProperty("api-signature", signature);
 			conn.setRequestProperty("Content-Length", Integer.toString(data.getBytes("UTF-8").length));
-			Log.info("TRCONN CONT LEN: " + Integer.toString(data.getBytes("UTF-8").length));
 
 			OutputStream os = conn.getOutputStream();
 			OutputStreamWriter osw = new OutputStreamWriter(os, "UTF-8");
@@ -365,10 +353,9 @@ public class TradeConnector {
 			osw.flush();
 			osw.close();
 
-			Log.info("TR CONN : require : " + path + "\t" + data);
 			String rateLimitIfExists = ConnectorUtils.processRateLimitHeaders(conn.getHeaderFields());
-			if(rateLimitIfExists != null){
-				prov.pushRateLimitWarning(rateLimitIfExists);
+			if (rateLimitIfExists != null) {
+				provider.pushRateLimitWarning(rateLimitIfExists);
 			}
 
 			if (conn.getResponseCode() != 200) {
@@ -379,16 +366,16 @@ public class TradeConnector {
 				while ((output = br.readLine()) != null) {
 					sb.append(output);
 				}
-				Log.info("TR CONN * REQUIRE ASNWER " + sb.toString());
+				Log.info("[BITMEX] TradeConnector require:  response =>" + sb.toString());
 				String resp = Provider.testReponseForError(sb.toString());
 				return resp;
 			}
 		} catch (UnknownHostException | NoRouteToHostException e) {
-			 Log.info("NO RESPONSE FROM SERVER");
+			Log.info("[BITMEX] TradeConnector require: no response from server");
 		} catch (java.net.SocketException e) {
-			 Log.info("NETWORK IS UNREACHABLE");
+			Log.info("[BITMEX] TradeConnector require: network is unreachable");
 		} catch (IOException e) {
-			 Log.debug("BUFFER READING ERROR");
+			Log.info("[BITMEX] TradeConnector require: buffer reading error");
 			e.printStackTrace();
 		}
 		return null;

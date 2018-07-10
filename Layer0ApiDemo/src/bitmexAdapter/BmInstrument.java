@@ -6,6 +6,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+
+import bitmexAdapter.ConnectorUtils.WebSocketOperation;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.layers.utils.OrderBook;
 
@@ -22,21 +24,18 @@ public class BmInstrument {
 	private boolean isFirstSnapshotParsed = false;
 	
 	//this one is for 'orderBookL2 and for 'trade'
-	private Map<String, Boolean> instrumentPartialsParsed = new HashMap<>();
+//	private Map<String, Boolean> instrumentPartialsParsed = new HashMap<>();
 	
 	private OrderBook orderBook = new OrderBook();
 	private BlockingQueue<Message> queue = new LinkedBlockingQueue<>();
 	private HashMap<Long, Integer> pricesMap = new HashMap<>();
 	private UnitPosition validPosition = new UnitPosition(0L, "", "", 0L, 0L, 0L, 0D);
-	
-	private Set<String> partialsParsed = new HashSet<>();
-
+	private boolean orderBookSnapshotParsed = false;
 	private double lastBuy = Double.NaN;
 	private double lastSell = Double.NaN;
 	private int executionsVolume = 0;
 	private int sellOrdersCount = 0;
 	private int buyOrdersCount = 0;
-
 
 	public BmInstrument(String symbol, double tickSize) {
 		super();
@@ -48,12 +47,12 @@ public class BmInstrument {
 		super();
 	}
 	
-	public Set<String> getPartialsParsed() {
-		return partialsParsed;
+	public boolean isOrderBookSnapshotParsed() {
+		return orderBookSnapshotParsed;
 	}
 
-	public void setPartialsParsed(Set<String> partialsParsed) {
-		this.partialsParsed = partialsParsed;
+	public void setOrderBookSnapshotParsed(boolean orderBookSnapshotParsed) {
+		this.orderBookSnapshotParsed = orderBookSnapshotParsed;
 	}
 
 	public int getExecutionsVolume() {
@@ -77,11 +76,18 @@ public class BmInstrument {
 	}
 
 	public String getSubscribeReq() {
-		return "{\"op\":\"subscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\"]}";
+		WsData wsData = new WsData(this.symbol, WebSocketOperation.SUBSCRIBE, 
+				(Object[])ConnectorUtils.getNonAuthenticatedTopicsList());
+		String res = JsonParser.gson.toJson(wsData);
+		return res;
 	}
 
 	public String getUnSubscribeReq() {
-		return "{\"op\":\"unsubscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\"]}";	}
+		WsData wsData = new WsData(this.symbol, WebSocketOperation.UNSUBSCRIBE, 
+				(Object[])ConnectorUtils.getNonAuthenticatedTopicsList());
+		String res = JsonParser.gson.toJson(wsData);
+		return res;
+	}
 
 	public String getSymbol() {
 		return symbol;
@@ -173,13 +179,13 @@ public class BmInstrument {
 		this.settlCurrency = settlCurrency;
 	}
 
-	public Map<String, Boolean> getInstrumentPartialsParsed() {
-		return instrumentPartialsParsed;
-	}
-
-	public void setInstrumentPartialsParsed(Map<String, Boolean> instrumentPartialsParsed) {
-		this.instrumentPartialsParsed = instrumentPartialsParsed;
-	}
+//	public Map<String, Boolean> getInstrumentPartialsParsed() {
+//		return instrumentPartialsParsed;
+//	}
+//
+//	public void setInstrumentPartialsParsed(Map<String, Boolean> instrumentPartialsParsed) {
+//		this.instrumentPartialsParsed = instrumentPartialsParsed;
+//	}
 
 	public double getLastBuy() {
 		return lastBuy;
