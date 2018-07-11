@@ -86,7 +86,7 @@ public class ClientSocket {
 					}
 				} else {
 					// the last message was <5 seconds ago, everything is OK
-					Log.info("[BITMEX] ClientSocket launchPingTimer: connection alive UTC=" + System.currentTimeMillis() );
+//					Log.info("[BITMEX] ClientSocket launchPingTimer: connection alive UTC=" + System.currentTimeMillis() );
 					setConnectionPossiblyLost(false);
 				}
 			}
@@ -156,7 +156,7 @@ public class ClientSocket {
 			String data = "ping";
 			ByteBuffer payload = ByteBuffer.wrap(data.getBytes());
 			remote.sendPing(payload);
-			Log.info("[BITMEX] ClientSocket sendPing: PING");
+//			Log.info("[BITMEX] ClientSocket sendPing: PING");
 		} catch (WebSocketException e) {
 			// e.printStackTrace(System.err);
 			// Log.debug("RemoteEndpoint unavailable");
@@ -171,7 +171,7 @@ public class ClientSocket {
 	public void onFrame(Frame frame) {
 		if (frame.getType() == Type.PONG) {
 			lastMessageTime = System.currentTimeMillis();
-			Log.info("[BITMEX] ClientSocket onFrame: PONG");
+//			Log.info("[BITMEX] ClientSocket onFrame: PONG");
 		}
 	}
 
