@@ -1,7 +1,5 @@
 package bitmexAdapter;
 
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -9,6 +7,7 @@ import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import bitmexAdapter.ConnectorUtils.WebSocketOperation;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.layers.utils.OrderBook;
 
@@ -21,40 +20,22 @@ public class BmInstrument {
 	private long multiplier;
 	private long underlyingToSettleMultiplier;
 	private String settlCurrency;
-
-	
-
 	private boolean isSubscribed = false;
 	private boolean isFirstSnapshotParsed = false;
 	
 	//this one is for 'orderBookL2 and for 'trade'
-	private Map<String, Boolean> instrumentPartialsParsed = new HashMap<>();
+//	private Map<String, Boolean> instrumentPartialsParsed = new HashMap<>();
 	
 	private OrderBook orderBook = new OrderBook();
 	private BlockingQueue<Message> queue = new LinkedBlockingQueue<>();
 	private HashMap<Long, Integer> pricesMap = new HashMap<>();
-	private Position validPosition = new Position(0L, "", "", 0L, 0L, 0L, 0D);
-	
-	private Set<String> partialsParsed = new HashSet<>();
-
-	
+	private UnitPosition validPosition = new UnitPosition(0L, "", "", 0L, 0L, 0L, 0D);
+	private boolean orderBookSnapshotParsed = false;
 	private double lastBuy = Double.NaN;
 	private double lastSell = Double.NaN;
-	
 	private int executionsVolume = 0;
 	private int sellOrdersCount = 0;
 	private int buyOrdersCount = 0;
-	
-	
-
-	//	This is a temporary solution
-	// Generally there must be one queue for any so called dataUnit, no matter which, 
-	//either order update data or trade or position or whatever
-	private BlockingQueue<BmOrder> executionQueue = new LinkedBlockingQueue<>();
-	private BlockingQueue<Position> positionQueue = new LinkedBlockingQueue<>();
-
-
-	
 
 	public BmInstrument(String symbol, double tickSize) {
 		super();
@@ -66,12 +47,12 @@ public class BmInstrument {
 		super();
 	}
 	
-	public Set<String> getPartialsParsed() {
-		return partialsParsed;
+	public boolean isOrderBookSnapshotParsed() {
+		return orderBookSnapshotParsed;
 	}
 
-	public void setPartialsParsed(Set<String> partialsParsed) {
-		this.partialsParsed = partialsParsed;
+	public void setOrderBookSnapshotParsed(boolean orderBookSnapshotParsed) {
+		this.orderBookSnapshotParsed = orderBookSnapshotParsed;
 	}
 
 	public int getExecutionsVolume() {
@@ -95,13 +76,18 @@ public class BmInstrument {
 	}
 
 	public String getSubscribeReq() {
-		return "{\"op\":\"subscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\"]}";
-//		return "{\"op\":\"subscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\",\"order:" + this.symbol + "\"]}";
-//		return "{\"op\":\"subscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\",\"order:" + this.symbol + "\",\"execution:" + this.symbol + "\"]}";
+		WsData wsData = new WsData(this.symbol, WebSocketOperation.SUBSCRIBE, 
+				(Object[])ConnectorUtils.getNonAuthenticatedTopicsList());
+		String res = JsonParser.gson.toJson(wsData);
+		return res;
 	}
 
 	public String getUnSubscribeReq() {
-		return "{\"op\":\"unsubscribe\", \"args\":[\"orderBookL2:" + this.symbol + "\",\"trade:" + this.symbol + "\"]}";	}
+		WsData wsData = new WsData(this.symbol, WebSocketOperation.UNSUBSCRIBE, 
+				(Object[])ConnectorUtils.getNonAuthenticatedTopicsList());
+		String res = JsonParser.gson.toJson(wsData);
+		return res;
+	}
 
 	public String getSymbol() {
 		return symbol;
@@ -121,6 +107,10 @@ public class BmInstrument {
 
 	public OrderBook getOrderBook() {
 			return orderBook;
+	}
+	
+	public void clearOrderBook() {
+		 this.orderBook = new OrderBook();
 	}
 
 	public boolean isSubscribed() {
@@ -147,27 +137,11 @@ public class BmInstrument {
 		this.isFirstSnapshotParsed = isFirstSnapshotParsed;
 	}
 	
-	public BlockingQueue<BmOrder> getExecutionQueue() {
-		return executionQueue;
-	}
-
-	public void setExecutionQueue(BlockingQueue<BmOrder> executionQueue) {
-		this.executionQueue = executionQueue;
-	}
-
-	public BlockingQueue<Position> getPositionQueue() {
-		return positionQueue;
-	}
-
-	public void setPositionQueue(BlockingQueue<Position> positionQueue) {
-		this.positionQueue = positionQueue;
-	}
-
-	public Position getValidPosition() {
+	public UnitPosition getValidPosition() {
 		return validPosition;
 	}
 
-	public void setValidPosition(Position validPosition) {
+	public void setValidPosition(UnitPosition validPosition) {
 		this.validPosition = validPosition;
 	}
 
@@ -205,13 +179,13 @@ public class BmInstrument {
 		this.settlCurrency = settlCurrency;
 	}
 
-	public Map<String, Boolean> getInstrumentPartialsParsed() {
-		return instrumentPartialsParsed;
-	}
-
-	public void setInstrumentPartialsParsed(Map<String, Boolean> instrumentPartialsParsed) {
-		this.instrumentPartialsParsed = instrumentPartialsParsed;
-	}
+//	public Map<String, Boolean> getInstrumentPartialsParsed() {
+//		return instrumentPartialsParsed;
+//	}
+//
+//	public void setInstrumentPartialsParsed(Map<String, Boolean> instrumentPartialsParsed) {
+//		this.instrumentPartialsParsed = instrumentPartialsParsed;
+//	}
 
 	public double getLastBuy() {
 		return lastBuy;
@@ -228,6 +202,4 @@ public class BmInstrument {
 	public void setLastSell(double lastSell) {
 		this.lastSell = lastSell;
 	}
-	
-	
 }

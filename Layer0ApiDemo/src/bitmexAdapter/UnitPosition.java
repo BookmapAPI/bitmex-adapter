@@ -5,7 +5,7 @@ package bitmexAdapter;
  * That means values did not change and the Consumer must use
  * the previous value.
  */
-public class Position {
+public class UnitPosition extends UnitRaw{
 
 
 	private Long account;
@@ -104,7 +104,7 @@ private String execType;//no such in spec
 	
 	
 	
-	public Position(Long account, String symbol, String currency, Long markValue, Long realisedPnl, Long unrealisedPnl,
+	public UnitPosition(Long account, String symbol, String currency, Long markValue, Long realisedPnl, Long unrealisedPnl,
 			Double avgEntryPrice) {
 		super();
 		this.account = account;
@@ -116,7 +116,7 @@ private String execType;//no such in spec
 		this.avgEntryPrice = avgEntryPrice;
 	}
 
-	public Position() {
+	public UnitPosition() {
 		super();
 	}
 	
@@ -676,7 +676,7 @@ private String execType;//no such in spec
 
 	@Override
 	public String toString() {
-		return "Position [account=" + account + ", symbol=" + symbol + ", currency=" + currency + ", markValue="
+		return "UnitPosition [account=" + account + ", symbol=" + symbol + ", currency=" + currency + ", markValue="
 				+ markValue + ", realisedPnl=" + realisedPnl + ", unrealisedPnl=" + unrealisedPnl + ", avgEntryPrice="
 				+ avgEntryPrice + "]";
 	}

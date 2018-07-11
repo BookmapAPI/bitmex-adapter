@@ -54,9 +54,9 @@ public class DemoExternalRealtimeProvider extends ExternalLiveBaseProvider {
             // Currently Bookmap does not visualize OTC trades, so you will
             // mostly want isOtc=false
             final boolean isOtc = false;
-            // Trade on best bid, ask agressor
+            // UnitTrade on best bid, ask agressor
             dataListeners.forEach(l -> l.onTrade(alias, bestBid, 1, new TradeInfo(isOtc, false)));
-            // Trade on best ask, bid agressor
+            // UnitTrade on best ask, bid agressor
             dataListeners.forEach(l -> l.onTrade(alias, bestAsk, 1, new TradeInfo(isOtc, true)));
 
 //             With 10% chance change BBO

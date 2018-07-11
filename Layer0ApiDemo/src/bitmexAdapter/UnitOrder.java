@@ -1,6 +1,6 @@
 package bitmexAdapter;
 
-public class BmOrder {
+public class UnitOrder extends UnitRaw{
 	
 	private String execID;
 	private String orderID;
@@ -14,13 +14,13 @@ public class BmOrder {
 	
 	
 	
-	private double simpleOrderQty; // or int?
-	private long orderQty;// ot int?
+	private double simpleOrderQty;
+	private long orderQty;
 	private double price = Double.NaN;
 	
 	private long displayQty;
 	private double stopPx = Double.NaN;
-	private double pegOffsetValue;
+	private double pegOffsetValue = Double.NaN;
 	
 	private String pegPriceType;
 	private String currency;
@@ -45,7 +45,8 @@ public class BmOrder {
 	private String text;
 	private String transactTime;
 	private String timestamp;
-	private boolean isSnapshot;//is set manually
+	
+	private boolean isSnapshot;//is set by connector
 	
 	public boolean isSnapshot() {
 		return isSnapshot;
@@ -266,5 +267,6 @@ public class BmOrder {
 		this.clientId = clientId;
 	}
 
+	
 	
 }

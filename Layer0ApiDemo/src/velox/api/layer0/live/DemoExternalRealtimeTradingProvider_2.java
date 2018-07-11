@@ -13,13 +13,13 @@ package velox.api.layer0.live;
 //import com.devexperts.connector.Connector;
 //
 //import bitmexAdapter.BmInstrument;
-//import bitmexAdapter.BmOrder;
-//import bitmexAdapter.DataUnit;
+//import bitmexAdapter.UnitOrder;
+//import bitmexAdapter.UnitData;
 //import bitmexAdapter.JsonParser;
 //import bitmexAdapter.Message;
 //import bitmexAdapter.MessageExecution;
 //import bitmexAdapter.ConnectorUtils;
-//import bitmexAdapter.Position;
+//import bitmexAdapter.UnitPosition;
 //import velox.api.layer1.Layer1ApiDataListener;
 //import velox.api.layer1.common.Log;
 //import velox.api.layer1.data.ExecutionInfo;
@@ -122,7 +122,7 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 //		// tempClientId = simpleParameters.clientId;
 //		// Log.info("CLIENT ID " + tempClientId);
 //		// Log.info("***Order gets sent to BitMex");
-//		// BmOrder ord = connr.processNewOrder(simpleParameters);
+//		// UnitOrder ord = tradeConnector.processNewOrder(simpleParameters);
 //		// String bmId = ord.getOrderID();
 //		// Log.info("BM_ID " + bmId);
 //		// // ****************** TO BITMEX ENDS
@@ -164,7 +164,7 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 //			tempClientId = simpleParameters.clientId;
 //			Log.info("CLIENT ID " + tempClientId);
 //			Log.info("***Order gets sent to BitMex");
-//			BmOrder ord = connr.processNewOrder(simpleParameters, orderType);
+//			UnitOrder ord = tradeConnector.processNewOrder(simpleParameters, orderType);
 //			if (ord == null) {
 //				rejectOrder(builder);
 //			} else {
@@ -217,7 +217,7 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 //				SystemTextMessageType.ORDER_FAILURE));
 //	}
 //
-//	public void createBookmapOrder(BmOrder order) {
+//	public void createBookmapOrder(UnitOrder order) {
 //		String symbol = order.getSymbol();
 //		String orderId = order.getOrderID();
 //		boolean isBuy = order.getSide().equals("Buy") ? true : false;
@@ -283,11 +283,11 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 //
 //				// Cancel order with provided ID
 //				OrderCancelParameters orderCancelParameters = (OrderCancelParameters) orderUpdateParameters;
-//				connr.cancelOrder(orderCancelParameters.orderId);
+//				tradeConnector.cancelOrder(orderCancelParameters.orderId);
 //
 //				OrderInfoBuilder builder = workingOrders.get(orderCancelParameters.orderId);
 //
-//				String symbol = connr.isolateSymbol(builder.getInstrumentAlias());
+//				String symbol = tradeConnector.isolateSymbol(builder.getInstrumentAlias());
 //				BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
 //				if (builder.isBuy()) {
 //					instr.setBuyOrdersCount(instr.getBuyOrdersCount() - builder.getUnfilled());
@@ -308,7 +308,7 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 //				Log.info("RESIZE ORDER BY " + orderResizeParameters.size);
 //
 //				int newSize = orderResizeParameters.size;
-//				BmOrder ord = connr.resizeOrder(orderResizeParameters.orderId, newSize);
+//				UnitOrder ord = tradeConnector.resizeOrder(orderResizeParameters.orderId, newSize);
 //
 //				OrderInfoBuilder builder = workingOrders.get(orderResizeParameters.orderId);
 //
@@ -317,7 +317,7 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 //				}
 //				int oldSize = builder.getUnfilled();
 //
-//				String symbol = connr.isolateSymbol(ord.getSymbol());
+//				String symbol = tradeConnector.isolateSymbol(ord.getSymbol());
 //				BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
 //				if (builder.isBuy()) {
 //					instr.setBuyOrdersCount(instr.getBuyOrdersCount() + newSize - oldSize);
@@ -344,7 +344,7 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 //				// Change stop/limit prices of an order with provided ID
 //				OrderMoveParameters orderMoveParameters = (OrderMoveParameters) orderUpdateParameters;
 //
-//				connr.moveOrder(orderMoveParameters.orderId, orderMoveParameters.limitPrice);
+//				tradeConnector.moveOrder(orderMoveParameters.orderId, orderMoveParameters.limitPrice);
 //				OrderInfoBuilder order = workingOrders.get(orderMoveParameters.orderId);
 //				// No need to update stop price as this demo only supports limit
 //				// orders
@@ -411,12 +411,12 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 //						// that's because order price is a raw value and
 //						// instrument bid/ask are level numbers.
 //
-//						String symbol = connr.isolateSymbol(instrument.alias);
+//						String symbol = tradeConnector.isolateSymbol(instrument.alias);
 //						BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
 //
-//						BlockingQueue<BmOrder> messages = instr.getExecutionQueue();
+//						BlockingQueue<UnitOrder> messages = instr.getExecutionQueue();
 //						if (!messages.isEmpty()) {
-//							BmOrder orderExec = messages.poll();
+//							UnitOrder orderExec = messages.poll();
 //
 //							if (orderExec.getOrdStatus().equals("Filled")) {
 //								final long executionTime = System.currentTimeMillis();
@@ -457,13 +457,13 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 //		synchronized (instruments) {
 //			for (Instrument instrument : instruments.values()) {
 //				// *******************POSITION
-//				String symbol = connr.isolateSymbol(instrument.alias);
+//				String symbol = tradeConnector.isolateSymbol(instrument.alias);
 //				BmInstrument bmInstrument = connector.getActiveInstrumentsMap().get(symbol);
 //
-//				BlockingQueue<Position> messPos = bmInstrument.getPositionQueue();
+//				BlockingQueue<UnitPosition> messPos = bmInstrument.getPositionQueue();
 //				if (!messPos.isEmpty()) {
-//					Position pos = messPos.poll();
-//					Position validPosition = bmInstrument.getValidPosition();
+//					UnitPosition pos = messPos.poll();
+//					UnitPosition validPosition = bmInstrument.getValidPosition();
 //					updateValidPosition(validPosition, pos);
 //					Log.info("NEW VAL" + validPosition.toString());
 //
@@ -492,7 +492,7 @@ public class DemoExternalRealtimeTradingProvider_2 extends DemoExternalRealtimeP
 //		}
 //	}
 //
-//	private void updateValidPosition(Position validPosition, Position pos) {
+//	private void updateValidPosition(UnitPosition validPosition, UnitPosition pos) {
 //		if (validPosition.getAccount().equals(0L)) {
 //			if (pos.getAccount() != null) {
 //				validPosition.setAccount(pos.getAccount());
