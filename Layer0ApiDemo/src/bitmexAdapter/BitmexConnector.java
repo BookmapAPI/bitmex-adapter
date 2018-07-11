@@ -38,7 +38,7 @@ public class BitmexConnector implements Runnable {
 	private CountDownLatch webSocketStartingLatch = new CountDownLatch(1);
 	private CountDownLatch webSocketAuthLatch = new CountDownLatch(1);
 	private ClientSocket socket;
-	
+
 	private JsonParser parser = new JsonParser();
 	private boolean isReconnecting = false;
 	private Provider provider;
@@ -55,11 +55,11 @@ public class BitmexConnector implements Runnable {
 	public ClientSocket getSocket() {
 		return socket;
 	}
-	
+
 	public void setInterruptionNeeded(boolean interruptionNeeded) {
 		this.interruptionNeeded = interruptionNeeded;
 	}
-	
+
 	public String getRestApi() {
 		return restApi;
 	}
@@ -67,7 +67,7 @@ public class BitmexConnector implements Runnable {
 	public CountDownLatch getWebSocketAuthLatch() {
 		return webSocketAuthLatch;
 	}
-	
+
 	public TradeConnector getTradeConnector() {
 		return tradeConnector;
 	}
@@ -147,8 +147,8 @@ public class BitmexConnector implements Runnable {
 						(Object[]) ConnectorUtils.getAuthenticatedTopicsList());
 				String res = JsonParser.gson.toJson(wsData);
 				socket.sendMessage(res);
-
 			}
+			
 			webSocketStartingLatch.countDown();
 			Log.info("[BITMEX] BitmexConnector wsConnect websocket webSocketStartingLatch is down");
 
@@ -164,7 +164,6 @@ public class BitmexConnector implements Runnable {
 			}
 
 			Log.info("[BITMEX] BitmexConnector wsConnect subscribed to an instrument ");
-
 			// WAITING FOR THE SOCKET TO CLOSE
 			socket.getClosingLatch().await();
 			socket = null;
@@ -276,18 +275,13 @@ public class BitmexConnector implements Runnable {
 	public void subscribe(BmInstrument instr) {
 		Log.info("[BITMEX] BitmexConnector subscribe: " + instr.getSymbol());
 		instr.setSubscribed(true);
-
 		sendWebsocketMessage(instr.getSubscribeReq());
-
-		// this is should normally be called in general.
-		// better to turn on off while debugging
-		 launchSnapshotTimer(instr);
+		launchSnapshotTimer(instr);
 
 		if (!provider.isCredentialsEmpty()) {// if authenticated
 			instr.setExecutionsVolume(countExecutionsVolume(instr.getSymbol()));
 			reportFilled(instr.getSymbol());
 			reportCancelled(instr.getSymbol());
-
 		}
 	}
 
@@ -306,7 +300,7 @@ public class BitmexConnector implements Runnable {
 		// long moment = ConnectorUtils.getMomentAndTimeToLive();
 		String addr = "/api/v1/execution?symbol=" + symbol
 				+ "&filter=%7B%22ordStatus%22%3A%22Filled%22%7D&count=100&reverse=false&startTime=" + z;
-		
+
 		String st0 = tradeConnector.makeRestGetQuery(addr);
 		UnitOrder[] orders = JsonParser.getArrayFromJson(st0, UnitOrder[].class);
 		if (orders != null && orders.length > 0) {
@@ -322,7 +316,8 @@ public class BitmexConnector implements Runnable {
 	private void reportFilled(String symbol) {
 		String dateTwentyFourHoursAgo = ConnectorUtils.getDateTwentyFourHoursAgoAsUrlEncodedString();
 		String addr = "/api/v1/execution?symbol=" + symbol
-				+ "&filter=%7B%22ordStatus%22%3A%20%22Filled%22%7D&count=500&reverse=true&startTime=" + dateTwentyFourHoursAgo;
+				+ "&filter=%7B%22ordStatus%22%3A%20%22Filled%22%7D&count=500&reverse=true&startTime="
+				+ dateTwentyFourHoursAgo;
 		String st0 = tradeConnector.makeRestGetQuery(addr);
 
 		UnitExecution[] execs = JsonParser.getArrayFromJson(st0, UnitExecution[].class);
@@ -336,7 +331,8 @@ public class BitmexConnector implements Runnable {
 	private void reportCancelled(String symbol) {
 		String dateTwentyFourHoursAgo = ConnectorUtils.getDateTwentyFourHoursAgoAsUrlEncodedString();
 		String addr = "/api/v1/execution?symbol=" + symbol
-				+ "&filter=%7B%22ordStatus%22%3A%20%22Canceled%22%7D&count=500&reverse=true&startTime=" + dateTwentyFourHoursAgo;
+				+ "&filter=%7B%22ordStatus%22%3A%20%22Canceled%22%7D&count=500&reverse=true&startTime="
+				+ dateTwentyFourHoursAgo;
 		String st0 = tradeConnector.makeRestGetQuery(addr);
 
 		UnitExecution[] execs = JsonParser.getArrayFromJson(st0, UnitExecution[].class);

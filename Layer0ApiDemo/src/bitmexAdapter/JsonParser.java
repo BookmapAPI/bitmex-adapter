@@ -54,21 +54,15 @@ public class JsonParser {
 	}
 
 	public void parse(String str) {
-
-		// Log.info("PARSER STR => " + str);
 		// first let's find out what kind of object we have here
 		ResponseByWebSocket responseWs = (ResponseByWebSocket) gson.fromJson(str, ResponseByWebSocket.class);
-		// Log.info("PARSER ANSW Error " + answ.getError());
 		if (responseWs.getTable() == null) {
-			Log.info("[BITMEX] JsonParser parser: table = null  => " + str);
-
 			if (responseWs.getInfo() != null) {
 				return;
 			}
 
 			if (responseWs.getStatus() != null && responseWs.getStatus() != 200) {
-//				provider.connector.getSocket().close();
-				Log.info(responseWs.getError());
+				Log.info("[BITMEX] JsonParser parser: websocket response status = "  + responseWs.getError());
 				provider.reportWrongCredentials(responseWs.getError());
 				return;
 			}
@@ -114,13 +108,11 @@ public class JsonParser {
 		// skip a messages if it contains empty data
 		if (msg.getData() == null) {
 			Log.info("[BITMEX] JsonParser parser: data == null =>" + str);
-
 		}
 
 		if (ConnectorUtils.stringToTopic.keySet().contains(msg.getTable())) {
 			Topic Topic = ConnectorUtils.stringToTopic.get(msg.getTable());
 			preprocessMessage(str, Topic);
-
 		}
 	}
 
@@ -182,11 +174,6 @@ public class JsonParser {
 		}
 	}
 
-	// private int createIntPrice(double price, double tickSize) {
-	// int intPrice = (int) Math.round(price / tickSize);
-	// return intPrice;
-	// }
-
 	private void processTradeUnit(UnitTrade unit) {
 		unit.setBid(unit.getSide().equals("Buy"));
 		BmInstrument instr = activeInstrumentsMap.get(unit.getSymbol());
@@ -236,7 +223,6 @@ public class JsonParser {
 		for (UnitData unit : mess.getData()) {
 			provider.listenForOrderBookL2(unit);
 		}
-		// provider.listenOrderOrTrade(mess);
 	}
 
 	private void resetBmInstrumentOrderBook(BmInstrument instr) {
@@ -294,7 +280,6 @@ public class JsonParser {
 			if (topic.equals(Topic.EXECUTION)) {
 				Log.info("[BITMEX] JsonParser parser: execution => " + str);
 			}
-
 		}
 		return;
 	}
@@ -327,7 +312,6 @@ public class JsonParser {
 	}
 
 	public <T> void dispatchRawUnits(ArrayList<T> units, Class<?> clazz) {
-		// Log.info("PARSER DISPATCH NEXT");
 		for (T unit : units) {
 			if (clazz == UnitWallet.class) {
 				provider.listenForWallet((UnitWallet) unit);

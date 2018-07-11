@@ -137,7 +137,7 @@ public class ClientSocket {
 			try {
 				session.disconnect();
 			} catch (IOException e) {
-				// Connection must be lost suddenly
+				// Connection may be lost suddenly
 				e.printStackTrace();
 			}
 		}

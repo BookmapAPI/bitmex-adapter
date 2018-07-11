@@ -9,10 +9,12 @@ import java.net.NoRouteToHostException;
 import java.net.URL;
 import java.net.UnknownHostException;
 import java.util.List;
-import java.util.Map;
+
 import javax.net.ssl.HttpsURLConnection;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+
 import bitmexAdapter.ConnectorUtils.GeneralType;
 import bitmexAdapter.ConnectorUtils.Method;
 import velox.api.layer0.live.Provider;
@@ -48,77 +50,6 @@ public class TradeConnector {
 		this.orderApiSecret = orderApiSecret;
 	}
 
-//	public String get(String address, String key, String signature, long moment) {
-//		String response = null;
-//
-//		try {
-//			URL url = new URL(address);
-//			HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
-//			conn.setRequestMethod("GET");
-//			// conn.setRequestProperty("Content-Type", "application/json");
-//			conn.setRequestProperty("Accept", "application/json");
-//			conn.setRequestProperty("api-expires", Long.toString(moment));
-//			conn.setRequestProperty("api-key", key);
-//			conn.setRequestProperty("api-signature", signature);
-//
-//			if (conn.getResponseCode() == 200) {
-//				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
-//				StringBuilder sb = new StringBuilder("");
-//				String output = null;
-//
-//				while ((output = br.readLine()) != null) {
-//					sb.append(output);
-//				}
-//				conn.disconnect();
-//				response = sb.toString();
-//
-//				Map<String, List<String>> map = conn.getHeaderFields();
-//				for (Map.Entry<String, List<String>> entry : map.entrySet()) {
-//					System.out.println("Key : " + entry.getKey() +
-//							" ,Value : " + entry.getValue());
-//				}
-//
-//				int rateLimit = Integer.parseInt(map.get("X-RateLimit-Limit").get(0));
-//				int rateLimitRemaining = Integer.parseInt(map.get("X-RateLimit-Remaining").get(0));
-//				int ratio = 100 * rateLimitRemaining / rateLimit;
-//				long rateLimitReset = Long.parseLong(map.get("X-RateLimit-Reset").get(0));
-//				System.out.println(ratio);
-//				System.out.println(rateLimitReset);
-//			} else {
-//				System.out.print("****CODE = " + conn.getResponseCode());
-//				Map<String, List<String>> map = conn.getHeaderFields();
-//				for (Map.Entry<String, List<String>> entry : map.entrySet()) {
-//					System.out.println("Key : " + entry.getKey() +
-//							" ,Value : " + entry.getValue());
-//				}
-//
-//				int rateLimit = Integer.parseInt(map.get("X-RateLimit-Limit").get(0));
-//				int rateLimitRemaining = Integer.parseInt(map.get("X-RateLimit-Remaining").get(0));
-//				int ratio = 100 * rateLimitRemaining / rateLimit;
-//				long rateLimitReset = Long.parseLong(map.get("X-RateLimit-Reset").get(0));
-//				System.out.println(ratio);
-//				System.out.println(rateLimitReset);
-//
-//				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getErrorStream())));
-//				StringBuilder sb = new StringBuilder("");
-//				String output = null;
-//
-//				while ((output = br.readLine()) != null) {
-//					sb.append(output);
-//				}
-//				System.out.println(sb.toString());
-//			}
-//		} catch (UnknownHostException | NoRouteToHostException e) {
-//			Log.info("[BITMEX] TradeConnector get: no response from server");
-//		} catch (java.net.SocketException e) {
-//			Log.info("[BITMEX] TradeConnector get: network is unreachable");
-//		} catch (IOException e) {
-//			Log.info("[BITMEX] TradeConnector get: buffer reading error");
-//			e.printStackTrace();
-//		}
-//		return response;
-//	}
-
 	public String makeRestGetQuery(String address) {
 		String addr = address;
 		long moment = ConnectorUtils.getMomentAndTimeToLive();
@@ -150,7 +81,6 @@ public class TradeConnector {
 				if (rateLimitIfExists != null) {
 					provider.pushRateLimitWarning(rateLimitIfExists);
 				}
-
 				response = sb.toString();
 			} else {
 				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getErrorStream())));
@@ -226,7 +156,6 @@ public class TradeConnector {
 				json.addProperty("pegOffsetValue", getPegOffset(symbol, params.stopPrice));
 			}
 		}
-
 		return json;
 	}
 
@@ -272,21 +201,6 @@ public class TradeConnector {
 		return data;
 	}
 
-	// public void resizePartiallyFilledOrder(List<String> orderIds, long
-	// orderQty) {
-	// JsonArray array = new JsonArray();
-	// for (String orderId : orderIds) {
-	// JsonObject json = new JsonObject();
-	// json.addProperty("orderID", orderId);
-	// json.addProperty("leavesQty", orderQty);
-	// array.add(json);
-	// }
-	// String data = array.toString();
-	// String data1 = "orders=" + data;
-	// Log.info("TR CONN - RESIZE BULK " + data1);
-	// require(GeneralType.ORDERBULK, Method.PUT, data1);
-	// }
-
 	public JsonObject moveOrderJson(OrderMoveParameters params, boolean isStopTriggered) {
 		OrderType orderType = OrderType.getTypeFromPrices(params.stopPrice, params.limitPrice);
 		JsonObject json = new JsonObject();
@@ -330,7 +244,7 @@ public class TradeConnector {
 				// if (method.equals(Method.POST) || method.equals(Method.PUT)){
 				conn.setDoOutput(true);
 			}
-			// !!!!!!!!!1 КОСТЫЛЬ
+			// arguable at the moment
 			conn.setDoOutput(true);
 
 			String messageBody = ConnectorUtils.createMessageBody(ConnectorUtils.methods.get(method), subPath, data,
