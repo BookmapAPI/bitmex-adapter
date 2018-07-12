@@ -36,6 +36,7 @@ import velox.api.layer1.annotations.Layer1ApiVersion;
 import velox.api.layer1.annotations.Layer1ApiVersionValue;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.data.BalanceInfo;
+import velox.api.layer1.data.BmSimpleHistoricalDataInfo;
 import velox.api.layer1.data.DisconnectionReason;
 import velox.api.layer1.data.ExecutionInfo;
 import velox.api.layer1.data.InstrumentInfo;
@@ -961,13 +962,10 @@ public class Provider extends ExternalLiveBaseProvider {
 	@Override
 	public Layer1ApiProviderSupportedFeatures getSupportedFeatures() {
 		// Expanding parent supported features, reporting basic trading support
-		Layer1ApiProviderSupportedFeaturesBuilder a;
+		Layer1ApiProviderSupportedFeaturesBuilder a = super.getSupportedFeatures().toBuilder();
 
-		if (isCredentialsEmpty) {
-			return super.getSupportedFeatures().toBuilder().build();
-		}
-
-		a = super.getSupportedFeatures().toBuilder().setTrading(true)
+		if (!isCredentialsEmpty) {
+			a.setTrading(true)
 				.setOco(true)
 				.setBrackets(true)
 				.setSupportedOrderDurations(Arrays.asList(new OrderDuration[] { OrderDuration.GTC }))
@@ -976,9 +974,14 @@ public class Provider extends ExternalLiveBaseProvider {
 				// If you actually need it, you can report stop orders support
 				// but reject stop orders when those are sent.
 				.setSupportedStopOrders(Arrays.asList(new OrderType[] { OrderType.LMT, OrderType.MKT }));
+		}
 
 		a.setBalanceSupported(true);
 		a.setTrailingStopsAsIndependentOrders(true);
+		a.setExchangeUsedForSubscription(false);
+		a.setTypeUsedForSubscription(false);
+		a.setHistoricalDataInfo(new BmSimpleHistoricalDataInfo(
+				"http://bitmex.historicaldata.bookmap.com:38080/historical-data-server-1.0/"));
 
 		// Log.info("PROVIDER getSupportedFeatures INVOKED");
 		return a.build();
