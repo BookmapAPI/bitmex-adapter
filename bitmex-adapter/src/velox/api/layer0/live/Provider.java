@@ -32,6 +32,8 @@ import quickfix.RuntimeError;
 import velox.api.layer0.annotations.Layer0LiveModule;
 import velox.api.layer1.Layer1ApiAdminListener;
 import velox.api.layer1.Layer1ApiDataListener;
+import velox.api.layer1.annotations.Layer1ApiVersion;
+import velox.api.layer1.annotations.Layer1ApiVersionValue;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.data.BalanceInfo;
 import velox.api.layer1.data.DisconnectionReason;
@@ -54,10 +56,12 @@ import velox.api.layer1.data.OrderType;
 import velox.api.layer1.data.OrderUpdateParameters;
 import velox.api.layer1.data.SimpleOrderSendParameters;
 import velox.api.layer1.data.StatusInfo;
+import velox.api.layer1.data.SubscribeInfo;
 import velox.api.layer1.data.SystemTextMessageType;
 import velox.api.layer1.data.TradeInfo;
 import velox.api.layer1.data.UserPasswordDemoLoginData;
 
+@Layer1ApiVersion(Layer1ApiVersionValue.VERSION1)
 @Layer0LiveModule
 public class Provider extends ExternalLiveBaseProvider {
 
@@ -137,7 +141,11 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	@Override
-	public void subscribe(String symbol, String exchange, String type) {
+	public void subscribe(SubscribeInfo subscribeInfo) {
+		final String symbol = subscribeInfo.symbol;
+		final String exchange = subscribeInfo.exchange;
+		final String type = subscribeInfo.type;
+		
 		Log.info("[bitmex] Provider subscribe");
 		String alias = createAlias(symbol, exchange, type);
 		// Since instruments also will be accessed from the data generation
