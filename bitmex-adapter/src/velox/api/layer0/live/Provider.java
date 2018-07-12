@@ -62,7 +62,7 @@ import velox.api.layer1.data.TradeInfo;
 import velox.api.layer1.data.UserPasswordDemoLoginData;
 
 @Layer1ApiVersion(Layer1ApiVersionValue.VERSION1)
-@Layer0LiveModule
+@Layer0LiveModule(shortName="MEX", fullName = "BitMEX")
 public class Provider extends ExternalLiveBaseProvider {
 
 	private BmConnector connector;
