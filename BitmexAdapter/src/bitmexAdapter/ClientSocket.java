@@ -59,7 +59,7 @@ public class ClientSocket {
 	private void launchPingTimer() {
 		class CustomThreadFactory implements ThreadFactory {
 			public Thread newThread(Runnable r) {
-				return new Thread(r, "-> BitmexConnector: pingTimer");
+				return new Thread(r, "-> BmConnector: pingTimer");
 			}
 		}
 
@@ -73,20 +73,20 @@ public class ClientSocket {
 				// if the last message was > [5s + time to launch this timer]
 				// seconds ago
 				if (System.currentTimeMillis() - getLastMessageTime() > maxDelay + 500) {
-					Log.info("[BITMEX] ClientSocket launchPingTimer: last message UTC=" + getLastMessageTime());
+					Log.info("[bitmex] ClientSocket launchPingTimer: last message UTC=" + getLastMessageTime());
 					// and if this happened before
 					if (isConnectionPossiblyLost()) {
-						Log.info("[BITMEX] ClientSocket launchPingTimer: connection lost UTC=" + System.currentTimeMillis() );
+						Log.info("[bitmex] ClientSocket launchPingTimer: connection lost UTC=" + System.currentTimeMillis() );
 						close();
 						snapshotTimer.shutdown();
 					} else {// but this did not happen before
 						sendPing();
 						setConnectionPossiblyLost(true);
-						Log.info("[BITMEX] ClientSocket launchPingTimer: connection possibly lost UTC=" + System.currentTimeMillis() );
+						Log.info("[bitmex] ClientSocket launchPingTimer: connection possibly lost UTC=" + System.currentTimeMillis() );
 					}
 				} else {
 					// the last message was <5 seconds ago, everything is OK
-//					Log.info("[BITMEX] ClientSocket launchPingTimer: connection alive UTC=" + System.currentTimeMillis() );
+//					Log.info("[bitmex] ClientSocket launchPingTimer: connection alive UTC=" + System.currentTimeMillis() );
 					setConnectionPossiblyLost(false);
 				}
 			}
@@ -103,7 +103,7 @@ public class ClientSocket {
 	}
 
 	public void sendMessage(String str) {
-		Log.info("[BITMEX] ClientSocket sendMessage: " + str);
+		Log.info("[bitmex] ClientSocket sendMessage: " + str);
 		try {
 			session.getRemote().sendString(str);
 		} catch (WebSocketException | IOException e) {
@@ -126,7 +126,7 @@ public class ClientSocket {
 	@OnWebSocketError
 	public void onError(Session session, Throwable error) throws Exception {
 		close();
-		Log.info("[BITMEX] ClientSockeT onError: " + error.toString());
+		Log.info("[bitmex] ClientSockeT onError: " + error.toString());
 		error.printStackTrace();
 	}
 
@@ -143,7 +143,7 @@ public class ClientSocket {
 		}
 		
 		Thread.currentThread().interrupt();
-		Log.info("[BITMEX] ClientSockeT close(): socket interrupted");
+		Log.info("[bitmex] ClientSockeT close(): socket interrupted");
 	}
 
 	public void setParser(JsonParser parser) {
@@ -156,7 +156,7 @@ public class ClientSocket {
 			String data = "ping";
 			ByteBuffer payload = ByteBuffer.wrap(data.getBytes());
 			remote.sendPing(payload);
-//			Log.info("[BITMEX] ClientSocket sendPing: PING");
+//			Log.info("[bitmex] ClientSocket sendPing: PING");
 		} catch (WebSocketException e) {
 			// e.printStackTrace(System.err);
 			// Log.debug("RemoteEndpoint unavailable");
@@ -171,7 +171,7 @@ public class ClientSocket {
 	public void onFrame(Frame frame) {
 		if (frame.getType() == Type.PONG) {
 			lastMessageTime = System.currentTimeMillis();
-//			Log.info("[BITMEX] ClientSocket onFrame: PONG");
+//			Log.info("[bitmex] ClientSocket onFrame: PONG");
 		}
 	}
 

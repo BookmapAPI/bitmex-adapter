@@ -43,6 +43,7 @@ public class UnitMargin extends UnitRaw{
 	private	String timestamp;
 	private Long grossLastValue;
 	private double commission;
+	
 	public Long getAccount() {
 		return account;
 	}

@@ -4,10 +4,7 @@ public class ResponseByWebSocket {
 	private String table;
 	private String action;
 	private Integer status;
-
 	private ContainerReq request;
-
-	// private Container error;
 	private String unsubscribe;
 	private String error;
 	private String info;
@@ -49,16 +46,9 @@ public class ResponseByWebSocket {
 		return action;
 	}
 
-	// public String getData() {
-	// return data;
-	// }
 	public void setAction(String action) {
 		this.action = action;
 	}
-
-	// public void setData(String data) {
-	// this.data = data;
-	// }
 
 	public Integer getStatus() {
 		return status;

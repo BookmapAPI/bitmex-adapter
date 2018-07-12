@@ -7,7 +7,6 @@ package bitmexAdapter;
  */
 public class UnitPosition extends UnitRaw{
 
-
 	private Long account;
 	private String symbol;
 	private String currency;

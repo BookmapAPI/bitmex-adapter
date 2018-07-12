@@ -1,8 +1,5 @@
 package bitmexAdapter;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -62,7 +59,7 @@ public class JsonParser {
 			}
 
 			if (responseWs.getStatus() != null && responseWs.getStatus() != 200) {
-				Log.info("[BITMEX] JsonParser parser: websocket response status = "  + responseWs.getError());
+				Log.info("[bitmex] JsonParser parser: websocket response status = "  + responseWs.getError());
 				provider.reportWrongCredentials(responseWs.getError());
 				return;
 			}
@@ -74,7 +71,7 @@ public class JsonParser {
 			if (responseWs.getSuccess() == true && responseWs.getRequest().getOp().equals("unsubscribe")) {
 				String symbol = responseWs.getUnsubscribeSymbol();
 				if (symbol != null){
-					Log.info("[BITMEX] JsonParser parser: getting unsbscrd fom orderBookL2, symbol = " + symbol);
+					Log.info("[bitmex] JsonParser parser: getting unsbscrd fom orderBookL2, symbol = " + symbol);
 					BmInstrument instr = activeInstrumentsMap.get(symbol);
 					instr.clearOrderBook();
 				}
@@ -82,17 +79,17 @@ public class JsonParser {
 
 			if (responseWs.getSuccess() == null && responseWs.getError() == null && responseWs.getTable() == null
 					&& responseWs.getInfo() == null) {
-				Log.info("[BITMEX] JsonParser parser: parser fails to parse " + str);
+				Log.info("[bitmex] JsonParser parser: parser fails to parse " + str);
 				throw new RuntimeException();
 			}
 
 			if (responseWs.getSuccess() != null || responseWs.getInfo() != null) {
-				Log.info("[BITMEX] JsonParser parser: service message " + str);
+				Log.info("[bitmex] JsonParser parser: service message " + str);
 				return;
 			}
 
 			if (responseWs.getError() != null) {
-				Log.info("[BITMEX] JsonParser parser: errro message " + str);
+				Log.info("[bitmex] JsonParser parser: errro message " + str);
 				BmErrorMessage error = new Gson().fromJson(str, BmErrorMessage.class);
 				Log.info(error.getMessage());
 				return;
@@ -107,7 +104,7 @@ public class JsonParser {
 
 		// skip a messages if it contains empty data
 		if (msg.getData() == null) {
-			Log.info("[BITMEX] JsonParser parser: data == null =>" + str);
+			Log.info("[bitmex] JsonParser parser: data == null =>" + str);
 		}
 
 		if (ConnectorUtils.stringToTopic.keySet().contains(msg.getTable())) {
@@ -259,11 +256,11 @@ public class JsonParser {
 		if (nonInstrumentPartialsParsed.contains(container.name)) {
 			if (topic.equals(Topic.ORDER)) {
 				performOrderSpecificOp();
-				Log.info("[BITMEX] JsonParser preprocessMessage: (order)" + str);
+				Log.info("[bitmex] JsonParser preprocessMessage: (order)" + str);
 			}
 
 			if (msg0.getData().isEmpty()) {
-				Log.info("[BITMEX] JsonParser preprocessMessage: skips data == [] => " + str);
+				Log.info("[bitmex] JsonParser preprocessMessage: skips data == [] => " + str);
 				return;
 			}
 			
@@ -278,7 +275,7 @@ public class JsonParser {
 			}
 
 			if (topic.equals(Topic.EXECUTION)) {
-				Log.info("[BITMEX] JsonParser parser: execution => " + str);
+				Log.info("[bitmex] JsonParser parser: execution => " + str);
 			}
 		}
 		return;
@@ -286,7 +283,7 @@ public class JsonParser {
 
 	private void performOrderSpecificOp() {
 		nonInstrumentPartialsParsed.remove("order");
-		Log.info("[BITMEX] JsonParser performOrderSpecificOp: 'order' removed from partialsParsed");
+		Log.info("[bitmex] JsonParser performOrderSpecificOp: 'order' removed from partialsParsed");
 		// we need only the snapshot.
 		// the rest of info comes from execution Topic.
 		// it will be a good idea to get unsubscribed from orders
@@ -323,7 +320,7 @@ public class JsonParser {
 				provider.listenForPosition((UnitPosition) unit);
 			} else if (clazz == UnitOrder.class) {
 				UnitOrder ord = (UnitOrder) unit;
-				Log.info("[BITMEX] JsonParser dispatchRawUnits: orderId" + ord.getOrderID());
+				Log.info("[bitmex] JsonParser dispatchRawUnits: orderId" + ord.getOrderID());
 				provider.createBookmapOrder((UnitOrder) unit);
 			} else if (clazz == UnitTrade.class) {
 				// specific

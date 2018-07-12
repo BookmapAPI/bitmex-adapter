@@ -12,8 +12,6 @@ public class UnitOrder extends UnitRaw{
 	private String symbol;
 	private String side;
 	
-	
-	
 	private double simpleOrderQty;
 	private long orderQty;
 	private double price = Double.NaN;

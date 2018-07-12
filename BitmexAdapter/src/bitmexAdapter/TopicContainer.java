@@ -16,12 +16,4 @@ public class TopicContainer {
 		this.unitType = unitType;
 		this.clazz = clazz;
 	}
-	
-	
-	
-	
-	
-	
-	
-	
 }

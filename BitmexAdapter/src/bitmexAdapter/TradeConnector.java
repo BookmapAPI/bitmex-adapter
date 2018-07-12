@@ -90,14 +90,14 @@ public class TradeConnector {
 				while ((output = br.readLine()) != null) {
 					sb.append(output);
 				}
-				Log.info("[BITMEX] TradeConnector makeRestGetQery err: " + sb.toString());
+				Log.info("[bitmex] TradeConnector makeRestGetQery err: " + sb.toString());
 			}
 		} catch (UnknownHostException | NoRouteToHostException e) {
-			Log.info("[BITMEX] TradeConnector makeRestGetQuery: no response from server");
+			Log.info("[bitmex] TradeConnector makeRestGetQuery: no response from server");
 		} catch (java.net.SocketException e) {
-			Log.info("[BITMEX] TradeConnector makeRestGetQuery: network is unreachable");
+			Log.info("[bitmex] TradeConnector makeRestGetQuery: network is unreachable");
 		} catch (IOException e) {
-			Log.info("[BITMEX] TradeConnector makeRestGetQuery: buffer reading error");
+			Log.info("[bitmex] TradeConnector makeRestGetQuery: buffer reading error");
 			e.printStackTrace();
 		}
 		return response;
@@ -143,7 +143,7 @@ public class TradeConnector {
 			if (orderType == OrderType.STP) {// StopMarket
 				json.addProperty("ordType", "Stop");
 			} else if (orderType == OrderType.STP_LMT) {
-				Log.info("[BITMEX] TradeConnector createSendData: STP_LMT trailing step == " + params.trailingStep);
+				Log.info("[bitmex] TradeConnector createSendData: STP_LMT trailing step == " + params.trailingStep);
 				json.addProperty("ordType", "StopLimit");
 				json.addProperty("price", params.limitPrice);
 			}
@@ -151,7 +151,7 @@ public class TradeConnector {
 			// used by stops to determine triggering price
 			json.addProperty("execInst", "LastPrice");
 			if (params.trailingStep > 0) {
-				Log.info("[BITMEX] TradeConnector createSendData: STP trailing step == " + params.trailingStep);
+				Log.info("[bitmex] TradeConnector createSendData: STP trailing step == " + params.trailingStep);
 				json.addProperty("pegPriceType", "TrailingStopPeg");
 				json.addProperty("pegOffsetValue", getPegOffset(symbol, params.stopPrice));
 			}
@@ -164,7 +164,7 @@ public class TradeConnector {
 		json.addProperty("orderID", orderId);
 		String data = json.toString();
 		String res = require(GeneralType.ORDER, Method.DELETE, data);
-		Log.info("[BITMEX] TradeConnector cancelOrder: " + res);
+		Log.info("[bitmex] TradeConnector cancelOrder: " + res);
 		return null;
 	}
 
@@ -176,7 +176,7 @@ public class TradeConnector {
 		}
 		sb.setLength(sb.length() - 1);
 		String data1 = sb.toString();
-		Log.info("[BITMEX] TradeConnector cancelOrder (bulk): " + data1);
+		Log.info("[bitmex] TradeConnector cancelOrder (bulk): " + data1);
 		require(GeneralType.ORDER, Method.DELETE, data1, true);
 	}
 
@@ -197,7 +197,7 @@ public class TradeConnector {
 			array.add(json);
 		}
 		String data = "orders=" + array.toString();
-		Log.info("[BITMEX] TradeConnector resizeOrder (bulk): " + data);
+		Log.info("[bitmex] TradeConnector resizeOrder (bulk): " + data);
 		return data;
 	}
 
@@ -280,16 +280,16 @@ public class TradeConnector {
 				while ((output = br.readLine()) != null) {
 					sb.append(output);
 				}
-				Log.info("[BITMEX] TradeConnector require:  response =>" + sb.toString());
+				Log.info("[bitmex] TradeConnector require:  response =>" + sb.toString());
 				String resp = Provider.testReponseForError(sb.toString());
 				return resp;
 			}
 		} catch (UnknownHostException | NoRouteToHostException e) {
-			Log.info("[BITMEX] TradeConnector require: no response from server");
+			Log.info("[bitmex] TradeConnector require: no response from server");
 		} catch (java.net.SocketException e) {
-			Log.info("[BITMEX] TradeConnector require: network is unreachable");
+			Log.info("[bitmex] TradeConnector require: network is unreachable");
 		} catch (IOException e) {
-			Log.info("[BITMEX] TradeConnector require: buffer reading error");
+			Log.info("[bitmex] TradeConnector require: buffer reading error");
 			e.printStackTrace();
 		}
 		return null;

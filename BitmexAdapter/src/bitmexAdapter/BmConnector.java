@@ -28,7 +28,7 @@ import bitmexAdapter.ConnectorUtils.WebSocketOperation;
 import velox.api.layer0.live.Provider;
 import velox.api.layer1.common.Log;
 
-public class BitmexConnector implements Runnable {
+public class BmConnector implements Runnable {
 
 	private boolean interruptionNeeded = false;
 	private String wssUrl;
@@ -118,29 +118,29 @@ public class BitmexConnector implements Runnable {
 	public void wsConnect() {
 		SslContextFactory ssl = new SslContextFactory();
 		WebSocketClient client = new WebSocketClient(ssl);
-		Log.info("[BITMEX] BitmexConnector wsConnect websocket starting...");
+		Log.info("[bitmex] BmConnector wsConnect websocket starting...");
 
 		try {
-			Log.info("[BITMEX] BitmexConnector wsConnect websocket being created...");
+			Log.info("[bitmex] BmConnector wsConnect websocket being created...");
 			socket = new ClientSocket();
 			parser.setActiveInstrumentsMap(Collections.unmodifiableMap(activeBmInstrumentsMap));
 			socket.setParser(parser);
 			parser.setProvider(provider);
 
-			Log.info("[BITMEX] BitmexConnector wsConnect client starting...");
+			Log.info("[bitmex] BmConnector wsConnect client starting...");
 
 			client.start();
 			URI echoUri = new URI(wssUrl);
 			ClientUpgradeRequest request = new ClientUpgradeRequest();
 
-			Log.info("[BITMEX] BitmexConnector wsConnect websocket connecting...");
+			Log.info("[bitmex] BmConnector wsConnect websocket connecting...");
 			client.connect(socket, echoUri, request);
 			socket.getOpeningLatch().await();
 
 			if (!provider.isCredentialsEmpty()) {// authentication needed
-				Log.info("[BITMEX] BitmexConnector wsConnect websocket auth...");
+				Log.info("[bitmex] BmConnector wsConnect websocket auth...");
 				String mes = wssAuthTwo();
-				Log.info("[BITMEX] BitmexConnector wsConnect websocket auth message passed");
+				Log.info("[bitmex] BmConnector wsConnect websocket auth message passed");
 				socket.sendMessage(mes);
 				webSocketAuthLatch.await();
 				WsData wsData = new WsData(WebSocketOperation.SUBSCRIBE,
@@ -148,9 +148,9 @@ public class BitmexConnector implements Runnable {
 				String res = JsonParser.gson.toJson(wsData);
 				socket.sendMessage(res);
 			}
-			
+
 			webSocketStartingLatch.countDown();
-			Log.info("[BITMEX] BitmexConnector wsConnect websocket webSocketStartingLatch is down");
+			Log.info("[bitmex] BmConnector wsConnect websocket webSocketStartingLatch is down");
 
 			if (isReconnecting) {
 				provider.reportRestoredCoonection();
@@ -163,7 +163,7 @@ public class BitmexConnector implements Runnable {
 				isReconnecting = false;
 			}
 
-			Log.info("[BITMEX] BitmexConnector wsConnect subscribed to an instrument ");
+			Log.info("[bitmex] BmConnector wsConnect subscribed to an instrument ");
 			// WAITING FOR THE SOCKET TO CLOSE
 			socket.getClosingLatch().await();
 			socket = null;
@@ -171,21 +171,21 @@ public class BitmexConnector implements Runnable {
 
 		} catch (UpgradeException e) {
 			e.printStackTrace();
-			Log.info("[BITMEX] BitmexConnector wsConnect client cannot connect 0 ");
+			Log.info("[bitmex] BmConnector wsConnect client cannot connect 0 ");
 		} catch (UnresolvedAddressException e) {
 			e.printStackTrace();
-			Log.info("[BITMEX] BitmexConnector wsConnect client cannot connect 1 ");
+			Log.info("[bitmex] BmConnector wsConnect client cannot connect 1 ");
 		} catch (WebSocketException e) {
 			e.printStackTrace();
-			Log.info("[BITMEX] BitmexConnector wsConnect connection must be lost ");
+			Log.info("[bitmex] BmConnector wsConnect connection must be lost ");
 		} catch (Exception | Error e) {
-			Log.info("[BITMEX] BitmexConnector wsConnect an Exception thrown from the websocket");
+			Log.info("[bitmex] BmConnector wsConnect an Exception thrown from the websocket");
 			throw new RuntimeException(e);
 		} finally {
 			try {
 				client.stop();
 			} catch (Exception e) {
-				Log.info("[BITMEX] BitmexConnector wsConnect Got trouble stoppping client");
+				Log.info("[bitmex] BmConnector wsConnect Got trouble stoppping client");
 				e.printStackTrace();
 				throw new RuntimeException(e);
 			}
@@ -199,9 +199,11 @@ public class BitmexConnector implements Runnable {
 			e.printStackTrace();
 			throw new RuntimeException();
 		}
-		Log.info("[BITMEX] BitmexConnector wsConnect Send websocket message");
-		synchronized (socket) {
-			socket.sendMessage(message);
+		Log.info("[bitmex] BmConnector wsConnect Send websocket message");
+		if (socket != null) {//this solution still needs to be examined
+			synchronized (socket) {
+				socket.sendMessage(message);
+			}
 		}
 	}
 
@@ -226,11 +228,11 @@ public class BitmexConnector implements Runnable {
 				response = sb.toString();
 			}
 		} catch (UnknownHostException | NoRouteToHostException e) {
-			Log.info("[BITMEX] BitmexConnector getServerResponse: no response from server");
+			Log.info("[bitmex] BmConnector getServerResponse: no response from server");
 		} catch (SocketException e) {
-			Log.info("[BITMEX] BitmexConnector getServerResponse: network is unreachable");
+			Log.info("[bitmex] BmConnector getServerResponse: network is unreachable");
 		} catch (IOException e) {
-			Log.info("[BITMEX] BitmexConnector getServerResponse: buffer reading exception");
+			Log.info("[bitmex] BmConnector getServerResponse: buffer reading exception");
 			e.printStackTrace();
 		}
 		return response;
@@ -259,21 +261,21 @@ public class BitmexConnector implements Runnable {
 			@Override
 			public void run() {
 				if (!instr.isOrderBookSnapshotParsed() == true) {
-					Log.info("[BITMEX] BitmexConnector launchSnapshotTimer(): resubscribe");
+					Log.info("[bitmex] BmConnector launchSnapshotTimer(): resubscribe");
 					unSubscribe(instr);
 					subscribe(instr);
 				}
-				Log.info("[BITMEX] BitmexConnector launchSnapshotTimer(): end");
+				Log.info("[bitmex] BmConnector launchSnapshotTimer(): end");
 			}
 		};
 		Timer timer = new Timer();
-		Log.info("[BITMEX] BitmexConnector launchSnapshotTimer(): ");
+		Log.info("[bitmex] BmConnector launchSnapshotTimer(): ");
 		timer.schedule(task, 10000);
 
 	}
 
 	public void subscribe(BmInstrument instr) {
-		Log.info("[BITMEX] BitmexConnector subscribe: " + instr.getSymbol());
+		Log.info("[bitmex] BmConnector subscribe: " + instr.getSymbol());
 		instr.setSubscribed(true);
 		sendWebsocketMessage(instr.getSubscribeReq());
 		launchSnapshotTimer(instr);
@@ -309,7 +311,7 @@ public class BitmexConnector implements Runnable {
 			}
 		}
 
-		Log.info("[BITMEX] BitmexConnector countExecution volume: " + st0);
+		Log.info("[bitmex] BmConnector countExecution volume: " + st0);
 		return sum;
 	}
 
@@ -325,7 +327,7 @@ public class BitmexConnector implements Runnable {
 			provider.updateExecutionsHistory(execs);
 		}
 
-		Log.info("[BITMEX] BitmexConnector reportFilled: " + st0);
+		Log.info("[bitmex] BmConnector reportFilled: " + st0);
 	}
 
 	private void reportCancelled(String symbol) {
@@ -340,7 +342,7 @@ public class BitmexConnector implements Runnable {
 			provider.updateExecutionsHistory(execs);
 		}
 
-		Log.info("[BITMEX] BitmexConnector reportCancelled: " + st0);
+		Log.info("[bitmex] BmConnector reportCancelled: " + st0);
 	}
 
 	@Override
@@ -373,6 +375,6 @@ public class BitmexConnector implements Runnable {
 		if (socket != null) {
 			socket.close();
 		}
-		Log.info("[BITMEX] BitmexConnector run: closing");
+		Log.info("[bitmex] BmConnector run: closing");
 	}
 }

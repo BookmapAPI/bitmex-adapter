@@ -11,7 +11,7 @@ import bitmexAdapter.ConnectorUtils.WebSocketOperation;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.layers.utils.OrderBook;
 
-/*BmInstrument is the short for Bitmex Instrument
+/*BmInstrument is the short for BitMEX Instrument
 Cannot be named simply "Instrument" 
 because the Bookmap Layer0Api has a class named "Instrument"*/
 public class BmInstrument {

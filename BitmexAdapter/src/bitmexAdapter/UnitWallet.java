@@ -3,9 +3,7 @@ package bitmexAdapter;
 public class UnitWallet extends UnitData{
 
 	private Long account;
-	
 	private String currency;
-	
 	private Long prevDeposited;
 	private Long prevWithdrawn;
 	private Long prevTransferIn;
@@ -29,7 +27,6 @@ public class UnitWallet extends UnitData{
 	private String addr;
 	private String script;
 //	private String withdrawalLock; 
-
 	
 	public Long getPrevDeposited() {
 		return prevDeposited;
@@ -97,10 +94,6 @@ public class UnitWallet extends UnitData{
 	public String getScript() {
 		return script;
 	}
-	
-//	public String getWithdrawalLock() {
-//		return withdrawalLock;
-//	}
 	
 	public void setPrevDeposited(Long prevDeposited) {
 		this.prevDeposited = prevDeposited;
@@ -182,9 +175,6 @@ public class UnitWallet extends UnitData{
 		this.currency = currency;
 	}
 	
-//	public void setWithdrawalLock(String withdrawalLock) {
-//		this.withdrawalLock = withdrawalLock;
-//	}
 	@Override
 	public String toString() {
 		return "UnitWallet [prevAmount=" + prevAmount + ", deposited=" + deposited + ", amount=" + amount + "]";
