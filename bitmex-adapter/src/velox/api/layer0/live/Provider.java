@@ -24,6 +24,7 @@ import bitmexAdapter.UnitMargin;
 import bitmexAdapter.Message;
 import bitmexAdapter.MessageGeneric;
 import bitmexAdapter.UnitPosition;
+import bitmexAdapter.UnitRaw;
 import bitmexAdapter.ResponseByRest;
 import bitmexAdapter.TradeConnector;
 import bitmexAdapter.ConnectorUtils.Method;
@@ -655,7 +656,11 @@ public class Provider extends ExternalLiveBaseProvider {
 			Log.info("[bitmex] Provider listenForExecution: new");
 			String tempOrderId = exec.getClOrdID();
 			builder = workingOrders.get(tempOrderId);
-			builder.markAllUnchanged();
+			if (builder == null) {
+				createBookmapOrder((UnitOrder) exec);
+				builder = workingOrders.get(exec.getOrderID());
+			}
+			
 			// there will be either new id if the order is accepted
 			// or the order will be rejected so no need to keep it in the map
 			workingOrders.remove(tempOrderId);
