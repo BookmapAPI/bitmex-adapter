@@ -12,12 +12,12 @@ import java.util.List;
 
 import javax.net.ssl.HttpsURLConnection;
 
+import com.bookmap.plugins.layer0.bitmex.Provider;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import bitmexAdapter.ConnectorUtils.GeneralType;
 import bitmexAdapter.ConnectorUtils.Method;
-import velox.api.layer0.live.Provider;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.data.OrderMoveParameters;
 import velox.api.layer1.data.OrderType;
