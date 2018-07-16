@@ -133,8 +133,9 @@ public class TradeConnector {
 		 * with 1 XBT of exposure without having to calculate how many contracts
 		 * it is.
 		 */
-
-		if (orderType == OrderType.LMT) {
+		if (orderType == OrderType.MKT) {
+			json.addProperty("ordType", "Market");
+		} else if (orderType == OrderType.LMT) {
 			json.addProperty("ordType", "Limit");
 			json.addProperty("price", params.limitPrice);
 		} else {// has to do with STP
@@ -235,6 +236,7 @@ public class TradeConnector {
 		String subPath = ConnectorUtils.subPaths.get(genType);
 		String path = provider.getConnector().getRestApi() + subPath;
 		long moment = ConnectorUtils.getMomentAndTimeToLive();
+		Log.info("[bitmex] TradeConnector require:  sending data => " + data);
 
 		try {
 			URL url = new URL(path);
