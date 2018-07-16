@@ -9,12 +9,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
+import com.bookmap.plugins.layer0.bitmex.Provider;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 
 import bitmexAdapter.ConnectorUtils.Topic;
-import velox.api.layer0.live.Provider;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.layers.utils.OrderBook;
 

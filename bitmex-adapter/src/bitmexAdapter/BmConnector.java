@@ -20,12 +20,13 @@ import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 
+import com.bookmap.plugins.layer0.bitmex.Provider;
+
 import org.eclipse.jetty.websocket.api.UpgradeException;
 import org.eclipse.jetty.websocket.api.WebSocketException;
 import java.nio.channels.UnresolvedAddressException;
 
 import bitmexAdapter.ConnectorUtils.WebSocketOperation;
-import velox.api.layer0.live.Provider;
 import velox.api.layer1.common.Log;
 
 public class BmConnector implements Runnable {

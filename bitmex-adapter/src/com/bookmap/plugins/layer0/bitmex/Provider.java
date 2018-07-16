@@ -1,4 +1,4 @@
-package velox.api.layer0.live;
+package com.bookmap.plugins.layer0.bitmex;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -24,12 +24,14 @@ import bitmexAdapter.UnitMargin;
 import bitmexAdapter.Message;
 import bitmexAdapter.MessageGeneric;
 import bitmexAdapter.UnitPosition;
+import bitmexAdapter.UnitRaw;
 import bitmexAdapter.ResponseByRest;
 import bitmexAdapter.TradeConnector;
 import bitmexAdapter.ConnectorUtils.Method;
 import bitmexAdapter.UnitWallet;
 import quickfix.RuntimeError;
 import velox.api.layer0.annotations.Layer0LiveModule;
+import velox.api.layer0.live.ExternalLiveBaseProvider;
 import velox.api.layer1.Layer1ApiAdminListener;
 import velox.api.layer1.Layer1ApiDataListener;
 import velox.api.layer1.annotations.Layer1ApiVersion;
@@ -664,7 +666,11 @@ public class Provider extends ExternalLiveBaseProvider {
 			Log.info("[bitmex] Provider listenForExecution: new");
 			String tempOrderId = exec.getClOrdID();
 			builder = workingOrders.get(tempOrderId);
-			builder.markAllUnchanged();
+			if (builder == null) {
+				createBookmapOrder((UnitOrder) exec);
+				builder = workingOrders.get(exec.getOrderID());
+			}
+			
 			// there will be either new id if the order is accepted
 			// or the order will be rejected so no need to keep it in the map
 			workingOrders.remove(tempOrderId);
