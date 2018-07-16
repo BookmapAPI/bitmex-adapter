@@ -141,8 +141,6 @@ public class ClientSocket {
 				e.printStackTrace();
 			}
 		}
-		
-		Thread.currentThread().interrupt();
 		Log.info("[bitmex] ClientSockeT close(): socket interrupted");
 	}
 
