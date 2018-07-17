@@ -1,4 +1,4 @@
-package bitmexAdapter;
+package com.bookmap.plugins.layer0.bitmex.adapter;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -23,6 +23,7 @@ import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 
 import com.bookmap.plugins.layer0.bitmex.Provider;
+import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.WebSocketOperation;
 
 import org.eclipse.jetty.websocket.api.UpgradeException;
 import org.eclipse.jetty.websocket.api.WebSocketException;
@@ -30,7 +31,6 @@ import java.nio.channels.UnresolvedAddressException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 
-import bitmexAdapter.ConnectorUtils.WebSocketOperation;
 import velox.api.layer1.common.Log;
 
 public class BmConnector implements Runnable {

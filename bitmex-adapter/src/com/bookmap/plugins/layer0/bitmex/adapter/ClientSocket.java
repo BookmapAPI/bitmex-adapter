@@ -1,4 +1,4 @@
-package bitmexAdapter;
+package com.bookmap.plugins.layer0.bitmex.adapter;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

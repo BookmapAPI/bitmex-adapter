@@ -1,4 +1,4 @@
-package bitmexAdapter;
+package com.bookmap.plugins.layer0.bitmex.adapter;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -7,7 +7,8 @@ import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import bitmexAdapter.ConnectorUtils.WebSocketOperation;
+import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.WebSocketOperation;
+
 import velox.api.layer1.common.Log;
 import velox.api.layer1.layers.utils.OrderBook;
 

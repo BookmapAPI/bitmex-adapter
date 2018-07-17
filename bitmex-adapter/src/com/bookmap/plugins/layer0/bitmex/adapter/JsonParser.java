@@ -1,4 +1,4 @@
-package bitmexAdapter;
+package com.bookmap.plugins.layer0.bitmex.adapter;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -10,11 +10,11 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import com.bookmap.plugins.layer0.bitmex.Provider;
+import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Topic;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 
-import bitmexAdapter.ConnectorUtils.Topic;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.layers.utils.OrderBook;
 

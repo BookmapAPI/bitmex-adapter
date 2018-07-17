@@ -1,4 +1,4 @@
-package bitmexAdapter;
+package com.bookmap.plugins.layer0.bitmex.adapter;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -13,11 +13,11 @@ import java.util.List;
 import javax.net.ssl.HttpsURLConnection;
 
 import com.bookmap.plugins.layer0.bitmex.Provider;
+import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.GeneralType;
+import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Method;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
-import bitmexAdapter.ConnectorUtils.GeneralType;
-import bitmexAdapter.ConnectorUtils.Method;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.data.OrderMoveParameters;
 import velox.api.layer1.data.OrderType;

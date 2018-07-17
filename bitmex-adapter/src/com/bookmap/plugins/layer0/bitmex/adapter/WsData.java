@@ -1,6 +1,6 @@
-package bitmexAdapter;
+package com.bookmap.plugins.layer0.bitmex.adapter;
 
-import bitmexAdapter.ConnectorUtils.WebSocketOperation;
+import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.WebSocketOperation;
 
 public class WsData {
 	private String op;
