@@ -852,19 +852,21 @@ public class Provider extends ExternalLiveBaseProvider {
 					false);
 
 			OrderStatus status = exec.getOrdStatus().equals("Filled") ? OrderStatus.FILLED : OrderStatus.CANCELLED;
+			long unfilled =  exec.getLeavesQty() == 0? exec.getOrderQty() - exec.getCumQty() : exec.getLeavesQty();
 
 			builder.setStopPrice(exec.getStopPx())
 					.setLimitPrice(exec.getPrice())
-					.setUnfilled((int) exec.getLeavesQty())
-					.setFilled((int) exec.getOrderQty())
+					.setUnfilled((int) unfilled)
+					.setFilled((int) exec.getCumQty())
 					.setDuration(OrderDuration.GTC)
 					.setStatus(status)
+					.setAverageFillPrice(exec.getAvgPx())
 					.setModificationUtcTime(exec.getExecTransactTime());
 
 			tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
 			if (status.equals(OrderStatus.FILLED)) {
-				ExecutionInfo executionInfo = new ExecutionInfo(exec.getOrderID(), (int) exec.getLastQty(),
-						exec.getLastPx(),
+				ExecutionInfo executionInfo = new ExecutionInfo(exec.getOrderID(), (int) exec.getCumQty(),
+						exec.getAvgPx(),
 						exec.getExecID(), exec.getExecTransactTime());
 				tradingListeners.forEach(l -> l.onOrderExecuted(executionInfo));
 			}
