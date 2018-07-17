@@ -249,6 +249,7 @@ public class JsonParser {
 			if (topic.equals(Topic.ORDERBOOKL2)) {
 				BmInstrument instr = activeInstrumentsMap.get(((MessageGeneric<UnitData>)msg0).getData().get(0).getSymbol());
 				instr.setOrderBookSnapshotParsed(true);
+				Log.info("[bitmex] setOrderBookSnapshotParsed set true for " + instr.getSymbol());
 				performOrderBookL2SpecificOpSetOne((MessageGeneric<UnitData>) msg0);
 			}
 		}
