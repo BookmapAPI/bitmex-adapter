@@ -10,6 +10,8 @@ import java.net.URL;
 import java.net.UnknownHostException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CountDownLatch;
@@ -25,6 +27,8 @@ import com.bookmap.plugins.layer0.bitmex.Provider;
 import org.eclipse.jetty.websocket.api.UpgradeException;
 import org.eclipse.jetty.websocket.api.WebSocketException;
 import java.nio.channels.UnresolvedAddressException;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 
 import bitmexAdapter.ConnectorUtils.WebSocketOperation;
 import velox.api.layer1.common.Log;
@@ -148,6 +152,9 @@ public class BmConnector implements Runnable {
 						(Object[]) ConnectorUtils.getAuthenticatedTopicsList());
 				String res = JsonParser.gson.toJson(wsData);
 				socket.sendMessage(res);
+				
+				reportHistoricalExecutions("Filled");
+				reportHistoricalExecutions("Canceled");
 			}
 
 			webSocketStartingLatch.countDown();
@@ -201,7 +208,7 @@ public class BmConnector implements Runnable {
 			throw new RuntimeException();
 		}
 		Log.info("[bitmex] BmConnector wsConnect Send websocket message");
-		if (socket != null) {//this solution still needs to be examined
+		if (socket != null) {// this solution still needs to be examined
 			synchronized (socket) {
 				socket.sendMessage(message);
 			}
@@ -283,18 +290,13 @@ public class BmConnector implements Runnable {
 
 		if (!provider.isCredentialsEmpty()) {// if authenticated
 			instr.setExecutionsVolume(countExecutionsVolume(instr.getSymbol()));
-			reportFilled(instr.getSymbol());
-			reportCancelled(instr.getSymbol());
+			
 		}
 	}
 
 	public void unSubscribe(BmInstrument instr) {
 		instr.setSubscribed(false);
 		sendWebsocketMessage(instr.getUnSubscribeReq());
-	}
-
-	public static long getMoment() {
-		return System.currentTimeMillis() + 10000;
 	}
 
 	private int countExecutionsVolume(String symbol) {
@@ -315,35 +317,42 @@ public class BmConnector implements Runnable {
 		Log.info("[bitmex] BmConnector countExecution volume: " + st0);
 		return sum;
 	}
-
-	private void reportFilled(String symbol) {
-		String dateTwentyFourHoursAgo = ConnectorUtils.getDateTwentyFourHoursAgoAsUrlEncodedString();
-		String addr = "/api/v1/execution?symbol=" + symbol
-				+ "&filter=%7B%22ordStatus%22%3A%20%22Filled%22%7D&count=500&reverse=true&startTime="
-				+ dateTwentyFourHoursAgo;
-		String st0 = tradeConnector.makeRestGetQuery(addr);
-
-		UnitExecution[] execs = JsonParser.getArrayFromJson(st0, UnitExecution[].class);
-		if (execs != null && execs.length > 0) {
-			provider.updateExecutionsHistory(execs);
+	
+	private void reportHistoricalExecutions(String ordStatus) {
+//		private void reportHistoricalExecutions(String symbol, String ordStatus) {
+		ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+		ZonedDateTime startTime = now.minusDays(0)
+				.minusHours(now.getHour())
+				.minusMinutes(now.getMinute())
+				.minusSeconds(now.getSecond())
+				.minusNanos(now.getNano());
+		
+		List<UnitExecution> historicalExecutions = new LinkedList<>();
+		for (int i = 0;; i += 500) {
+			String addr = "/api/v1/execution?"
+//					+ "symbol=" + symbol +"&"
+							+ "filter=%7B%22ordStatus%22%3A%20%22" + ordStatus + "%22%7D&count=500&reverse=true&startTime="
+					+ startTime + "&endTime=" + now + "&start=" + i;
+			
+			String response = tradeConnector.makeRestGetQuery(addr);
+			UnitExecution[] executions = JsonParser.getArrayFromJson(response,
+					UnitExecution[].class);
+			
+			if (executions == null || executions.length == 0) {
+				break;
+			} else {
+				for (int k = 0, n = executions.length; k < n; k++) {
+					if (!executions[k].getExecType().equals("Funding")) {
+						historicalExecutions.add(executions[k]);
+					}
+				}
+			}
 		}
-
-		Log.info("[bitmex] BmConnector reportFilled: " + st0);
-	}
-
-	private void reportCancelled(String symbol) {
-		String dateTwentyFourHoursAgo = ConnectorUtils.getDateTwentyFourHoursAgoAsUrlEncodedString();
-		String addr = "/api/v1/execution?symbol=" + symbol
-				+ "&filter=%7B%22ordStatus%22%3A%20%22Canceled%22%7D&count=500&reverse=true&startTime="
-				+ dateTwentyFourHoursAgo;
-		String st0 = tradeConnector.makeRestGetQuery(addr);
-
-		UnitExecution[] execs = JsonParser.getArrayFromJson(st0, UnitExecution[].class);
-		if (execs != null && execs.length > 0) {
-			provider.updateExecutionsHistory(execs);
+		Log.info("[bitmex] BmConnector report " + ordStatus + ": listSize =  " + historicalExecutions.size());
+		
+		if (historicalExecutions != null && historicalExecutions.size() > 0) {
+			provider.updateExecutionsHistory(historicalExecutions.toArray(new UnitExecution[historicalExecutions.size()]));
 		}
-
-		Log.info("[bitmex] BmConnector reportCancelled: " + st0);
 	}
 
 	@Override
