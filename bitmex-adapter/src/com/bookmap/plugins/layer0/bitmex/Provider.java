@@ -247,13 +247,15 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	private void passCancelMessageIfNeededAndClearPendingList(String response) {
-		if (response != null) {// if bitmex responds with an error
-			for (OrderInfoBuilder builder : pendingOrders) {
-				rejectOrder(builder, response);
+		synchronized (pendingOrders) {
+			if (response != null) {// if bitmex responds with an error
+				for (OrderInfoBuilder builder : pendingOrders) {
+					rejectOrder(builder, response);
+				}
 			}
+			// should be cleared anyway
+			pendingOrders.clear();
 		}
-		// should be cleared anyway
-		pendingOrders.clear();
 	}
 
 	private boolean isBracketOrder(SimpleOrderSendParameters simpleParams) {
@@ -346,7 +348,9 @@ public class Provider extends ExternalLiveBaseProvider {
 		 * pending orders are added to the list to cancel them later if BitMEX
 		 * reports an error trying placing orders
 		 */
-		pendingOrders.add(builder);
+		synchronized (pendingOrders) {
+			pendingOrders.add(builder);
+		}
 
 		Log.info("[bitmex] Provider prepareSimpleOrder: getting sent to bitmex");
 		synchronized (workingOrders) {
@@ -388,9 +392,19 @@ public class Provider extends ExternalLiveBaseProvider {
 			Log.info("[bitmex] Provider updateOrder: (move)");
 			OrderMoveParameters orderMoveParameters = (OrderMoveParameters) orderUpdateParameters;
 
-			if (bracketParents.contains(orderMoveParameters.orderId)) {
+			boolean isBracketParent;
+			synchronized (bracketParents) {
+				isBracketParent = bracketParents.contains(orderMoveParameters.orderId);
+			}
+
+			boolean isTrailingStop;
+			synchronized (trailingStops) {
+				isTrailingStop = trailingStops.containsKey(orderMoveParameters.orderId);
+			}
+
+			if (isBracketParent) {
 				passBracketMoveParameters(orderMoveParameters);
-			} else if (trailingStops.keySet().contains(orderMoveParameters.orderId)) {
+			} else if (isTrailingStop) {
 				// trailing stop
 				JsonObject json = tradeConnector.moveTrailingStepJson(orderMoveParameters);
 				tradeConnector.require(GeneralType.ORDER, Method.PUT, json.toString());
@@ -421,9 +435,20 @@ public class Provider extends ExternalLiveBaseProvider {
 				 * is a part of OCO or Bracket we have to cancel all orders with
 				 * the same linkedId
 				 */
-				if (RealToLinkIdMap.keySet().contains(orderCancelParameters.orderId)) {
-					List<String> bunchOfOrdersToCancel = LinkIdToRealIdsMap
-							.get(RealToLinkIdMap.get(orderCancelParameters.orderId));
+				boolean isLinkedOrder;
+				synchronized (RealToLinkIdMap) {
+					isLinkedOrder = RealToLinkIdMap.containsKey(orderCancelParameters.orderId);
+				}
+
+				if (isLinkedOrder) {
+					String clOrdLinkID;
+					synchronized (RealToLinkIdMap) {
+						clOrdLinkID = RealToLinkIdMap.get(orderCancelParameters.orderId);
+					}
+					List<String> bunchOfOrdersToCancel;
+					synchronized (LinkIdToRealIdsMap) {
+						bunchOfOrdersToCancel = LinkIdToRealIdsMap.get(clOrdLinkID);
+					}
 					tradeConnector.cancelOrder(bunchOfOrdersToCancel);
 					Log.info("[bitmex] Provider passCancelParameters: (batch cancel component)");
 				} else {
@@ -459,7 +484,12 @@ public class Provider extends ExternalLiveBaseProvider {
 		String data;
 		GeneralType type;
 
-		if (!RealToLinkIdMap.containsKey(builder.getOrderId())) {
+		boolean isLinkedOrder;
+		synchronized (RealToLinkIdMap) {
+			isLinkedOrder = RealToLinkIdMap.containsKey(builder.getOrderId());
+		}
+
+		if (!isLinkedOrder) {
 			// single order
 			pendingIds.add(builder.getOrderId());
 			type = GeneralType.ORDER;
@@ -509,9 +539,18 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	private List<String> getBracketChildren(String parentId) {
-		List<String> brackets = LinkIdToRealIdsMap.get(RealToLinkIdMap.get(parentId));
-		List<String> children = new ArrayList<>();
+		List<String> brackets;
+		String clOrdLinkId;
 
+		synchronized (RealToLinkIdMap) {
+			clOrdLinkId = RealToLinkIdMap.get(parentId);
+		}
+
+		synchronized (LinkIdToRealIdsMap) {
+			brackets = LinkIdToRealIdsMap.get(clOrdLinkId);
+		}
+
+		List<String> children = new ArrayList<>();
 		for (String id : brackets) {
 			if (!id.equals(parentId)) {
 				children.add(id);
@@ -566,7 +605,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		double limitPrice;
 		synchronized (workingOrders) {
 			stopPrice = workingOrders.get(id).getStopPrice();
-			limitPrice = workingOrders.get(id).getStopPrice();
+			limitPrice = workingOrders.get(id).getLimitPrice();
 		}
 
 		OrderMoveParameters moveParams = new OrderMoveParameters(id,
@@ -575,8 +614,15 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	private List<String> getOtherLinkedOrdersId(String realId) {
-		String ocoId = RealToLinkIdMap.get(realId);
-		List<String> otherIds = LinkIdToRealIdsMap.get(ocoId);
+		String ocoId;
+		synchronized (RealToLinkIdMap) {
+			ocoId = RealToLinkIdMap.get(realId);
+		}
+
+		List<String> otherIds;
+		synchronized (LinkIdToRealIdsMap) {
+			otherIds = LinkIdToRealIdsMap.get(ocoId);
+		}
 		return otherIds;
 	}
 
@@ -694,7 +740,9 @@ public class Provider extends ExternalLiveBaseProvider {
 			}
 
 			if (exec.getPegPriceType().equals("TrailingStopPeg")) {
-				trailingStops.put(exec.getOrderID(), exec.getPegOffsetValue());
+				synchronized (trailingStops) {
+					trailingStops.put(exec.getOrderID(), exec.getPegOffsetValue());
+				}
 			}
 
 			builder.setOrderId(exec.getOrderID());
@@ -973,20 +1021,28 @@ public class Provider extends ExternalLiveBaseProvider {
 		// if order is linked
 		if (!order.getClOrdLinkID().equals("")) {
 			// add to LinkIdToRealIdsMap
-			if (!LinkIdToRealIdsMap.containsKey(order.getClOrdLinkID())) {
-				LinkIdToRealIdsMap.put(order.getClOrdLinkID(), new LinkedList<String>());
+			List<String> tempList;
+
+			synchronized (LinkIdToRealIdsMap) {
+				if (!LinkIdToRealIdsMap.containsKey(order.getClOrdLinkID())) {
+					LinkIdToRealIdsMap.put(order.getClOrdLinkID(), new LinkedList<String>());
+				}
+				tempList = LinkIdToRealIdsMap.get(order.getClOrdLinkID());
 			}
 
-			List<String> tempList = LinkIdToRealIdsMap.get(order.getClOrdLinkID());
 			if (!order.getContingencyType().equals("OneTriggersTheOther")) {
 				tempList.add(0, order.getOrderID());
 			} else {
 				// add to Bracket parents
-				bracketParents.add(order.getOrderID());
+				synchronized (bracketParents) {
+					bracketParents.add(order.getOrderID());
+				}
 				tempList.add(order.getOrderID());
 			}
 			// add to RealToLinkIdMap
-			RealToLinkIdMap.put(order.getOrderID(), order.getClOrdLinkID());
+			synchronized (RealToLinkIdMap) {
+				RealToLinkIdMap.put(order.getOrderID(), order.getClOrdLinkID());
+			}
 		}
 	}
 
