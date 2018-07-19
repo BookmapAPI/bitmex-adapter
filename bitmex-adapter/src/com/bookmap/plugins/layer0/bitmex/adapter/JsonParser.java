@@ -1,4 +1,4 @@
-package bitmexAdapter;
+package com.bookmap.plugins.layer0.bitmex.adapter;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -10,11 +10,11 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import com.bookmap.plugins.layer0.bitmex.Provider;
+import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Topic;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 
-import bitmexAdapter.ConnectorUtils.Topic;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.layers.utils.OrderBook;
 
@@ -71,7 +71,7 @@ public class JsonParser {
 			if (responseWs.getSuccess() == true && responseWs.getRequest().getOp().equals("unsubscribe")) {
 				String symbol = responseWs.getUnsubscribeSymbol();
 				if (symbol != null){
-					Log.info("[bitmex] JsonParser parser: getting unsbscrd fom orderBookL2, symbol = " + symbol);
+					Log.info("[bitmex] JsonParser parser: getting unsbscribed from orderBookL2, symbol = " + symbol);
 					BmInstrument instr = activeInstrumentsMap.get(symbol);
 					instr.clearOrderBook();
 				}
@@ -249,6 +249,7 @@ public class JsonParser {
 			if (topic.equals(Topic.ORDERBOOKL2)) {
 				BmInstrument instr = activeInstrumentsMap.get(((MessageGeneric<UnitData>)msg0).getData().get(0).getSymbol());
 				instr.setOrderBookSnapshotParsed(true);
+				Log.info("[bitmex] setOrderBookSnapshotParsed set true for " + instr.getSymbol());
 				performOrderBookL2SpecificOpSetOne((MessageGeneric<UnitData>) msg0);
 			}
 		}

@@ -1,4 +1,4 @@
-package bitmexAdapter;
+package com.bookmap.plugins.layer0.bitmex.adapter;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -8,25 +8,34 @@ import java.net.SocketException;
 import java.net.URI;
 import java.net.URL;
 import java.net.UnknownHostException;
+import java.nio.channels.UnresolvedAddressException;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.HttpsURLConnection;
 
 import org.eclipse.jetty.util.ssl.SslContextFactory;
+import org.eclipse.jetty.websocket.api.UpgradeException;
+import org.eclipse.jetty.websocket.api.WebSocketException;
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 
 import com.bookmap.plugins.layer0.bitmex.Provider;
+import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.WebSocketOperation;
 
-import org.eclipse.jetty.websocket.api.UpgradeException;
-import org.eclipse.jetty.websocket.api.WebSocketException;
-import java.nio.channels.UnresolvedAddressException;
-
-import bitmexAdapter.ConnectorUtils.WebSocketOperation;
 import velox.api.layer1.common.Log;
 
 public class BmConnector implements Runnable {
@@ -44,6 +53,10 @@ public class BmConnector implements Runnable {
 	private boolean isReconnecting = false;
 	private Provider provider;
 	private TradeConnector tradeConnector;
+	
+	ScheduledExecutorService executionsResetTimer;
+	private int executionDay = 0;
+	private boolean isExecutionReset;
 
 	public Provider getProvider() {
 		return provider;
@@ -148,6 +161,9 @@ public class BmConnector implements Runnable {
 						(Object[]) ConnectorUtils.getAuthenticatedTopicsList());
 				String res = JsonParser.gson.toJson(wsData);
 				socket.sendMessage(res);
+				
+				reportHistoricalExecutions("Filled");
+				reportHistoricalExecutions("Canceled");
 			}
 
 			webSocketStartingLatch.countDown();
@@ -201,7 +217,7 @@ public class BmConnector implements Runnable {
 			throw new RuntimeException();
 		}
 		Log.info("[bitmex] BmConnector wsConnect Send websocket message");
-		if (socket != null) {//this solution still needs to be examined
+		if (socket != null) {// this solution still needs to be examined
 			synchronized (socket) {
 				socket.sendMessage(message);
 			}
@@ -258,21 +274,58 @@ public class BmConnector implements Runnable {
 	}
 
 	private void launchSnapshotTimer(BmInstrument instr) {
+		ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+		
 		TimerTask task = new TimerTask() {
 			@Override
 			public void run() {
 				if (!instr.isOrderBookSnapshotParsed() == true) {
-					Log.info("[bitmex] BmConnector launchSnapshotTimer(): resubscribe");
+					Log.info("[bitmex] BmConnector launchSnapshotTimer(): resubscribe " + now);
 					unSubscribe(instr);
 					subscribe(instr);
 				}
-				Log.info("[bitmex] BmConnector launchSnapshotTimer(): end");
+				Log.info("[bitmex] BmConnector launchSnapshotTimer(): end " + now);
 			}
 		};
 		Timer timer = new Timer();
-		Log.info("[bitmex] BmConnector launchSnapshotTimer(): ");
+		instr.setSnapshotTimer(timer);
+		Log.info("[bitmex] BmConnector launchSnapshotTimer(): " + now);
 		timer.schedule(task, 10000);
+	}
+	
+	private void launchExecutionsResetTimer() {
+		class CustomThreadFactory implements ThreadFactory {
+			public Thread newThread(Runnable r) {
+				return new Thread(r, "-> BmConnector: executionsResetTimer");
+			}
+		}
 
+		ScheduledExecutorService executionsResetTimer = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory());
+		this.executionsResetTimer = executionsResetTimer;
+		Log.info("[bitmex] BmConnector launchExecutionsResetTimer(): ");
+		executionsResetTimer.scheduleWithFixedDelay(new Runnable() {
+			@Override
+			public void run() {
+				int dayNow = ZonedDateTime.now(ZoneOffset.UTC).getDayOfYear();
+
+				if (executionDay < dayNow && !isExecutionReset) {
+					executionDay = dayNow;
+					
+					Set<BmInstrument> instruments = new HashSet<>();
+					synchronized (activeBmInstrumentsMap) {
+						instruments.addAll(activeBmInstrumentsMap.values()); 
+					}
+					for (BmInstrument instrument : instruments){
+						instrument.setExecutionsVolume(0);
+					}
+							
+					
+					isExecutionReset = true;
+				} else if (executionDay == dayNow) {
+					isExecutionReset = false;
+				}
+			}
+		}, 0, 1, TimeUnit.SECONDS);
 	}
 
 	public void subscribe(BmInstrument instr) {
@@ -283,29 +336,32 @@ public class BmConnector implements Runnable {
 
 		if (!provider.isCredentialsEmpty()) {// if authenticated
 			instr.setExecutionsVolume(countExecutionsVolume(instr.getSymbol()));
-			reportFilled(instr.getSymbol());
-			reportCancelled(instr.getSymbol());
 		}
 	}
 
 	public void unSubscribe(BmInstrument instr) {
+		Timer timer = instr.getSnapshotTimer();
+		if(timer != null){
+			timer.cancel();
+			Log.info("[bitmex] BmConnector unSubscribe: timer gets cancelled");
+		}
 		instr.setSubscribed(false);
 		sendWebsocketMessage(instr.getUnSubscribeReq());
 	}
 
-	public static long getMoment() {
-		return System.currentTimeMillis() + 10000;
-	}
-
 	private int countExecutionsVolume(String symbol) {
-		String z = ConnectorUtils.getDateTwentyFourHoursAgoAsUrlEncodedString();
-		int sum = 0;
-		// long moment = ConnectorUtils.getMomentAndTimeToLive();
-		String addr = "/api/v1/execution?symbol=" + symbol
-				+ "&filter=%7B%22ordStatus%22%3A%22Filled%22%7D&count=100&reverse=false&startTime=" + z;
+		String dataADayBefore = ConnectorUtils.getDateTwentyFourHoursAgoAsUrlEncodedString();
+		StringBuilder sb = new StringBuilder();
+		sb.append("/api/v1/execution?symbol=").append(symbol)
+		.append("&filter=%7B%22ordStatus%22%3A%22Filled%22%7D&count=100&reverse=false&startTime=")
+		.append(dataADayBefore);
+
+		String addr = sb.toString();
 
 		String st0 = tradeConnector.makeRestGetQuery(addr);
 		UnitOrder[] orders = JsonParser.getArrayFromJson(st0, UnitOrder[].class);
+		int sum = 0;
+		
 		if (orders != null && orders.length > 0) {
 			for (UnitOrder order : orders) {
 				sum += order.getOrderQty();
@@ -315,35 +371,45 @@ public class BmConnector implements Runnable {
 		Log.info("[bitmex] BmConnector countExecution volume: " + st0);
 		return sum;
 	}
-
-	private void reportFilled(String symbol) {
-		String dateTwentyFourHoursAgo = ConnectorUtils.getDateTwentyFourHoursAgoAsUrlEncodedString();
-		String addr = "/api/v1/execution?symbol=" + symbol
-				+ "&filter=%7B%22ordStatus%22%3A%20%22Filled%22%7D&count=500&reverse=true&startTime="
-				+ dateTwentyFourHoursAgo;
-		String st0 = tradeConnector.makeRestGetQuery(addr);
-
-		UnitExecution[] execs = JsonParser.getArrayFromJson(st0, UnitExecution[].class);
-		if (execs != null && execs.length > 0) {
-			provider.updateExecutionsHistory(execs);
+	
+	private void reportHistoricalExecutions(String ordStatus) {
+//		private void reportHistoricalExecutions(String symbol, String ordStatus) {
+		ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+		ZonedDateTime startTime = now.minusDays(0)
+				.minusHours(now.getHour())
+				.minusMinutes(now.getMinute())
+				.minusSeconds(now.getSecond())
+				.minusNanos(now.getNano());
+		
+		List<UnitExecution> historicalExecutions = new LinkedList<>();
+		for (int i = 0;; i += 500) {
+			StringBuilder sb = new StringBuilder();
+			sb.append("/api/v1/execution?").append("filter=%7B%22ordStatus%22%3A%20%22")
+			.append(ordStatus).append("%22%7D&count=500&reverse=true&startTime=")
+			.append(startTime).append("&endTime=").append(now)
+			.append("&start=").append(i);
+			
+			String addr = sb.toString();
+			String response = tradeConnector.makeRestGetQuery(addr);
+			
+			UnitExecution[] executions = JsonParser.getArrayFromJson(response,
+					UnitExecution[].class);
+			
+			if (executions == null || executions.length == 0) {
+				break;
+			} else {
+				for (int k = 0, n = executions.length; k < n; k++) {
+					if (!executions[k].getExecType().equals("Funding")) {
+						historicalExecutions.add(executions[k]);
+					}
+				}
+			}
 		}
-
-		Log.info("[bitmex] BmConnector reportFilled: " + st0);
-	}
-
-	private void reportCancelled(String symbol) {
-		String dateTwentyFourHoursAgo = ConnectorUtils.getDateTwentyFourHoursAgoAsUrlEncodedString();
-		String addr = "/api/v1/execution?symbol=" + symbol
-				+ "&filter=%7B%22ordStatus%22%3A%20%22Canceled%22%7D&count=500&reverse=true&startTime="
-				+ dateTwentyFourHoursAgo;
-		String st0 = tradeConnector.makeRestGetQuery(addr);
-
-		UnitExecution[] execs = JsonParser.getArrayFromJson(st0, UnitExecution[].class);
-		if (execs != null && execs.length > 0) {
-			provider.updateExecutionsHistory(execs);
+		Log.info("[bitmex] BmConnector report " + ordStatus + ": listSize =  " + historicalExecutions.size());
+		
+		if (historicalExecutions != null && historicalExecutions.size() > 0) {
+			provider.updateExecutionsHistory(historicalExecutions.toArray(new UnitExecution[historicalExecutions.size()]));
 		}
-
-		Log.info("[bitmex] BmConnector reportCancelled: " + st0);
 	}
 
 	@Override
@@ -362,6 +428,7 @@ public class BmConnector implements Runnable {
 
 			if (activeBmInstrumentsMap.isEmpty()) {
 				fillActiveBmInstrumentsMap();
+				launchExecutionsResetTimer();
 				if (activeBmInstrumentsMap.isEmpty())
 					continue;
 			}
@@ -373,6 +440,7 @@ public class BmConnector implements Runnable {
 			}
 
 		}
+		executionsResetTimer.shutdownNow();
 		if (socket != null) {
 			socket.close();
 		}

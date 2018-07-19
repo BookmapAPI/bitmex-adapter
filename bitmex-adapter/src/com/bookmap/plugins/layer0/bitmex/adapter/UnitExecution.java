@@ -1,4 +1,4 @@
-package bitmexAdapter;
+package com.bookmap.plugins.layer0.bitmex.adapter;
 
 public class UnitExecution extends UnitOrder{
 	private String execType;
@@ -43,4 +43,12 @@ public class UnitExecution extends UnitOrder{
 	public void setExecTransactTime(long execTransactTime) {
 		this.execTransactTime = execTransactTime;
 	}
+	@Override
+	public String toString() {
+		return "UnitExecution [execType=" + execType + ", ordStatus=" + getOrdStatus() + ", transactTime=" + getTransactTime() + ", lastPx=" + lastPx + ", lastQty=" + lastQty
+				+ ", execTransactTime=" + execTransactTime + ", getOrderID()=" + getOrderID() + ", getSymbol()="
+				+ getSymbol() + ", getSide()=" + getSide() + ", getOrdType()=" + getOrdType() + "]";
+	}
+	
+	
 }

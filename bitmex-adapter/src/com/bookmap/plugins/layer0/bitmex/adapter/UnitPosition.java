@@ -1,4 +1,4 @@
-package bitmexAdapter;
+package com.bookmap.plugins.layer0.bitmex.adapter;
 /** This object is created after having parsed json.
  * Some field are objects because we need null references
  * to show the Consumer the values are not included to json.
