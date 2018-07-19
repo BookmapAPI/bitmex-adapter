@@ -54,6 +54,7 @@ import velox.api.layer1.data.StatusInfo;
 import velox.api.layer1.data.SystemTextMessageType;
 import velox.api.layer1.data.TradeInfo;
 import velox.api.layer1.data.UserPasswordDemoLoginData;
+import velox.api.layer1.layers.utils.OrderBook;
 
 @Layer0LiveModule
 public class Provider extends ExternalLiveBaseProvider {
@@ -268,13 +269,15 @@ public class Provider extends ExternalLiveBaseProvider {
 		double ticksize = bmInstrument.getTickSize();
 		int offsetMultiplier = simpleParams.isBuy ? 1 : -1;
 
+		double limitPriceChecked = checkLImitPriceForBracket(simpleParams, bmInstrument);
+		
 		SimpleOrderSendParameters stopLoss = new SimpleOrderSendParameters(
 				simpleParams.alias,
 				!simpleParams.isBuy, // !
 				simpleParams.size,
 				simpleParams.duration,
 				Double.NaN, // limitPrice
-				simpleParams.limitPrice - offsetMultiplier * simpleParams.stopLossOffset * ticksize, // stopPrice
+				limitPriceChecked - offsetMultiplier * simpleParams.stopLossOffset * ticksize, // stopPrice
 				simpleParams.sizeMultiplier);
 		return stopLoss;
 	}
@@ -284,16 +287,28 @@ public class Provider extends ExternalLiveBaseProvider {
 		BmInstrument bmInstrument = connector.getActiveInstrumentsMap().get(symbol);
 		double ticksize = bmInstrument.getTickSize();
 		int offsetMultiplier = simpleParams.isBuy ? 1 : -1;
+		double limitPriceChecked = checkLImitPriceForBracket(simpleParams, bmInstrument);
 
 		SimpleOrderSendParameters takeProfit = new SimpleOrderSendParameters(
 				simpleParams.alias,
 				!simpleParams.isBuy, // !
 				simpleParams.size,
 				simpleParams.duration,
-				simpleParams.limitPrice + offsetMultiplier * simpleParams.takeProfitOffset * ticksize,
+				limitPriceChecked + offsetMultiplier * simpleParams.takeProfitOffset * ticksize, // limitPrice
 				Double.NaN, // stopPrice
 				simpleParams.sizeMultiplier);
 		return takeProfit;
+	}
+	
+	private double checkLImitPriceForBracket(SimpleOrderSendParameters simpleParams, BmInstrument bmInstrument){
+		double limitPriceChecked = simpleParams.limitPrice;
+		if (Double.isNaN(simpleParams.limitPrice)) {
+			OrderBook orderBook = bmInstrument.getOrderBook();
+			limitPriceChecked = simpleParams.isBuy ? 
+					orderBook.getBestAskPriceOrNone() * bmInstrument.getTickSize()
+					: orderBook.getBestBidPriceOrNone() * bmInstrument.getTickSize();
+		}
+		return limitPriceChecked;
 	}
 
 	private String createOcoOrdersStringData(List<SimpleOrderSendParameters> ordersList) {
