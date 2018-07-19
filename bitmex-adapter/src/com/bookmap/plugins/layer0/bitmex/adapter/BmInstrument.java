@@ -1,9 +1,7 @@
 package com.bookmap.plugins.layer0.bitmex.adapter;
 
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.Timer;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -23,10 +21,10 @@ public class BmInstrument {
 	private String settlCurrency;
 	private boolean isSubscribed = false;
 	private boolean isFirstSnapshotParsed = false;
-	
-	//this one is for 'orderBookL2 and for 'trade'
-//	private Map<String, Boolean> instrumentPartialsParsed = new HashMap<>();
-	
+
+	// this one is for 'orderBookL2 and for 'trade'
+	// private Map<String, Boolean> instrumentPartialsParsed = new HashMap<>();
+
 	private OrderBook orderBook = new OrderBook();
 	private BlockingQueue<Message> queue = new LinkedBlockingQueue<>();
 	private HashMap<Long, Integer> pricesMap = new HashMap<>();
@@ -38,6 +36,8 @@ public class BmInstrument {
 	private int sellOrdersCount = 0;
 	private int buyOrdersCount = 0;
 
+	private transient Timer snapshotTimer = null;
+
 	public BmInstrument(String symbol, double tickSize) {
 		super();
 		this.symbol = symbol;
@@ -47,7 +47,17 @@ public class BmInstrument {
 	public BmInstrument() {
 		super();
 	}
-	
+
+
+	public Timer getSnapshotTimer() {
+//		return null;
+		return snapshotTimer;
+	}
+
+	public void setSnapshotTimer(Timer snapshotTimer) {
+		this.snapshotTimer = snapshotTimer;
+	}
+
 	public boolean isOrderBookSnapshotParsed() {
 		return orderBookSnapshotParsed;
 	}
@@ -71,21 +81,21 @@ public class BmInstrument {
 	public void setMultiplier(long multiplier) {
 		this.multiplier = multiplier;
 	}
-	
+
 	public BlockingQueue<Message> getQueue() {
 		return queue;
 	}
 
 	public String getSubscribeReq() {
-		WsData wsData = new WsData(this.symbol, WebSocketOperation.SUBSCRIBE, 
-				(Object[])ConnectorUtils.getNonAuthenticatedTopicsList());
+		WsData wsData = new WsData(this.symbol, WebSocketOperation.SUBSCRIBE,
+				(Object[]) ConnectorUtils.getNonAuthenticatedTopicsList());
 		String res = JsonParser.gson.toJson(wsData);
 		return res;
 	}
 
 	public String getUnSubscribeReq() {
-		WsData wsData = new WsData(this.symbol, WebSocketOperation.UNSUBSCRIBE, 
-				(Object[])ConnectorUtils.getNonAuthenticatedTopicsList());
+		WsData wsData = new WsData(this.symbol, WebSocketOperation.UNSUBSCRIBE,
+				(Object[]) ConnectorUtils.getNonAuthenticatedTopicsList());
 		String res = JsonParser.gson.toJson(wsData);
 		return res;
 	}
@@ -107,11 +117,11 @@ public class BmInstrument {
 	}
 
 	public OrderBook getOrderBook() {
-			return orderBook;
+		return orderBook;
 	}
-	
+
 	public void clearOrderBook() {
-		 this.orderBook = new OrderBook();
+		this.orderBook = new OrderBook();
 	}
 
 	public boolean isSubscribed() {
@@ -121,7 +131,7 @@ public class BmInstrument {
 	public void setSubscribed(boolean isSubscribed) {
 		this.isSubscribed = isSubscribed;
 	}
-	
+
 	public HashMap<Long, Integer> getPricesMap() {
 		return pricesMap;
 	}
@@ -129,7 +139,7 @@ public class BmInstrument {
 	public Integer getPriceFromMap(long id) {
 		return pricesMap.get(id);
 	}
-	
+
 	public boolean isFirstSnapshotParsed() {
 		return isFirstSnapshotParsed;
 	}
@@ -137,14 +147,14 @@ public class BmInstrument {
 	public void setFirstSnapshotParsed(boolean isFirstSnapshotParsed) {
 		this.isFirstSnapshotParsed = isFirstSnapshotParsed;
 	}
-	
+
 	public UnitPosition getValidPosition() {
 		return validPosition;
 	}
 
-	public void setValidPosition(UnitPosition validPosition) {
-		this.validPosition = validPosition;
-	}
+	// public void setValidPosition(UnitPosition validPosition) {
+	// this.validPosition = validPosition;
+	// }
 
 	public int getSellOrdersCount() {
 		return sellOrdersCount;
@@ -163,7 +173,7 @@ public class BmInstrument {
 		Log.info("setBuyOrdersCount " + buyOrdersCount);
 		this.buyOrdersCount = buyOrdersCount;
 	}
-	
+
 	public long getUnderlyingToSettleMultiplier() {
 		return underlyingToSettleMultiplier;
 	}
@@ -180,14 +190,6 @@ public class BmInstrument {
 		this.settlCurrency = settlCurrency;
 	}
 
-//	public Map<String, Boolean> getInstrumentPartialsParsed() {
-//		return instrumentPartialsParsed;
-//	}
-//
-//	public void setInstrumentPartialsParsed(Map<String, Boolean> instrumentPartialsParsed) {
-//		this.instrumentPartialsParsed = instrumentPartialsParsed;
-//	}
-
 	public double getLastBuy() {
 		return lastBuy;
 	}
@@ -203,4 +205,6 @@ public class BmInstrument {
 	public void setLastSell(double lastSell) {
 		this.lastSell = lastSell;
 	}
+
+	
 }
