@@ -71,7 +71,7 @@ public class JsonParser {
 			if (responseWs.getSuccess() == true && responseWs.getRequest().getOp().equals("unsubscribe")) {
 				String symbol = responseWs.getUnsubscribeSymbol();
 				if (symbol != null){
-					Log.info("[bitmex] JsonParser parser: getting unsbscrd fom orderBookL2, symbol = " + symbol);
+					Log.info("[bitmex] JsonParser parser: getting unsbscribed from orderBookL2, symbol = " + symbol);
 					BmInstrument instr = activeInstrumentsMap.get(symbol);
 					instr.clearOrderBook();
 				}
