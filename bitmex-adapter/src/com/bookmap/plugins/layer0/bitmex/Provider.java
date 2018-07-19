@@ -834,6 +834,8 @@ public class Provider extends ExternalLiveBaseProvider {
 			}
 		}
 
+		exec.setExecTransactTime(ConnectorUtils.transactTimeToLong(exec.getTransactTime()));
+		builder.setModificationUtcTime(exec.getExecTransactTime());
 		OrderInfoBuilder finalBuilder = builder;
 		tradingListeners.forEach(l -> l.onOrderUpdated(finalBuilder.build()));
 		builder.markAllUnchanged();
@@ -936,7 +938,9 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	public void updateExecutionsHistory(UnitExecution[] execs) {
-		for (UnitExecution exec : execs) {
+
+		for (int i = execs.length - 1; i >= 0; i--) {
+			UnitExecution exec = execs[i];
 			exec.setExecTransactTime(ConnectorUtils.transactTimeToLong(exec.getTransactTime()));
 
 			final OrderInfoBuilder builder = new OrderInfoBuilder(
