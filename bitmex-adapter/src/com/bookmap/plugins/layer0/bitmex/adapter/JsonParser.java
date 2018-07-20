@@ -17,6 +17,7 @@ import com.google.gson.reflect.TypeToken;
 
 import velox.api.layer1.common.Log;
 import velox.api.layer1.layers.utils.OrderBook;
+import velox.api.layer1.providers.helper.RawDataHelper;
 
 public class JsonParser {
 	private Provider provider;
@@ -51,6 +52,11 @@ public class JsonParser {
 	}
 
 	public void parse(String str) {
+		//Recording raw data for debugging purpose
+		if(RawDataHelper.isRawDataRecordingEnabled()){
+			RawDataHelper.sendRawData(str, provider.adminListeners);
+		}
+		
 		// first let's find out what kind of object we have here
 		ResponseByWebSocket responseWs = (ResponseByWebSocket) gson.fromJson(str, ResponseByWebSocket.class);
 		if (responseWs.getTable() == null) {
