@@ -62,7 +62,7 @@ import velox.api.layer1.data.UserPasswordDemoLoginData;
 import velox.api.layer1.layers.utils.OrderBook;
 
 @Layer1ApiVersion(Layer1ApiVersionValue.VERSION1)
-@Layer0LiveModule(shortName="MEX", fullName = "BitMEX")
+@Layer0LiveModule(shortName = "MEX", fullName = "BitMEX")
 public class Provider extends ExternalLiveBaseProvider {
 
 	private BmConnector connector;
@@ -87,10 +87,8 @@ public class Provider extends ExternalLiveBaseProvider {
 	private Map<String, Double> trailingStops = new HashMap<>();
 	private List<String> batchCancels = new LinkedList<>();
 	private Map<String, BalanceInfo.BalanceInCurrency> balanceMap = new HashMap<>();
-	
-	private CopyOnWriteArrayList <SubscribeInfo> knownInstruments = new CopyOnWriteArrayList<>();
 
-	
+	private CopyOnWriteArrayList<SubscribeInfo> knownInstruments = new CopyOnWriteArrayList<>();
 
 	protected class Instrument {
 		protected final String alias;
@@ -119,7 +117,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	public BmConnector getConnector() {
 		return connector;
 	}
-	
+
 	public List<SubscribeInfo> getKnownInstruments() {
 		return knownInstruments;
 	}
@@ -157,7 +155,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		final String symbol = subscribeInfo.symbol;
 		final String exchange = subscribeInfo.exchange;
 		final String type = subscribeInfo.type;
-		
+
 		Log.info("[bitmex] Provider subscribe");
 		String alias = createAlias(symbol, exchange, type);
 		// Since instruments also will be accessed from the data generation
@@ -292,7 +290,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		int offsetMultiplier = simpleParams.isBuy ? 1 : -1;
 
 		double limitPriceChecked = checkLImitPriceForBracket(simpleParams, bmInstrument);
-		
+
 		SimpleOrderSendParameters stopLoss = new SimpleOrderSendParameters(
 				simpleParams.alias,
 				!simpleParams.isBuy, // !
@@ -321,13 +319,12 @@ public class Provider extends ExternalLiveBaseProvider {
 				simpleParams.sizeMultiplier);
 		return takeProfit;
 	}
-	
-	private double checkLImitPriceForBracket(SimpleOrderSendParameters simpleParams, BmInstrument bmInstrument){
+
+	private double checkLImitPriceForBracket(SimpleOrderSendParameters simpleParams, BmInstrument bmInstrument) {
 		double limitPriceChecked = simpleParams.limitPrice;
 		if (Double.isNaN(simpleParams.limitPrice)) {
 			OrderBook orderBook = bmInstrument.getOrderBook();
-			limitPriceChecked = simpleParams.isBuy ? 
-					orderBook.getBestAskPriceOrNone() * bmInstrument.getTickSize()
+			limitPriceChecked = simpleParams.isBuy ? orderBook.getBestAskPriceOrNone() * bmInstrument.getTickSize()
 					: orderBook.getBestBidPriceOrNone() * bmInstrument.getTickSize();
 		}
 		return limitPriceChecked;
@@ -894,26 +891,26 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	public void listenForWallet(UnitWallet wallet) {
+		BalanceInfo.BalanceInCurrency currentBic = balanceMap.get(wallet.getCurrency());
+		BalanceInfo.BalanceInCurrency newBic;
+		if (currentBic == null) {// no current balance balance
+			newBic = new BalanceInfo.BalanceInCurrency(0.0, 0.0, 0.0, 0.0, 0.0,
+					null, null);
+		}
+
 		long tempMultiplier = 100000000;// temp
-		Double balance = (double) wallet.getAmount() / tempMultiplier;
 		// PNLs and NetLiquidityValue are taken from UnitMargin topic
-		Double previousDayBalance = (double) wallet.getPrevAmount() / tempMultiplier;
 		Double netLiquidityValue = 0.0;// to be calculated
 		String currency = wallet.getCurrency();
 		Double rateToBase = null;
 
-		BalanceInfo.BalanceInCurrency currentBic = balanceMap.get(wallet.getCurrency());
-		BalanceInfo.BalanceInCurrency newBic;
-		if (currentBic == null) {// no current balance balance
-			newBic = new BalanceInfo.BalanceInCurrency(balance, 0.0, 0.0, previousDayBalance, netLiquidityValue,
-					currency, rateToBase);
-		} else {
-			newBic = new BalanceInfo.BalanceInCurrency(balance == null ? currentBic.balance : balance,
-					currentBic.realizedPnl, currentBic.unrealizedPnl,
-					previousDayBalance == null ? currentBic.previousDayBalance : previousDayBalance,
-					netLiquidityValue == null ? currentBic.netLiquidityValue : netLiquidityValue, currentBic.currency,
-					rateToBase == null ? currentBic.rateToBase : rateToBase);
-		}
+		newBic = new BalanceInfo.BalanceInCurrency(
+				wallet.getAmount() == null ? currentBic.balance : (double) wallet.getAmount() / tempMultiplier,
+				currentBic.realizedPnl, currentBic.unrealizedPnl,
+				wallet.getPrevAmount() == null ? currentBic.previousDayBalance : (double) wallet.getPrevAmount() / tempMultiplier,
+				netLiquidityValue == null ? currentBic.netLiquidityValue : netLiquidityValue, currentBic.currency,
+				rateToBase == null ? currentBic.rateToBase : rateToBase);
+
 		balanceMap.remove(currency);
 		balanceMap.put(currency, newBic);
 		BalanceInfo info = new BalanceInfo(new ArrayList<BalanceInfo.BalanceInCurrency>(balanceMap.values()));
@@ -1097,20 +1094,20 @@ public class Provider extends ExternalLiveBaseProvider {
 		}
 
 		a.setOco(true)
-		.setBrackets(true)
-		.setSupportedOrderDurations(Arrays.asList(new OrderDuration[] { OrderDuration.GTC }))
-		// At the moment of writing this method it was not possible to
-		// report limit orders support, but no stop orders support
-		// If you actually need it, you can report stop orders support
-		// but reject stop orders when those are sent.
-		.setSupportedStopOrders(Arrays.asList(new OrderType[] { OrderType.LMT, OrderType.MKT }))
-		.setBalanceSupported(true)
-		.setTrailingStopsAsIndependentOrders(true)
-		.setExchangeUsedForSubscription(false)
-		.setTypeUsedForSubscription(false)
-		.setHistoricalDataInfo(new BmSimpleHistoricalDataInfo(
-				"http://bitmex.historicaldata.bookmap.com:38080/historical-data-server-1.0/"))
-		.setKnownInstruments(knownInstruments);
+				.setBrackets(true)
+				.setSupportedOrderDurations(Arrays.asList(new OrderDuration[] { OrderDuration.GTC }))
+				// At the moment of writing this method it was not possible to
+				// report limit orders support, but no stop orders support
+				// If you actually need it, you can report stop orders support
+				// but reject stop orders when those are sent.
+				.setSupportedStopOrders(Arrays.asList(new OrderType[] { OrderType.LMT, OrderType.MKT }))
+				.setBalanceSupported(true)
+				.setTrailingStopsAsIndependentOrders(true)
+				.setExchangeUsedForSubscription(false)
+				.setTypeUsedForSubscription(false)
+				.setHistoricalDataInfo(new BmSimpleHistoricalDataInfo(
+						"http://bitmex.historicaldata.bookmap.com:38080/historical-data-server-1.0/"))
+				.setKnownInstruments(knownInstruments);
 
 		// Log.info("PROVIDER getSupportedFeatures INVOKED");
 		return a.build();
