@@ -251,11 +251,13 @@ public class JsonParser {
 
 		if (msg0.getAction().equals("partial")) {
 			nonInstrumentPartialsParsed.add(container.name);
+			Log.info("[bitmex] JsonParser preprocessMessage: partial acquired for  " + container.name);
+
 
 			if (topic.equals(Topic.ORDERBOOKL2)) {
 				BmInstrument instr = activeInstrumentsMap.get(((MessageGeneric<UnitData>)msg0).getData().get(0).getSymbol());
 				instr.setOrderBookSnapshotParsed(true);
-				Log.info("[bitmex] setOrderBookSnapshotParsed set true for " + instr.getSymbol());
+				Log.info("[bitmex] JsonParser preprocessMessage setOrderBookSnapshotParsed set true for " + instr.getSymbol());
 				performOrderBookL2SpecificOpSetOne((MessageGeneric<UnitData>) msg0);
 			}
 		}
