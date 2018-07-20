@@ -8,6 +8,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.bookmap.plugins.layer0.bitmex.adapter.BmConnector;
 import com.bookmap.plugins.layer0.bitmex.adapter.BmInstrument;
@@ -86,6 +87,10 @@ public class Provider extends ExternalLiveBaseProvider {
 	private Map<String, Double> trailingStops = new HashMap<>();
 	private List<String> batchCancels = new LinkedList<>();
 	private Map<String, BalanceInfo.BalanceInCurrency> balanceMap = new HashMap<>();
+	
+	private CopyOnWriteArrayList <SubscribeInfo> knownInstruments = new CopyOnWriteArrayList<>();
+
+	
 
 	protected class Instrument {
 		protected final String alias;
@@ -113,6 +118,14 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	public BmConnector getConnector() {
 		return connector;
+	}
+	
+	public List<SubscribeInfo> getKnownInstruments() {
+		return knownInstruments;
+	}
+
+	public void setKnownInstruments(CopyOnWriteArrayList<SubscribeInfo> knownInstruments) {
+		this.knownInstruments = knownInstruments;
 	}
 
 	/**
@@ -1080,23 +1093,24 @@ public class Provider extends ExternalLiveBaseProvider {
 		Layer1ApiProviderSupportedFeaturesBuilder a = super.getSupportedFeatures().toBuilder();
 
 		if (!isCredentialsEmpty) {
-			a.setTrading(true)
-				.setOco(true)
-				.setBrackets(true)
-				.setSupportedOrderDurations(Arrays.asList(new OrderDuration[] { OrderDuration.GTC }))
-				// At the moment of writing this method it was not possible to
-				// report limit orders support, but no stop orders support
-				// If you actually need it, you can report stop orders support
-				// but reject stop orders when those are sent.
-				.setSupportedStopOrders(Arrays.asList(new OrderType[] { OrderType.LMT, OrderType.MKT }));
+			a.setTrading(true);
 		}
 
-		a.setBalanceSupported(true);
-		a.setTrailingStopsAsIndependentOrders(true);
-		a.setExchangeUsedForSubscription(false);
-		a.setTypeUsedForSubscription(false);
-		a.setHistoricalDataInfo(new BmSimpleHistoricalDataInfo(
-				"http://bitmex.historicaldata.bookmap.com:38080/historical-data-server-1.0/"));
+		a.setOco(true)
+		.setBrackets(true)
+		.setSupportedOrderDurations(Arrays.asList(new OrderDuration[] { OrderDuration.GTC }))
+		// At the moment of writing this method it was not possible to
+		// report limit orders support, but no stop orders support
+		// If you actually need it, you can report stop orders support
+		// but reject stop orders when those are sent.
+		.setSupportedStopOrders(Arrays.asList(new OrderType[] { OrderType.LMT, OrderType.MKT }))
+		.setBalanceSupported(true)
+		.setTrailingStopsAsIndependentOrders(true)
+		.setExchangeUsedForSubscription(false)
+		.setTypeUsedForSubscription(false)
+		.setHistoricalDataInfo(new BmSimpleHistoricalDataInfo(
+				"http://bitmex.historicaldata.bookmap.com:38080/historical-data-server-1.0/"))
+		.setKnownInstruments(knownInstruments);
 
 		// Log.info("PROVIDER getSupportedFeatures INVOKED");
 		return a.build();
