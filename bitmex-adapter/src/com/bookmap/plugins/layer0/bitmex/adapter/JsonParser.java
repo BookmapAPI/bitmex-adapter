@@ -245,6 +245,7 @@ public class JsonParser {
 
 		if (msg0.getAction().equals("partial")) {
 			nonInstrumentPartialsParsed.add(container.name);
+			Log.info("[bitmex] JsonParser preprocessMessage: partial acquired for  " + container.name);
 
 			if (topic.equals(Topic.ORDERBOOKL2)) {
 				BmInstrument instr = activeInstrumentsMap.get(((MessageGeneric<UnitData>)msg0).getData().get(0).getSymbol());
