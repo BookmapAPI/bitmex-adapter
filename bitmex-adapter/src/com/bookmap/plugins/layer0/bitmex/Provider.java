@@ -872,26 +872,26 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	public void listenForWallet(UnitWallet wallet) {
+		BalanceInfo.BalanceInCurrency currentBic = balanceMap.get(wallet.getCurrency());
+		BalanceInfo.BalanceInCurrency newBic;
+		if (currentBic == null) {// no current balance balance
+			newBic = new BalanceInfo.BalanceInCurrency(0.0, 0.0, 0.0, 0.0, 0.0,
+					null, null);
+		}
+
 		long tempMultiplier = 100000000;// temp
-		Double balance = (double) wallet.getAmount() / tempMultiplier;
 		// PNLs and NetLiquidityValue are taken from UnitMargin topic
-		Double previousDayBalance = (double) wallet.getPrevAmount() / tempMultiplier;
 		Double netLiquidityValue = 0.0;// to be calculated
 		String currency = wallet.getCurrency();
 		Double rateToBase = null;
 
-		BalanceInfo.BalanceInCurrency currentBic = balanceMap.get(wallet.getCurrency());
-		BalanceInfo.BalanceInCurrency newBic;
-		if (currentBic == null) {// no current balance balance
-			newBic = new BalanceInfo.BalanceInCurrency(balance, 0.0, 0.0, previousDayBalance, netLiquidityValue,
-					currency, rateToBase);
-		} else {
-			newBic = new BalanceInfo.BalanceInCurrency(balance == null ? currentBic.balance : balance,
-					currentBic.realizedPnl, currentBic.unrealizedPnl,
-					previousDayBalance == null ? currentBic.previousDayBalance : previousDayBalance,
-					netLiquidityValue == null ? currentBic.netLiquidityValue : netLiquidityValue, currentBic.currency,
-					rateToBase == null ? currentBic.rateToBase : rateToBase);
-		}
+		newBic = new BalanceInfo.BalanceInCurrency(
+				wallet.getAmount() == null ? currentBic.balance : (double) wallet.getAmount() / tempMultiplier,
+				currentBic.realizedPnl, currentBic.unrealizedPnl,
+				wallet.getPrevAmount() == null ? currentBic.previousDayBalance : (double) wallet.getPrevAmount() / tempMultiplier,
+				netLiquidityValue == null ? currentBic.netLiquidityValue : netLiquidityValue, currentBic.currency,
+				rateToBase == null ? currentBic.rateToBase : rateToBase);
+
 		balanceMap.remove(currency);
 		balanceMap.put(currency, newBic);
 		BalanceInfo info = new BalanceInfo(new ArrayList<BalanceInfo.BalanceInCurrency>(balanceMap.values()));
