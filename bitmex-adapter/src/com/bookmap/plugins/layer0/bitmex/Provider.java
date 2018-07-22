@@ -873,27 +873,31 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	public void listenForWallet(UnitWallet wallet) {
 		BalanceInfo.BalanceInCurrency currentBic = balanceMap.get(wallet.getCurrency());
-		BalanceInfo.BalanceInCurrency newBic;
+		String currency = wallet.getCurrency();
 		if (currentBic == null) {// no current balance balance
-			newBic = new BalanceInfo.BalanceInCurrency(0.0, 0.0, 0.0, 0.0, 0.0,
-					null, null);
+			currentBic = new BalanceInfo.BalanceInCurrency(0.0, 0.0, 0.0, 0.0, 0.0,
+					currency, null);
 		}
 
 		long tempMultiplier = 100000000;// temp
 		// PNLs and NetLiquidityValue are taken from UnitMargin topic
-		Double netLiquidityValue = 0.0;// to be calculated
-		String currency = wallet.getCurrency();
+		// Double netLiquidityValue = 0.0;// to be calculated
+		
 		Double rateToBase = null;
 
-		newBic = new BalanceInfo.BalanceInCurrency(
+		currentBic = new BalanceInfo.BalanceInCurrency(
 				wallet.getAmount() == null ? currentBic.balance : (double) wallet.getAmount() / tempMultiplier,
-				currentBic.realizedPnl, currentBic.unrealizedPnl,
-				wallet.getPrevAmount() == null ? currentBic.previousDayBalance : (double) wallet.getPrevAmount() / tempMultiplier,
-				netLiquidityValue == null ? currentBic.netLiquidityValue : netLiquidityValue, currentBic.currency,
+				currentBic.realizedPnl,
+				currentBic.unrealizedPnl,
+				wallet.getPrevAmount() == null ? currentBic.previousDayBalance
+						: (double) wallet.getPrevAmount() / tempMultiplier,
+				// netLiquidityValue == null ? currentBic.netLiquidityValue :
+				// netLiquidityValue,
+				currentBic.netLiquidityValue,
+				currency,
 				rateToBase == null ? currentBic.rateToBase : rateToBase);
 
-		balanceMap.remove(currency);
-		balanceMap.put(currency, newBic);
+		balanceMap.put(currency, currentBic);
 		BalanceInfo info = new BalanceInfo(new ArrayList<BalanceInfo.BalanceInCurrency>(balanceMap.values()));
 		tradingListeners.forEach(l -> l.onBalance(info));
 	}
@@ -913,7 +917,8 @@ public class Provider extends ExternalLiveBaseProvider {
 							: (double) margin.getUnrealisedPnl() / tempMultiplier,
 					currentBic.previousDayBalance, margin.getAvailableMargin() == null ? currentBic.netLiquidityValue
 							: (double) margin.getAvailableMargin() / tempMultiplier,
-					currency, currentBic.rateToBase);
+					currency, 
+					currentBic.rateToBase);
 		}
 
 		balanceMap.remove(currency);
