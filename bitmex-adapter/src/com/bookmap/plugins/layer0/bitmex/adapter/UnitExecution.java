@@ -8,14 +8,6 @@ public class UnitExecution extends UnitOrder{
 	//this field is set as the result processing timestamp acquired from Bitmex
 	private long execTransactTime;
 	
-	private long foreignNotional;
-	
-	public long getForeignNotional() {
-		return foreignNotional;
-	}
-	public void setForeignNotional(long foreignNotional) {
-		this.foreignNotional = foreignNotional;
-	}
 	public double getLastPx() {
 		return lastPx;
 	}
