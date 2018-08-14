@@ -1,5 +1,6 @@
 package com.bookmap.plugins.layer0.bitmex.adapter;
 
+import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -41,7 +42,7 @@ public class JsonParser {
 	public void setProvider(Provider provider) {
 		this.provider = provider;
 	}
-	
+
 	public void setNonInstrumentPartialsParsed(Set<String> nonInstrumentPartialsParsed) {
 		this.nonInstrumentPartialsParsed = nonInstrumentPartialsParsed;
 	}
@@ -51,65 +52,71 @@ public class JsonParser {
 	}
 
 	public void parse(String str) {
-		// first let's find out what kind of object we have here
-		ResponseByWebSocket responseWs = (ResponseByWebSocket) gson.fromJson(str, ResponseByWebSocket.class);
-		if (responseWs.getTable() == null) {
-			if (responseWs.getInfo() != null) {
-				return;
-			}
-
-			if (responseWs.getStatus() != null && responseWs.getStatus() != 200) {
-				Log.info("[bitmex] JsonParser parser: websocket response status = "  + responseWs.getError());
-				provider.reportWrongCredentials(responseWs.getError());
-				return;
-			}
-
-			if (responseWs.getSuccess() == true && responseWs.getRequest().getOp().equals("authKey")) {
-				provider.getConnector().getWebSocketAuthLatch().countDown();
-			}
-			
-			if (responseWs.getSuccess() == true && responseWs.getRequest().getOp().equals("unsubscribe")) {
-				String symbol = responseWs.getUnsubscribeSymbol();
-				if (symbol != null){
-					Log.info("[bitmex] JsonParser parser: getting unsbscribed from orderBookL2, symbol = " + symbol);
-					BmInstrument instr = activeInstrumentsMap.get(symbol);
-					instr.clearOrderBook();
+		try {
+			// first let's find out what kind of object we have here
+			ResponseByWebSocket responseWs = (ResponseByWebSocket) gson.fromJson(str, ResponseByWebSocket.class);
+			if (responseWs.getTable() == null) {
+				if (responseWs.getInfo() != null) {
+					return;
 				}
-			}
 
-			if (responseWs.getSuccess() == null && responseWs.getError() == null && responseWs.getTable() == null
-					&& responseWs.getInfo() == null) {
-				Log.info("[bitmex] JsonParser parser: parser fails to parse " + str);
-				throw new RuntimeException();
-			}
+				if (responseWs.getStatus() != null && responseWs.getStatus() != 200) {
+					Log.info("[bitmex] JsonParser parser: websocket response status = " + responseWs.getError());
+					provider.reportWrongCredentials(responseWs.getError());
+					return;
+				}
 
-			if (responseWs.getSuccess() != null || responseWs.getInfo() != null) {
-				Log.info("[bitmex] JsonParser parser: service message " + str);
+				if (responseWs.getSuccess() == true && responseWs.getRequest().getOp().equals("authKey")) {
+					provider.getConnector().getWebSocketAuthLatch().countDown();
+				}
+
+				if (responseWs.getSuccess() == true && responseWs.getRequest().getOp().equals("unsubscribe")) {
+					String symbol = responseWs.getUnsubscribeSymbol();
+					if (symbol != null) {
+						Log.info(
+								"[bitmex] JsonParser parser: getting unsbscribed from orderBookL2, symbol = " + symbol);
+						BmInstrument instr = activeInstrumentsMap.get(symbol);
+						instr.clearOrderBook();
+					}
+				}
+
+				if (responseWs.getSuccess() == null && responseWs.getError() == null && responseWs.getTable() == null
+						&& responseWs.getInfo() == null) {
+					Log.info("[bitmex] JsonParser parser: parser fails to parse " + str);
+					throw new RuntimeException();
+				}
+
+				if (responseWs.getSuccess() != null || responseWs.getInfo() != null) {
+					Log.info("[bitmex] JsonParser parser: service message " + str);
+					return;
+				}
+
+				if (responseWs.getError() != null) {
+					Log.info("[bitmex] JsonParser parser: errro message " + str);
+					BmErrorMessage error = new Gson().fromJson(str, BmErrorMessage.class);
+					Log.info(error.getMessage());
+					return;
+				}
 				return;
 			}
 
-			if (responseWs.getError() != null) {
-				Log.info("[bitmex] JsonParser parser: errro message " + str);
-				BmErrorMessage error = new Gson().fromJson(str, BmErrorMessage.class);
-				Log.info(error.getMessage());
-				return;
+			// Options 'No object', 'success' and 'error' are already excluded
+			// so only 'message' object (that contains 'data', an array of
+			// objects)
+			// stays
+			Message msg = (Message) gson.fromJson(str, Message.class);
+
+			// skip a messages if it contains empty data
+			if (msg.getData() == null) {
+				Log.info("[bitmex] JsonParser parser: data == null =>" + str);
 			}
-			return;
-		}
 
-		// Options 'No object', 'success' and 'error' are already excluded
-		// so only 'message' object (that contains 'data', an array of objects)
-		// stays
-		Message msg = (Message) gson.fromJson(str, Message.class);
-
-		// skip a messages if it contains empty data
-		if (msg.getData() == null) {
-			Log.info("[bitmex] JsonParser parser: data == null =>" + str);
-		}
-
-		if (ConnectorUtils.stringToTopic.keySet().contains(msg.getTable())) {
-			Topic Topic = ConnectorUtils.stringToTopic.get(msg.getTable());
-			preprocessMessage(str, Topic);
+			if (ConnectorUtils.stringToTopic.keySet().contains(msg.getTable())) {
+				Topic Topic = ConnectorUtils.stringToTopic.get(msg.getTable());
+				preprocessMessage(str, Topic);
+			}
+		} catch (Exception e) {
+			throw new RuntimeException("[bitmex] Exception thrown to parser. String is: " +  str, e);
 		}
 	}
 
@@ -248,7 +255,8 @@ public class JsonParser {
 			Log.info("[bitmex] JsonParser preprocessMessage: partial acquired for  " + container.name);
 
 			if (topic.equals(Topic.ORDERBOOKL2)) {
-				BmInstrument instr = activeInstrumentsMap.get(((MessageGeneric<UnitData>)msg0).getData().get(0).getSymbol());
+				BmInstrument instr = activeInstrumentsMap
+						.get(((MessageGeneric<UnitData>) msg0).getData().get(0).getSymbol());
 				instr.setOrderBookSnapshotParsed(true);
 				Log.info("[bitmex] setOrderBookSnapshotParsed set true for " + instr.getSymbol());
 				performOrderBookL2SpecificOpSetOne((MessageGeneric<UnitData>) msg0);
@@ -265,7 +273,7 @@ public class JsonParser {
 				Log.info("[bitmex] JsonParser preprocessMessage: skips data == [] => " + str);
 				return;
 			}
-			
+
 			ArrayList<T> units = (ArrayList<T>) msg0.getData();
 
 			if (topic.equals(Topic.ORDERBOOKL2) && !units.isEmpty()) {

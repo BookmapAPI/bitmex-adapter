@@ -54,7 +54,7 @@ public class BmConnector implements Runnable {
 	private Provider provider;
 	private TradeConnector tradeConnector;
 	
-	ScheduledExecutorService executionsResetTimer;
+	private ScheduledExecutorService executionsResetTimer;
 	private int executionDay = 0;
 	private boolean isExecutionReset;
 
@@ -279,7 +279,7 @@ public class BmConnector implements Runnable {
 		TimerTask task = new TimerTask() {
 			@Override
 			public void run() {
-				if (!instr.isOrderBookSnapshotParsed() == true) {
+				if (!instr.isOrderBookSnapshotParsed()) {
 					Log.info("[bitmex] BmConnector launchSnapshotTimer(): resubscribe " + now);
 					unSubscribe(instr);
 					subscribe(instr);
@@ -287,6 +287,7 @@ public class BmConnector implements Runnable {
 				Log.info("[bitmex] BmConnector launchSnapshotTimer(): end " + now);
 			}
 		};
+		
 		Timer timer = new Timer();
 		instr.setSnapshotTimer(timer);
 		Log.info("[bitmex] BmConnector launchSnapshotTimer(): " + now);
@@ -340,13 +341,15 @@ public class BmConnector implements Runnable {
 	}
 
 	public void unSubscribe(BmInstrument instr) {
+		sendWebsocketMessage(instr.getUnSubscribeReq());
+		
 		Timer timer = instr.getSnapshotTimer();
 		if(timer != null){
 			timer.cancel();
 			Log.info("[bitmex] BmConnector unSubscribe: timer gets cancelled");
 		}
 		instr.setSubscribed(false);
-		sendWebsocketMessage(instr.getUnSubscribeReq());
+		
 	}
 
 	private int countExecutionsVolume(String symbol) {

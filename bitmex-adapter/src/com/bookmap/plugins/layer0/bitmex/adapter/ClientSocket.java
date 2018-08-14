@@ -66,7 +66,7 @@ public class ClientSocket {
 		long maxDelay = 5000;
 		ScheduledExecutorService snapshotTimer = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory());
 		this.snapshotTimer = snapshotTimer;
-		
+
 		snapshotTimer.scheduleWithFixedDelay(new Runnable() {
 			@Override
 			public void run() {
@@ -76,22 +76,25 @@ public class ClientSocket {
 					Log.info("[bitmex] ClientSocket launchPingTimer: last message UTC=" + getLastMessageTime());
 					// and if this happened before
 					if (isConnectionPossiblyLost()) {
-						Log.info("[bitmex] ClientSocket launchPingTimer: connection lost UTC=" + System.currentTimeMillis() );
+						Log.info("[bitmex] ClientSocket launchPingTimer: connection lost UTC="
+								+ System.currentTimeMillis());
 						close();
 						snapshotTimer.shutdown();
 					} else {// but this did not happen before
 						sendPing();
 						setConnectionPossiblyLost(true);
-						Log.info("[bitmex] ClientSocket launchPingTimer: connection possibly lost UTC=" + System.currentTimeMillis() );
+						Log.info("[bitmex] ClientSocket launchPingTimer: connection possibly lost UTC="
+								+ System.currentTimeMillis());
 					}
 				} else {
 					// the last message was <5 seconds ago, everything is OK
-//					Log.info("[bitmex] ClientSocket launchPingTimer: connection alive UTC=" + System.currentTimeMillis() );
+					// Log.info("[bitmex] ClientSocket launchPingTimer:
+					// connection alive UTC=" + System.currentTimeMillis() );
 					setConnectionPossiblyLost(false);
 				}
 			}
 			// sleep maxDelay=5 seconds
-		}, 0, maxDelay,  TimeUnit.MILLISECONDS);
+		}, 0, maxDelay, TimeUnit.MILLISECONDS);
 	}
 
 	public boolean isConnectionPossiblyLost() {
@@ -105,7 +108,11 @@ public class ClientSocket {
 	public void sendMessage(String str) {
 		Log.info("[bitmex] ClientSocket sendMessage: " + str);
 		try {
-			session.getRemote().sendString(str);
+			if (session != null) {
+				session.getRemote().sendString(str);
+			} else {
+				Log.info("[bitmex] ClientSocket sendMessage: session is null");
+			}
 		} catch (WebSocketException | IOException e) {
 			e.printStackTrace();
 		}
@@ -132,7 +139,7 @@ public class ClientSocket {
 
 	public void close() {
 		snapshotTimer.shutdownNow();
-		
+
 		if (session != null) {
 			try {
 				session.disconnect();
@@ -154,7 +161,7 @@ public class ClientSocket {
 			String data = "ping";
 			ByteBuffer payload = ByteBuffer.wrap(data.getBytes());
 			remote.sendPing(payload);
-//			Log.info("[bitmex] ClientSocket sendPing: PING");
+			// Log.info("[bitmex] ClientSocket sendPing: PING");
 		} catch (WebSocketException e) {
 			// e.printStackTrace(System.err);
 			// Log.debug("RemoteEndpoint unavailable");
@@ -169,7 +176,7 @@ public class ClientSocket {
 	public void onFrame(Frame frame) {
 		if (frame.getType() == Type.PONG) {
 			lastMessageTime = System.currentTimeMillis();
-//			Log.info("[bitmex] ClientSocket onFrame: PONG");
+			// Log.info("[bitmex] ClientSocket onFrame: PONG");
 		}
 	}
 
