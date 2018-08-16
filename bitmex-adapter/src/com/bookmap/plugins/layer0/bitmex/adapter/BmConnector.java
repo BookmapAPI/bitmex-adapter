@@ -11,6 +11,7 @@ import java.net.UnknownHostException;
 import java.nio.channels.UnresolvedAddressException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -37,6 +39,7 @@ import com.bookmap.plugins.layer0.bitmex.Provider;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.WebSocketOperation;
 
 import velox.api.layer1.common.Log;
+import velox.api.layer1.data.SubscribeInfo;
 
 public class BmConnector implements Runnable {
 
@@ -53,7 +56,7 @@ public class BmConnector implements Runnable {
 	private boolean isReconnecting = false;
 	private Provider provider;
 	private TradeConnector tradeConnector;
-	
+
 	private ScheduledExecutorService executionsResetTimer;
 	private int executionDay = 0;
 	private boolean isExecutionReset;
@@ -164,7 +167,7 @@ public class BmConnector implements Runnable {
 						(Object[]) ConnectorUtils.getAuthenticatedTopicsList());
 				String res = JsonParser.gson.toJson(wsData);
 				socket.sendMessage(res);
-				
+
 				reportHistoricalExecutions("Filled");
 				reportHistoricalExecutions("Canceled");
 			}
@@ -278,7 +281,7 @@ public class BmConnector implements Runnable {
 
 	private void launchSnapshotTimer(BmInstrument instr) {
 		ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
-		
+
 		TimerTask task = new TimerTask() {
 			@Override
 			public void run() {
@@ -296,7 +299,7 @@ public class BmConnector implements Runnable {
 		Log.info("[bitmex] BmConnector launchSnapshotTimer(): " + now);
 		timer.schedule(task, 10000);
 	}
-	
+
 	private void launchExecutionsResetTimer() {
 		class CustomThreadFactory implements ThreadFactory {
 			public Thread newThread(Runnable r) {
@@ -304,7 +307,8 @@ public class BmConnector implements Runnable {
 			}
 		}
 
-		ScheduledExecutorService executionsResetTimer = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory());
+		ScheduledExecutorService executionsResetTimer = Executors
+				.newSingleThreadScheduledExecutor(new CustomThreadFactory());
 		this.executionsResetTimer = executionsResetTimer;
 		Log.info("[bitmex] BmConnector launchExecutionsResetTimer(): ");
 		executionsResetTimer.scheduleWithFixedDelay(new Runnable() {
@@ -314,16 +318,15 @@ public class BmConnector implements Runnable {
 
 				if (executionDay < dayNow && !isExecutionReset) {
 					executionDay = dayNow;
-					
+
 					Set<BmInstrument> instruments = new HashSet<>();
 					synchronized (activeBmInstrumentsMap) {
-						instruments.addAll(activeBmInstrumentsMap.values()); 
+						instruments.addAll(activeBmInstrumentsMap.values());
 					}
-					for (BmInstrument instrument : instruments){
+					for (BmInstrument instrument : instruments) {
 						instrument.setExecutionsVolume(0);
 					}
-							
-					
+
 					isExecutionReset = true;
 				} else if (executionDay == dayNow) {
 					isExecutionReset = false;
@@ -347,7 +350,7 @@ public class BmConnector implements Runnable {
 		sendWebsocketMessage(instr.getUnSubscribeReq());
 		
 		Timer timer = instr.getSnapshotTimer();
-		if(timer != null){
+		if (timer != null) {
 			timer.cancel();
 			Log.info("[bitmex] BmConnector unSubscribe: timer gets cancelled");
 		}
@@ -359,15 +362,15 @@ public class BmConnector implements Runnable {
 		String dataADayBefore = ConnectorUtils.getDateTwentyFourHoursAgoAsUrlEncodedString();
 		StringBuilder sb = new StringBuilder();
 		sb.append("/api/v1/execution?symbol=").append(symbol)
-		.append("&filter=%7B%22ordStatus%22%3A%22Filled%22%7D&count=100&reverse=false&startTime=")
-		.append(dataADayBefore);
+				.append("&filter=%7B%22ordStatus%22%3A%22Filled%22%7D&count=100&reverse=false&startTime=")
+				.append(dataADayBefore);
 
 		String addr = sb.toString();
 
 		String st0 = tradeConnector.makeRestGetQuery(addr);
 		UnitOrder[] orders = JsonParser.getArrayFromJson(st0, UnitOrder[].class);
 		int sum = 0;
-		
+
 		if (orders != null && orders.length > 0) {
 			for (UnitOrder order : orders) {
 				sum += order.getOrderQty();
@@ -377,30 +380,31 @@ public class BmConnector implements Runnable {
 		Log.info("[bitmex] BmConnector countExecution volume: " + st0);
 		return sum;
 	}
-	
+
 	private void reportHistoricalExecutions(String ordStatus) {
-//		private void reportHistoricalExecutions(String symbol, String ordStatus) {
+		// private void reportHistoricalExecutions(String symbol, String
+		// ordStatus) {
 		ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
 		ZonedDateTime startTime = now.minusDays(0)
 				.minusHours(now.getHour())
 				.minusMinutes(now.getMinute())
 				.minusSeconds(now.getSecond())
 				.minusNanos(now.getNano());
-		
+
 		List<UnitExecution> historicalExecutions = new LinkedList<>();
 		for (int i = 0;; i += 500) {
 			StringBuilder sb = new StringBuilder();
 			sb.append("/api/v1/execution?").append("filter=%7B%22ordStatus%22%3A%20%22")
-			.append(ordStatus).append("%22%7D&count=500&reverse=true&startTime=")
-			.append(startTime).append("&endTime=").append(now)
-			.append("&start=").append(i);
-			
+					.append(ordStatus).append("%22%7D&count=500&reverse=true&startTime=")
+					.append(startTime).append("&endTime=").append(now)
+					.append("&start=").append(i);
+
 			String addr = sb.toString();
 			String response = tradeConnector.makeRestGetQuery(addr);
-			
+
 			UnitExecution[] executions = JsonParser.getArrayFromJson(response,
 					UnitExecution[].class);
-			
+
 			if (executions == null || executions.length == 0) {
 				break;
 			} else {
@@ -412,9 +416,10 @@ public class BmConnector implements Runnable {
 			}
 		}
 		Log.info("[bitmex] BmConnector report " + ordStatus + ": listSize =  " + historicalExecutions.size());
-		
+
 		if (historicalExecutions != null && historicalExecutions.size() > 0) {
-			provider.updateExecutionsHistory(historicalExecutions.toArray(new UnitExecution[historicalExecutions.size()]));
+			provider.updateExecutionsHistory(
+					historicalExecutions.toArray(new UnitExecution[historicalExecutions.size()]));
 		}
 	}
 
@@ -434,9 +439,17 @@ public class BmConnector implements Runnable {
 
 			if (activeBmInstrumentsMap.isEmpty()) {
 				fillActiveBmInstrumentsMap();
+
+				CopyOnWriteArrayList<SubscribeInfo> knownInstruments = new CopyOnWriteArrayList<>();
+				for (BmInstrument instrument : activeBmInstrumentsMap.values()) {
+						knownInstruments.add(new SubscribeInfo(instrument.getSymbol(), null, null));
+				}
+				provider.setKnownInstruments(knownInstruments);
+
 				launchExecutionsResetTimer();
-				if (activeBmInstrumentsMap.isEmpty())
+				if (activeBmInstrumentsMap.isEmpty()) {
 					continue;
+				}
 			}
 			if (!interruptionNeeded) {
 				wsConnect();

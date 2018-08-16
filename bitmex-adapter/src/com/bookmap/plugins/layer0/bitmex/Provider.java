@@ -8,6 +8,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.bookmap.plugins.layer0.bitmex.adapter.BmConnector;
 import com.bookmap.plugins.layer0.bitmex.adapter.BmInstrument;
@@ -30,8 +31,11 @@ import velox.api.layer0.annotations.Layer0LiveModule;
 import velox.api.layer0.live.ExternalLiveBaseProvider;
 import velox.api.layer1.Layer1ApiAdminListener;
 import velox.api.layer1.Layer1ApiDataListener;
+import velox.api.layer1.annotations.Layer1ApiVersion;
+import velox.api.layer1.annotations.Layer1ApiVersionValue;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.data.BalanceInfo;
+import velox.api.layer1.data.BmSimpleHistoricalDataInfo;
 import velox.api.layer1.data.DisconnectionReason;
 import velox.api.layer1.data.ExecutionInfo;
 import velox.api.layer1.data.InstrumentInfo;
@@ -51,12 +55,14 @@ import velox.api.layer1.data.OrderType;
 import velox.api.layer1.data.OrderUpdateParameters;
 import velox.api.layer1.data.SimpleOrderSendParameters;
 import velox.api.layer1.data.StatusInfo;
+import velox.api.layer1.data.SubscribeInfo;
 import velox.api.layer1.data.SystemTextMessageType;
 import velox.api.layer1.data.TradeInfo;
 import velox.api.layer1.data.UserPasswordDemoLoginData;
 import velox.api.layer1.layers.utils.OrderBook;
 
-@Layer0LiveModule
+@Layer1ApiVersion(Layer1ApiVersionValue.VERSION1)
+@Layer0LiveModule(shortName = "MEX", fullName = "BitMEX")
 public class Provider extends ExternalLiveBaseProvider {
 
 	private BmConnector connector;
@@ -81,6 +87,8 @@ public class Provider extends ExternalLiveBaseProvider {
 	private Map<String, Double> trailingStops = new HashMap<>();
 	private List<String> batchCancels = new LinkedList<>();
 	private Map<String, BalanceInfo.BalanceInCurrency> balanceMap = new HashMap<>();
+
+	private CopyOnWriteArrayList<SubscribeInfo> knownInstruments = new CopyOnWriteArrayList<>();
 
 	protected class Instrument {
 		protected final String alias;
@@ -110,6 +118,14 @@ public class Provider extends ExternalLiveBaseProvider {
 		return connector;
 	}
 
+	public List<SubscribeInfo> getKnownInstruments() {
+		return knownInstruments;
+	}
+
+	public void setKnownInstruments(CopyOnWriteArrayList<SubscribeInfo> knownInstruments) {
+		this.knownInstruments = knownInstruments;
+	}
+
 	/**
 	 * <p>
 	 * Generates alias from symbol, exchange and type of the instrument. Alias
@@ -135,7 +151,11 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	@Override
-	public void subscribe(String symbol, String exchange, String type) {
+	public void subscribe(SubscribeInfo subscribeInfo) {
+		final String symbol = subscribeInfo.symbol;
+		final String exchange = subscribeInfo.exchange;
+		final String type = subscribeInfo.type;
+
 		Log.info("[bitmex] Provider subscribe");
 		String alias = createAlias(symbol, exchange, type);
 		// Since instruments also will be accessed from the data generation
@@ -270,7 +290,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		int offsetMultiplier = simpleParams.isBuy ? 1 : -1;
 
 		double limitPriceChecked = checkLImitPriceForBracket(simpleParams, bmInstrument);
-		
+
 		SimpleOrderSendParameters stopLoss = new SimpleOrderSendParameters(
 				simpleParams.alias,
 				!simpleParams.isBuy, // !
@@ -299,13 +319,12 @@ public class Provider extends ExternalLiveBaseProvider {
 				simpleParams.sizeMultiplier);
 		return takeProfit;
 	}
-	
-	private double checkLImitPriceForBracket(SimpleOrderSendParameters simpleParams, BmInstrument bmInstrument){
+
+	private double checkLImitPriceForBracket(SimpleOrderSendParameters simpleParams, BmInstrument bmInstrument) {
 		double limitPriceChecked = simpleParams.limitPrice;
 		if (Double.isNaN(simpleParams.limitPrice)) {
 			OrderBook orderBook = bmInstrument.getOrderBook();
-			limitPriceChecked = simpleParams.isBuy ? 
-					orderBook.getBestAskPriceOrNone() * bmInstrument.getTickSize()
+			limitPriceChecked = simpleParams.isBuy ? orderBook.getBestAskPriceOrNone() * bmInstrument.getTickSize()
 					: orderBook.getBestBidPriceOrNone() * bmInstrument.getTickSize();
 		}
 		return limitPriceChecked;
@@ -906,23 +925,22 @@ public class Provider extends ExternalLiveBaseProvider {
 		long tempMultiplier = 100000000;// temp
 		String currency = margin.getCurrency();
 		BalanceInfo.BalanceInCurrency currentBic = balanceMap.get(margin.getCurrency());
-		BalanceInfo.BalanceInCurrency newBic;
 		if (currentBic == null) {// no current balance balance
-			newBic = new BalanceInfo.BalanceInCurrency(0.0, 0.0, 0.0, 0.0, 0.0, margin.getCurrency(), null);
-		} else {
-			newBic = new BalanceInfo.BalanceInCurrency(currentBic.balance,
-					margin.getRealisedPnl() == null ? currentBic.realizedPnl
-							: (double) margin.getRealisedPnl() / tempMultiplier,
-					margin.getUnrealisedPnl() == null ? currentBic.unrealizedPnl
-							: (double) margin.getUnrealisedPnl() / tempMultiplier,
-					currentBic.previousDayBalance, margin.getAvailableMargin() == null ? currentBic.netLiquidityValue
-							: (double) margin.getAvailableMargin() / tempMultiplier,
-					currency, 
-					currentBic.rateToBase);
+			currentBic = new BalanceInfo.BalanceInCurrency(0.0, 0.0, 0.0, 0.0, 0.0, currency, null);
 		}
+		currentBic = new BalanceInfo.BalanceInCurrency(
+				currentBic.balance,
+				margin.getRealisedPnl() == null ? currentBic.realizedPnl
+						: (double) margin.getRealisedPnl() / tempMultiplier,
+				margin.getUnrealisedPnl() == null ? currentBic.unrealizedPnl
+						: (double) margin.getUnrealisedPnl() / tempMultiplier,
+				currentBic.previousDayBalance,
+				margin.getAvailableMargin() == null ? currentBic.netLiquidityValue
+						: (double) margin.getAvailableMargin() / tempMultiplier,
+				currency,
+				currentBic.rateToBase);
 
-		balanceMap.remove(currency);
-		balanceMap.put(currency, newBic);
+		balanceMap.put(currency, currentBic);
 		BalanceInfo info = new BalanceInfo(new ArrayList<BalanceInfo.BalanceInCurrency>(balanceMap.values()));
 		tradingListeners.forEach(l -> l.onBalance(info));
 	}
@@ -1073,24 +1091,27 @@ public class Provider extends ExternalLiveBaseProvider {
 	@Override
 	public Layer1ApiProviderSupportedFeatures getSupportedFeatures() {
 		// Expanding parent supported features, reporting basic trading support
-		Layer1ApiProviderSupportedFeaturesBuilder a;
+		Layer1ApiProviderSupportedFeaturesBuilder a = super.getSupportedFeatures().toBuilder();
 
-		if (isCredentialsEmpty) {
-			return super.getSupportedFeatures().toBuilder().build();
+		if (!isCredentialsEmpty) {
+			a.setTrading(true);
 		}
 
-		a = super.getSupportedFeatures().toBuilder().setTrading(true)
-				.setOco(true)
+		a.setOco(true)
 				.setBrackets(true)
 				.setSupportedOrderDurations(Arrays.asList(new OrderDuration[] { OrderDuration.GTC }))
 				// At the moment of writing this method it was not possible to
 				// report limit orders support, but no stop orders support
 				// If you actually need it, you can report stop orders support
 				// but reject stop orders when those are sent.
-				.setSupportedStopOrders(Arrays.asList(new OrderType[] { OrderType.LMT, OrderType.MKT }));
-
-		a.setBalanceSupported(true);
-		a.setTrailingStopsAsIndependentOrders(true);
+				.setSupportedStopOrders(Arrays.asList(new OrderType[] { OrderType.LMT, OrderType.MKT }))
+				.setBalanceSupported(true)
+				.setTrailingStopsAsIndependentOrders(true)
+				.setExchangeUsedForSubscription(false)
+				.setTypeUsedForSubscription(false)
+				.setHistoricalDataInfo(new BmSimpleHistoricalDataInfo(
+						"http://bitmex.historicaldata.bookmap.com:38080/historical-data-server-1.0/"))
+				.setKnownInstruments(knownInstruments);
 
 		// Log.info("PROVIDER getSupportedFeatures INVOKED");
 		return a.build();

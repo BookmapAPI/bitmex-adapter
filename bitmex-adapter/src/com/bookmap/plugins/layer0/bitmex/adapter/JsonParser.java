@@ -18,6 +18,7 @@ import com.google.gson.reflect.TypeToken;
 
 import velox.api.layer1.common.Log;
 import velox.api.layer1.layers.utils.OrderBook;
+import velox.api.layer1.providers.helper.RawDataHelper;
 
 public class JsonParser {
 	private Provider provider;
@@ -52,7 +53,13 @@ public class JsonParser {
 	}
 
 	public void parse(String str) {
+
 		try {
+			// Recording raw data for debugging purpose
+			if (RawDataHelper.isRawDataRecordingEnabled()) {
+				RawDataHelper.sendRawData(str, provider.adminListeners);
+			}
+
 			// first let's find out what kind of object we have here
 			ResponseByWebSocket responseWs = (ResponseByWebSocket) gson.fromJson(str, ResponseByWebSocket.class);
 			if (responseWs.getTable() == null) {
@@ -116,7 +123,7 @@ public class JsonParser {
 				preprocessMessage(str, Topic);
 			}
 		} catch (Exception e) {
-			throw new RuntimeException("[bitmex] Exception thrown to parser. String is: " +  str, e);
+			throw new RuntimeException("[bitmex] Exception thrown to parser. String is: " + str, e);
 		}
 	}
 
@@ -258,7 +265,8 @@ public class JsonParser {
 				BmInstrument instr = activeInstrumentsMap
 						.get(((MessageGeneric<UnitData>) msg0).getData().get(0).getSymbol());
 				instr.setOrderBookSnapshotParsed(true);
-				Log.info("[bitmex] setOrderBookSnapshotParsed set true for " + instr.getSymbol());
+				Log.info("[bitmex] JsonParser preprocessMessage setOrderBookSnapshotParsed set true for "
+						+ instr.getSymbol());
 				performOrderBookL2SpecificOpSetOne((MessageGeneric<UnitData>) msg0);
 			}
 		}
