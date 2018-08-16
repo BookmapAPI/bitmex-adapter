@@ -53,6 +53,9 @@ public class TradeConnector {
 	public String makeRestGetQuery(String address) {
 		String addr = address;
 		long moment = ConnectorUtils.getMomentAndTimeToLive();
+
+		Log.info("[bitmex] TradeConnector makeRestGetQuery(xx) moment = " + moment);
+
 		String messageBody = ConnectorUtils.createMessageBody("GET", addr, "",
 				moment);
 		String signature = ConnectorUtils.generateSignature(orderApiSecret, messageBody);
@@ -236,6 +239,9 @@ public class TradeConnector {
 		String subPath = ConnectorUtils.subPaths.get(genType);
 		String path = provider.getConnector().getRestApi() + subPath;
 		long moment = ConnectorUtils.getMomentAndTimeToLive();
+		
+		Log.info("[bitmex] TradeConnector makeRestGetQuery(xx) moment = " + moment);
+
 		Log.info("[bitmex] TradeConnector require:  sending data => " + data);
 
 		try {

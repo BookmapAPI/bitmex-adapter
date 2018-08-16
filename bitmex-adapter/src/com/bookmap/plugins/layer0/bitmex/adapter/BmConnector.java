@@ -119,6 +119,9 @@ public class BmConnector implements Runnable {
 		String orderApiKey = tradeConnector.getOrderApiKey();
 		String orderApiSecret = tradeConnector.getOrderApiSecret();
 		long moment = ConnectorUtils.getMomentAndTimeToLive();
+		
+		Log.info("[bitmex] BmConnector wssAuthTwo() moment = " + moment);
+		
 		String res = null;
 		String messageBody = ConnectorUtils.createMessageBody(method, subPath, null, moment);
 		String signature = ConnectorUtils.generateSignature(orderApiSecret, messageBody);

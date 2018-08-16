@@ -37,7 +37,7 @@ public class ConnectorUtils {
 			+ " so the data you see\ndoes not match the actual data in the live environment."
 			+ "\nPlease uncheck \"This is a demo account\" to connect to the live data";
 
-	public static final long REQUEST_TIME_TO_LIVE = TimeUnit.MILLISECONDS.convert(1, TimeUnit.DAYS);// 24h
+	public static final long REQUEST_TIME_TO_LIVE = TimeUnit.SECONDS.convert(1, TimeUnit.HOURS);// 1 hour
 
 	public static enum WebSocketOperation {
 		AUTHKEY, SUBSCRIBE, UNSUBSCRIBE;
@@ -139,7 +139,7 @@ public class ConnectorUtils {
 	}
 
 	public static long getMomentAndTimeToLive() {
-		return System.currentTimeMillis() + ConnectorUtils.REQUEST_TIME_TO_LIVE;
+		return Instant.now().getEpochSecond() + REQUEST_TIME_TO_LIVE;
 	}
 
 	public static String hash256(String data) throws NoSuchAlgorithmException {
