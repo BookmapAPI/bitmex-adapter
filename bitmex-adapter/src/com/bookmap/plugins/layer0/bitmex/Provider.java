@@ -795,6 +795,10 @@ public class Provider extends ExternalLiveBaseProvider {
 			builder.setUnfilled((int) exec.getLeavesQty());
 			builder.setLimitPrice(exec.getPrice());
 			builder.setStopPrice(exec.getStopPx());
+			
+			if(builder.getStatus().equals(OrderStatus.PENDING_MODIFY)){
+				builder.setStatus(OrderStatus.WORKING);
+			}
 
 		} else if (exec.getExecType().equals("Trade")) {
 			Log.info("[bitmex] Provider listenForExecution: trade");
