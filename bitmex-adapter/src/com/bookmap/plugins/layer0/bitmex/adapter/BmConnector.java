@@ -455,7 +455,7 @@ public class BmConnector implements Runnable {
 				wsConnect();
 			}
 			if (!interruptionNeeded) {
-				provider.reportLostCoonection();
+				provider.reportLostConnection();
 			}
 
 		}

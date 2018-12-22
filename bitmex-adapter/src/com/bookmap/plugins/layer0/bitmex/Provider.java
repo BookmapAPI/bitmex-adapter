@@ -956,7 +956,7 @@ public class Provider extends ExternalLiveBaseProvider {
 				SystemTextMessageType.ORDER_FAILURE));
 	}
 
-	public void reportLostCoonection() {
+	public void reportLostConnection() {
 		adminListeners.forEach(l -> l.onConnectionLost(DisconnectionReason.NO_INTERNET, "Connection lost"));
 	}
 
