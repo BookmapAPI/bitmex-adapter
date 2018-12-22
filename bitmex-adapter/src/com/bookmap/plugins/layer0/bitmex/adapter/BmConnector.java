@@ -60,6 +60,9 @@ public class BmConnector implements Runnable {
 	private ScheduledExecutorService executionsResetTimer;
 	private int executionDay = 0;
 	private boolean isExecutionReset;
+	
+	private Object socketLock = new Object();
+	private int timerCount = 0;
 
 	public Provider getProvider() {
 		return provider;
@@ -186,10 +189,10 @@ public class BmConnector implements Runnable {
 				isReconnecting = false;
 			}
 
-			Log.info("[bitmex] BmConnector wsConnect subscribed to an instrument ");
 			// WAITING FOR THE SOCKET TO CLOSE
-			socket.getClosingLatch().await();
-			socket = null;
+			
+			CountDownLatch closingLatch = socket.getClosingLatch();
+			closingLatch.await();
 			isReconnecting = true;
 
 		} catch (UpgradeException e) {
@@ -223,8 +226,9 @@ public class BmConnector implements Runnable {
 			throw new RuntimeException();
 		}
 		Log.info("[bitmex] BmConnector wsConnect Send websocket message");
-		if (socket != null) {// this solution still needs to be examined
-			synchronized (socket) {
+
+		synchronized (socketLock) {
+			if (socket != null) {
 				socket.sendMessage(message);
 			}
 		}
@@ -280,24 +284,39 @@ public class BmConnector implements Runnable {
 	}
 
 	private void launchSnapshotTimer(BmInstrument instr) {
-		ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
-
+		int localTimerCount = timerCount;
 		TimerTask task = new TimerTask() {
 			@Override
 			public void run() {
-				if (!instr.isOrderBookSnapshotParsed()) {
-					Log.info("[bitmex] BmConnector launchSnapshotTimer(): resubscribe " + now);
-					unSubscribe(instr);
-					subscribe(instr);
+				Thread.currentThread().setName("-> BmConnector: snapshotTimer " + localTimerCount + " for" + instr.getSymbol() );
+			
+				if (socket == null || isReconnecting){
+					Log.info("Waiting for the socket, timer " + localTimerCount + " shutdown");
+					return;
 				}
-				Log.info("[bitmex] BmConnector launchSnapshotTimer(): end " + now);
+				
+				if (!instr.isOrderBookSnapshotParsed()) {
+					Log.info("[bitmex] BmConnector launchSnapshotTimer " + localTimerCount + " for" + instr.getSymbol() + ": resubscribe " + ZonedDateTime.now(ZoneOffset.UTC));
+					unSubscribe(instr);
+					
+					try {
+						Thread.sleep(5000);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+					
+					subscribe(instr);
+				} else {
+					Log.info("[bitmex] BmConnector launchSnapshotTimer " + localTimerCount + " for" + instr.getSymbol() + ": end " + ZonedDateTime.now(ZoneOffset.UTC));
+				}
 			}
 		};
 		
 		Timer timer = new Timer();
 		instr.setSnapshotTimer(timer);
-		Log.info("[bitmex] BmConnector launchSnapshotTimer(): " + now);
+		Log.info("[bitmex] BmConnector launchSnapshotTimer " + localTimerCount + " for" + instr.getSymbol() + ": " + ZonedDateTime.now(ZoneOffset.UTC));
 		timer.schedule(task, 10000);
+		timerCount++;
 	}
 
 	private void launchExecutionsResetTimer() {
@@ -460,9 +479,16 @@ public class BmConnector implements Runnable {
 
 		}
 		executionsResetTimer.shutdownNow();
-		if (socket != null) {
-			socket.close();
-		}
+		closeSocket();
+
 		Log.info("[bitmex] BmConnector run: closing");
+	}
+	
+	public void closeSocket(){
+		synchronized (socketLock) {
+			if (socket != null) {
+				socket.close();
+			}
+		}
 	}
 }

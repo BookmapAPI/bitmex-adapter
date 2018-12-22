@@ -1132,9 +1132,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	public void close() {
 		// Stop events generation
 		Log.info("[bitmex] Provider close(): ");
-		if (connector.getSocket() != null) {
-			connector.getSocket().close();
-		}
+		connector.closeSocket();
 		connector.setInterruptionNeeded(true);
 		providerThread.interrupt();
 	}
