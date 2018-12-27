@@ -1,6 +1,5 @@
 package com.bookmap.plugins.layer0.bitmex.adapter;
 
-import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
