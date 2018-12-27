@@ -3,7 +3,9 @@ package com.bookmap.plugins.layer0.bitmex.adapter;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.WebSocketOperation;
 
 public class WsData {
+	@SuppressWarnings("unused")
 	private String op;
+	@SuppressWarnings("unused")
 	private Object[] args;
 
 	public WsData(WebSocketOperation op, Object... args) {
