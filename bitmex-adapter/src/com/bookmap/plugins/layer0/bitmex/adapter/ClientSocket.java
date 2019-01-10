@@ -136,7 +136,9 @@ public class ClientSocket {
 	}
 
 	public void close() {
-		pingTimer.shutdownNow();
+		if (pingTimer != null) {
+			pingTimer.shutdownNow();
+		}
 
 		if (session != null) {
 			try {
