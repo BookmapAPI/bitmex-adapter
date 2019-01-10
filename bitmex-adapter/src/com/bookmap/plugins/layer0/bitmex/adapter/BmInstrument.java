@@ -63,6 +63,7 @@ public class BmInstrument {
 	}
 
 	public void setOrderBookSnapshotParsed(boolean orderBookSnapshotParsed) {
+		this.snapshotTimer.cancel();
 		this.orderBookSnapshotParsed = orderBookSnapshotParsed;
 	}
 

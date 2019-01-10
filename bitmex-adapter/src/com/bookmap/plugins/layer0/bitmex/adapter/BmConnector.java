@@ -314,7 +314,7 @@ public class BmConnector implements Runnable {
 		Timer timer = new Timer();
 		instr.setSnapshotTimer(timer);
 		Log.info("[bitmex] BmConnector launchSnapshotTimer " + localTimerCount + " for" + instr.getSymbol() + ": " + ZonedDateTime.now(ZoneOffset.UTC));
-		timer.schedule(task, 10000);
+		timer.schedule(task, 15000);
 		timerCount++;
 	}
 
