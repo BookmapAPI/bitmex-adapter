@@ -280,7 +280,8 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	private boolean isBracketOrder(SimpleOrderSendParameters simpleParams) {
-		return simpleParams.takeProfitOffset != 0 && simpleParams.stopLossOffset != 0;
+//		return simpleParams.takeProfitOffset != 0 && simpleParams.stopLossOffset != 0;
+		return false;
 	}
 
 	private SimpleOrderSendParameters createStopLossFromParameters(SimpleOrderSendParameters simpleParams) {
@@ -1101,8 +1102,8 @@ public class Provider extends ExternalLiveBaseProvider {
 			a.setTrading(true);
 		}
 
-		a.setOco(true)
-				.setBrackets(true)
+		a.setOco(false)
+				.setBrackets(false)
 				.setSupportedOrderDurations(Arrays.asList(new OrderDuration[] { OrderDuration.GTC }))
 				// At the moment of writing this method it was not possible to
 				// report limit orders support, but no stop orders support
