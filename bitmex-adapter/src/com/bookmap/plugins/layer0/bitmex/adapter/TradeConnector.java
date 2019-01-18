@@ -126,8 +126,8 @@ public class TradeConnector {
 		json.addProperty("side", side);
 		json.addProperty("orderQty", orderQty);
 		json.addProperty("clOrdID", tempOrderId);
-		json.addProperty("clOrdLinkID", clOrdLinkID);
-		json.addProperty("contingencyType", contingencyType);
+//		json.addProperty("clOrdLinkID", clOrdLinkID);
+//		json.addProperty("contingencyType", contingencyType);
 
 		/*
 		 * https://www.bitmex.com/api/explorer/#!/Order/Order_new Send a
