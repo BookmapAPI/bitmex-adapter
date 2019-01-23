@@ -290,7 +290,7 @@ public class BmConnector implements Runnable {
 				Thread.currentThread().setName("-> BmConnector: snapshotTimer " + localTimerCount + " for" + instr.getSymbol() );
 			
 				if (socket == null || isReconnecting){
-					Log.info("Waiting for the socket, timer " + localTimerCount + " shutdown");
+					Log.info("[bitmex] Waiting for the socket, timer " + localTimerCount + " shutdown");
 					return;
 				}
 				
@@ -314,7 +314,7 @@ public class BmConnector implements Runnable {
 		Timer timer = new Timer();
 		instr.setSnapshotTimer(timer);
 		Log.info("[bitmex] BmConnector launchSnapshotTimer " + localTimerCount + " for" + instr.getSymbol() + ": " + ZonedDateTime.now(ZoneOffset.UTC));
-		timer.schedule(task, 15000);
+		timer.schedule(task, 10000);
 		timerCount++;
 	}
 
@@ -356,6 +356,8 @@ public class BmConnector implements Runnable {
 	public void subscribe(BmInstrument instr) {
 		Log.info("[bitmex] BmConnector subscribe: " + instr.getSymbol());
 		instr.setSubscribed(true);
+		Log.info("[bitmex] BmConnector subscribe: set true");
+
 		sendWebsocketMessage(instr.getSubscribeReq());
 		launchSnapshotTimer(instr);
 
