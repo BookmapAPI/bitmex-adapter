@@ -258,6 +258,7 @@ public class JsonParser {
 			if (topic.equals(Topic.ORDERBOOKL2)) {
 				BmInstrument instr = activeInstrumentsMap
 						.get(((MessageGeneric<UnitData>) msg0).getData().get(0).getSymbol());
+				nonInstrumentPartialsParsed.add(container.name);
 				instr.setOrderBookSnapshotParsed(true);
 				Log.info("[bitmex] JsonParser preprocessMessage setOrderBookSnapshotParsed set true for "
 						+ instr.getSymbol());
