@@ -126,10 +126,17 @@ public class TradeConnector {
 		json.addProperty("side", side);
 		json.addProperty("orderQty", orderQty);
 		json.addProperty("clOrdID", tempOrderId);
-//		json.addProperty("clOrdLinkID", clOrdLinkID);
-//		json.addProperty("contingencyType", contingencyType);
-
+		
 		/*
+		 * These lines were commented out when BitMEX announced
+		 * contingent orders deprecation
+		 * https://blog.bitmex.com/api_announcement/deprecation-of-contingent-orders/
+		 * 
+		 * json.addProperty("clOrdLinkID", clOrdLinkID);
+		 * json.addProperty("contingencyType", contingencyType);
+		 */
+		
+		/**
 		 * https://www.bitmex.com/api/explorer/#!/Order/Order_new Send a
 		 * simpleOrderQty instead of an orderQty to create an order denominated
 		 * in the underlying currency. This is useful for opening up a position

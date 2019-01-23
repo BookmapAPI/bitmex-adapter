@@ -280,7 +280,14 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	private boolean isBracketOrder(SimpleOrderSendParameters simpleParams) {
-//		return simpleParams.takeProfitOffset != 0 && simpleParams.stopLossOffset != 0;
+		/*
+		 * These lines were commented out when BitMEX announced contingent
+		 * orders deprecation
+		 * https://blog.bitmex.com/api_announcement/deprecation-of-contingent-
+		 * orders/
+		 * 
+		 * return simpleParams.takeProfitOffset != 0 && simpleParams.stopLossOffset != 0;
+		 */
 		return false;
 	}
 
@@ -1102,6 +1109,13 @@ public class Provider extends ExternalLiveBaseProvider {
 			a.setTrading(true);
 		}
 
+		/*
+		 * OCO and brackets are set to false because BitMEX announced contingent
+		 * orders deprecation
+		 * https://blog.bitmex.com/api_announcement/deprecation-of-contingent-
+		 * orders/
+		 */
+
 		a.setOco(false)
 				.setBrackets(false)
 				.setSupportedOrderDurations(Arrays.asList(new OrderDuration[] { OrderDuration.GTC }))
@@ -1118,7 +1132,6 @@ public class Provider extends ExternalLiveBaseProvider {
 						"http://bitmex.historicaldata.bookmap.com:38080/historical-data-server-1.0/"))
 				.setKnownInstruments(knownInstruments);
 
-		// Log.info("PROVIDER getSupportedFeatures INVOKED");
 		return a.build();
 	}
 
