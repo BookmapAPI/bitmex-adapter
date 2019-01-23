@@ -35,7 +35,7 @@ public class ClientSocket {
 
 	@OnWebSocketClose
 	public void OnClose(int i, String str) {
-		 Log.info("ClientSocket: CLOSED WITH STATUS " + i + " FOR " + str + "REASON");
+		Log.info("ClientSocket: CLOSED WITH STATUS " + i + " FOR " + str + " REASON");
 		closingLatch.countDown();
 	}
 

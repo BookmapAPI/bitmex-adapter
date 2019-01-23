@@ -371,7 +371,7 @@ public class BmConnector implements Runnable {
 		if (timer != null) {
 			timer.cancel();
 			Log.info("[bitmex] BmConnector unSubscribe: timer gets cancelled");
-		}
+			}
 		instr.setSubscribed(false);
 		
 	}

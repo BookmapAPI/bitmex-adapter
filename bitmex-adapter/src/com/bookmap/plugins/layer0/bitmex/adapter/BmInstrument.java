@@ -141,14 +141,6 @@ public class BmInstrument {
 		return pricesMap.get(id);
 	}
 
-	public boolean isFirstSnapshotParsed() {
-		return isFirstSnapshotParsed;
-	}
-
-	public void setFirstSnapshotParsed(boolean isFirstSnapshotParsed) {
-		this.isFirstSnapshotParsed = isFirstSnapshotParsed;
-	}
-
 	public UnitPosition getValidPosition() {
 		return validPosition;
 	}

@@ -43,10 +43,6 @@ public class JsonParser {
 		this.provider = provider;
 	}
 
-	public void setNonInstrumentPartialsParsed(Set<String> nonInstrumentPartialsParsed) {
-		this.nonInstrumentPartialsParsed = nonInstrumentPartialsParsed;
-	}
-
 	public void setActiveInstrumentsMap(Map<String, BmInstrument> activeInstrumentsMap) {
 		this.activeInstrumentsMap = activeInstrumentsMap;
 	}
