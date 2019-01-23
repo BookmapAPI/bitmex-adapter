@@ -31,12 +31,11 @@ public class ClientSocket {
 	private JsonParser parser;
 	private boolean isConnectionPossiblyLost = false;
 	private long lastMessageTime = System.currentTimeMillis();
-	ScheduledExecutorService snapshotTimer;
+	ScheduledExecutorService pingTimer;
 
 	@OnWebSocketClose
 	public void OnClose(int i, String str) {
-		// Log.info("ClientSocket: CLOSED WITH STATUS " + i + " FOR " + str + "
-		// REASON");
+		Log.info("ClientSocket: CLOSED WITH STATUS " + i + " FOR " + str + " REASON");
 		closingLatch.countDown();
 	}
 
@@ -64,10 +63,10 @@ public class ClientSocket {
 		}
 
 		long maxDelay = 5000;
-		ScheduledExecutorService snapshotTimer = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory());
-		this.snapshotTimer = snapshotTimer;
+		ScheduledExecutorService pingTimer = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory());
+		this.pingTimer = pingTimer;
 
-		snapshotTimer.scheduleWithFixedDelay(new Runnable() {
+		pingTimer.scheduleWithFixedDelay(new Runnable() {
 			@Override
 			public void run() {
 				// if the last message was > [5s + time to launch this timer]
@@ -79,7 +78,6 @@ public class ClientSocket {
 						Log.info("[bitmex] ClientSocket launchPingTimer: connection lost UTC="
 								+ System.currentTimeMillis());
 						close();
-						snapshotTimer.shutdown();
 					} else {// but this did not happen before
 						sendPing();
 						setConnectionPossiblyLost(true);
@@ -138,7 +136,9 @@ public class ClientSocket {
 	}
 
 	public void close() {
-		snapshotTimer.shutdownNow();
+		if (pingTimer != null) {
+			pingTimer.shutdownNow();
+		}
 
 		if (session != null) {
 			try {
@@ -149,6 +149,7 @@ public class ClientSocket {
 			}
 		}
 		Log.info("[bitmex] ClientSockeT close(): socket interrupted");
+		closingLatch.countDown();
 	}
 
 	public void setParser(JsonParser parser) {

@@ -63,6 +63,7 @@ public class BmInstrument {
 	}
 
 	public void setOrderBookSnapshotParsed(boolean orderBookSnapshotParsed) {
+		this.snapshotTimer.cancel();
 		this.orderBookSnapshotParsed = orderBookSnapshotParsed;
 	}
 
@@ -138,14 +139,6 @@ public class BmInstrument {
 
 	public Integer getPriceFromMap(long id) {
 		return pricesMap.get(id);
-	}
-
-	public boolean isFirstSnapshotParsed() {
-		return isFirstSnapshotParsed;
-	}
-
-	public void setFirstSnapshotParsed(boolean isFirstSnapshotParsed) {
-		this.isFirstSnapshotParsed = isFirstSnapshotParsed;
 	}
 
 	public UnitPosition getValidPosition() {
