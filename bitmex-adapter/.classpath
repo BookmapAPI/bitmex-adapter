@@ -20,7 +20,6 @@
 	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/commons-collections4-4.1.jar"/>
 	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/commons-compress-1.15.jar"/>
 	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/commons-io-2.6.jar"/>
-	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/commons-lang3-3.4.jar"/>
 	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/commons-logging-1.2.jar"/>
 	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/commons-math3-3.6.jar"/>
 	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/commons-net-3.4.jar"/>
@@ -58,7 +57,6 @@
 	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/logback-core-1.1.2.jar"/>
 	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/mars.jar"/>
 	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/marytts-lang-en-5.2.jar"/>
-	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/marytts-runtime-5.2-jar-with-dependencies.jar"/>
 	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/mbassador-1.2.3.jar"/>
 	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/mdd-util.jar"/>
 	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/mina-core-2.0.16.jar"/>
@@ -87,7 +85,7 @@
 	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/util.jar"/>
 	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/voice-cmu-bdl-hsmm-5.2.jar"/>
 	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/webapilayer.jar"/>
-	<classpathentry kind="lib" path="C:/Program Files/Bookmap/BookMap.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files/Bookmap/Bookmap.jar"/>
 	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/bm-l1api.jar">
 		<attributes>
 			<attribute name="javadoc_location" value="jar:file:/C:/Program%20Files/Bookmap/lib/bm-l1api-javadoc.jar!/"/>

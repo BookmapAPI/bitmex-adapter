@@ -1,6 +1,5 @@
 package com.bookmap.plugins.layer0.bitmex.adapter;
 
-import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -42,10 +41,6 @@ public class JsonParser {
 
 	public void setProvider(Provider provider) {
 		this.provider = provider;
-	}
-
-	public void setNonInstrumentPartialsParsed(Set<String> nonInstrumentPartialsParsed) {
-		this.nonInstrumentPartialsParsed = nonInstrumentPartialsParsed;
 	}
 
 	public void setActiveInstrumentsMap(Map<String, BmInstrument> activeInstrumentsMap) {
@@ -99,7 +94,7 @@ public class JsonParser {
 				}
 
 				if (responseWs.getError() != null) {
-					Log.info("[bitmex] JsonParser parser: errro message " + str);
+					Log.info("[bitmex] JsonParser parser: error message " + str);
 					BmErrorMessage error = new Gson().fromJson(str, BmErrorMessage.class);
 					Log.info(error.getMessage());
 					return;
@@ -107,10 +102,9 @@ public class JsonParser {
 				return;
 			}
 
-			// Options 'No object', 'success' and 'error' are already excluded
-			// so only 'message' object (that contains 'data', an array of
-			// objects)
-			// stays
+			// 'No object', 'success' and 'error' are excluded already excluded
+			// so this must be a 'message' object (that contains 'data', an array
+			// of objects)
 			Message msg = (Message) gson.fromJson(str, Message.class);
 
 			// skip a messages if it contains empty data
@@ -264,6 +258,7 @@ public class JsonParser {
 			if (topic.equals(Topic.ORDERBOOKL2)) {
 				BmInstrument instr = activeInstrumentsMap
 						.get(((MessageGeneric<UnitData>) msg0).getData().get(0).getSymbol());
+				nonInstrumentPartialsParsed.add(container.name);
 				instr.setOrderBookSnapshotParsed(true);
 				Log.info("[bitmex] JsonParser preprocessMessage setOrderBookSnapshotParsed set true for "
 						+ instr.getSymbol());
