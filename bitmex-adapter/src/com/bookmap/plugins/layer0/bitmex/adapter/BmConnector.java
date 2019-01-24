@@ -295,7 +295,7 @@ public class BmConnector implements Runnable {
 				}
 				
 				if (!instr.isOrderBookSnapshotParsed()) {
-					Log.info("[bitmex] BmConnector launchSnapshotTimer " + localTimerCount + " for" + instr.getSymbol() + ": resubscribe " + ZonedDateTime.now(ZoneOffset.UTC));
+					Log.info("[bitmex] BmConnector launchSnapshotTimer " + localTimerCount + " for " + instr.getSymbol() + ": resubscribe " + ZonedDateTime.now(ZoneOffset.UTC));
 					unSubscribe(instr);
 					
 					try {
@@ -306,14 +306,14 @@ public class BmConnector implements Runnable {
 					
 					subscribe(instr);
 				} else {
-					Log.info("[bitmex] BmConnector launchSnapshotTimer " + localTimerCount + " for" + instr.getSymbol() + ": end " + ZonedDateTime.now(ZoneOffset.UTC));
+					Log.info("[bitmex] BmConnector launchSnapshotTimer " + localTimerCount + " for " + instr.getSymbol() + ": end " + ZonedDateTime.now(ZoneOffset.UTC));
 				}
 			}
 		};
 		
 		Timer timer = new Timer();
 		instr.setSnapshotTimer(timer);
-		Log.info("[bitmex] BmConnector launchSnapshotTimer " + localTimerCount + " for" + instr.getSymbol() + ": " + ZonedDateTime.now(ZoneOffset.UTC));
+		Log.info("[bitmex] BmConnector launchSnapshotTimer " + localTimerCount + " for " + instr.getSymbol() + ": " + ZonedDateTime.now(ZoneOffset.UTC));
 		timer.schedule(task, 10000);
 		timerCount++;
 	}

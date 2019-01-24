@@ -20,10 +20,6 @@ public class BmInstrument {
 	private long underlyingToSettleMultiplier;
 	private String settlCurrency;
 	private boolean isSubscribed = false;
-	private boolean isFirstSnapshotParsed = false;
-
-	// this one is for 'orderBookL2 and for 'trade'
-	// private Map<String, Boolean> instrumentPartialsParsed = new HashMap<>();
 
 	private OrderBook orderBook = new OrderBook();
 	private BlockingQueue<Message> queue = new LinkedBlockingQueue<>();
