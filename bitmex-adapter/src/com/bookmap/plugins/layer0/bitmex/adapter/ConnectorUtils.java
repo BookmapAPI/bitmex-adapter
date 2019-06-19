@@ -25,6 +25,7 @@ import org.apache.commons.codec.binary.Hex;
 import com.google.gson.reflect.TypeToken;
 
 public class ConnectorUtils {
+	public static final String version = "v.0.6.1-alpha";
 	public static final String bitmex_Wss = "wss://www.bitmex.com/realtime";
 	public static final String bitmex_restApi = "https://www.bitmex.com";
 	public static final String bitmex_restActiveInstrUrl = "https://www.bitmex.com/api/v1/instrument/active";
