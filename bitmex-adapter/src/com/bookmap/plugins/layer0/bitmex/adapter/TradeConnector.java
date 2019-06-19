@@ -17,6 +17,7 @@ import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.GeneralType;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Method;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonSyntaxException;
 
 import velox.api.layer1.common.Log;
 import velox.api.layer1.data.OrderMoveParameters;
@@ -296,7 +297,12 @@ public class TradeConnector {
 					sb.append(output);
 				}
 				Log.info("[bitmex] TradeConnector require:  response =>" + sb.toString());
-				String resp = Provider.testReponseForError(sb.toString());
+				String resp;
+				try {
+					resp = Provider.testReponseForError(sb.toString());
+				} catch (JsonSyntaxException e) {
+					return sb.toString();
+				}
 				return resp;
 			}
 		} catch (UnknownHostException | NoRouteToHostException e) {

@@ -26,6 +26,7 @@ import com.bookmap.plugins.layer0.bitmex.adapter.UnitPosition;
 import com.bookmap.plugins.layer0.bitmex.adapter.UnitWallet;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonSyntaxException;
 
 import velox.api.layer0.annotations.Layer0LiveModule;
 import velox.api.layer0.live.ExternalLiveBaseProvider;
@@ -141,7 +142,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		return symbol;
 	}
 
-	public static String testReponseForError(String str) {
+	public static String testReponseForError(String str) throws JsonSyntaxException {
 		ResponseByRest answ = (ResponseByRest) JsonParser.gson.fromJson(str, ResponseByRest.class);
 
 		if (answ.getError() != null) {
