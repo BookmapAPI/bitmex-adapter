@@ -22,7 +22,7 @@ import org.eclipse.jetty.websocket.api.extensions.Frame.Type;
 
 import velox.api.layer1.common.Log;
 
-@WebSocket(maxTextMessageSize = 1048576, maxBinaryMessageSize = 1048576)
+@WebSocket(maxTextMessageSize = Integer.MAX_VALUE, maxBinaryMessageSize = Integer.MAX_VALUE)
 public class ClientSocket {
 
 	private Session session;
