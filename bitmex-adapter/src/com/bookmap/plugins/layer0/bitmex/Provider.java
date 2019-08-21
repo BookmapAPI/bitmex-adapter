@@ -1068,7 +1068,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	public void createBookmapOrder(UnitOrder order) {
 		Log.info("[bitmex] Provider createBookmapOrder:  order created id=" + order.getOrderID());
 		boolean isBuy = order.getSide().equals("Buy") ? true : false;
-		OrderType type = OrderType.getTypeFromPrices(order.getStopPx(), order.getPrice());
+		OrderType type = OrderType.valueOfLoose(order.getOrdType().toUpperCase());
 		Log.info("[bitmex] Provider createBookmapOrder:  order created Type=" + type.toString());
 		String clientId = tempClientId;
 		boolean doNotIncrease = false;// this field is being left true so far
