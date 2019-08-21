@@ -1119,7 +1119,8 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		a.setOco(false)
 				.setBrackets(false)
-				.setSupportedOrderDurations(Arrays.asList(new OrderDuration[] { OrderDuration.GTC }))
+				.setSupportedOrderDurations(Arrays.asList(ConnectorUtils.bitmexOrderDurations.stream()
+						.toArray(size -> new OrderDuration[size])))
 				// At the moment of writing this method it was not possible to
 				// report limit orders support, but no stop orders support
 				// If you actually need it, you can report stop orders support
