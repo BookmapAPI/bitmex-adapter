@@ -2,6 +2,7 @@ package com.bookmap.plugins.layer0.bitmex;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -9,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 
 import com.bookmap.plugins.layer0.bitmex.adapter.BmConnector;
 import com.bookmap.plugins.layer0.bitmex.adapter.BmInstrument;
@@ -773,6 +775,21 @@ public class Provider extends ExternalLiveBaseProvider {
 				createBookmapOrder((UnitOrder) exec);
 				synchronized (workingOrders) {
 					builder = workingOrders.get(exec.getOrderID());
+				}
+			}
+			
+			if (exec.getTimeInForce() != null){
+				builder.setDuration(ConnectorUtils.bitmexOrderDurationsValues
+						.inverseBidiMap()
+						.get(exec.getTimeInForce()));
+				
+				if (exec.getExecInst() != null && exec.getExecInst().length() > 0) {
+					String[] instr = exec.getExecInst().split(",");
+					Set<String> executionInstructions = new HashSet<>(Arrays.asList(instr));
+					
+					if (executionInstructions.contains(ConnectorUtils.GtcPoExecutionalInstruction)) {
+						builder.setDuration(OrderDuration.GTC_PO);
+					}
 				}
 			}
 
