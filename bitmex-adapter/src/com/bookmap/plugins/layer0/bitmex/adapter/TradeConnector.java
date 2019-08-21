@@ -20,6 +20,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 
 import velox.api.layer1.common.Log;
+import velox.api.layer1.data.OrderDuration;
 import velox.api.layer1.data.OrderMoveParameters;
 import velox.api.layer1.data.OrderType;
 import velox.api.layer1.data.SimpleOrderSendParameters;
@@ -128,6 +129,19 @@ public class TradeConnector {
 		json.addProperty("orderQty", orderQty);
 		json.addProperty("clOrdID", tempOrderId);
 		
+		JsonArray execInst = new JsonArray();
+		
+		OrderDuration duration = params.duration;
+		
+		if (ConnectorUtils.bitmexOrderDurations.contains(duration)) {
+			if (duration.equals(OrderDuration.GTC_PO)) {
+				json.addProperty("timeInForce", ConnectorUtils.bitmexOrderDurationsValues.get(OrderDuration.GTC));
+				execInst.add(ConnectorUtils.GtcPoExecutionalInstruction);
+			} else {
+				json.addProperty("timeInForce", ConnectorUtils.bitmexOrderDurationsValues.get(duration));
+			}
+		}
+				
 		/*
 		 * These lines were commented out when BitMEX announced
 		 * contingent orders deprecation
@@ -161,12 +175,16 @@ public class TradeConnector {
 			}
 
 			// used by stops to determine triggering price
-			json.addProperty("execInst", "LastPrice");
+			execInst.add("LastPrice");
 			if (params.trailingStep > 0) {
 				Log.info("[bitmex] TradeConnector createSendData: STP trailing step == " + params.trailingStep);
 				json.addProperty("pegPriceType", "TrailingStopPeg");
 				json.addProperty("pegOffsetValue", getPegOffset(symbol, params.stopPrice));
 			}
+		}
+		
+		if (execInst.size() > 0){
+			json.add("execInst", execInst);
 		}
 		return json;
 	}

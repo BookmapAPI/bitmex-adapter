@@ -379,7 +379,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		builder.setStopPrice(simpleParameters.stopPrice)
 				.setLimitPrice(simpleParameters.limitPrice)
 				.setUnfilled(simpleParameters.size)
-				.setDuration(OrderDuration.GTC)
+				.setDuration(simpleParameters.duration)
 				.setStatus(OrderStatus.PENDING_SUBMIT);
 
 		tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
