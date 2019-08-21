@@ -22,6 +22,8 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.xml.bind.DatatypeConverter;
 
 import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.collections4.BidiMap;
+import org.apache.commons.collections4.bidimap.DualHashBidiMap;
 
 import com.google.gson.reflect.TypeToken;
 
@@ -65,6 +67,17 @@ public class ConnectorUtils {
 			OrderDuration.GTC,
 			OrderDuration.IOC,
 			OrderDuration.GTC_PO);
+	
+	public static final BidiMap<OrderDuration, String> bitmexOrderDurationsValues = new DualHashBidiMap<>();
+	//**BitMEX supports the GTC_PO duration but it is set with the 'execInst=ParticipateDoNotInitiate' query field
+	//and not with the duration itself
+	static {
+		bitmexOrderDurationsValues.put(OrderDuration.DAY, "DAY");
+		bitmexOrderDurationsValues.put(OrderDuration.GTC, "GoodTillCancel");
+		bitmexOrderDurationsValues.put(OrderDuration.IOC, "ImmediateOrCancel");
+		bitmexOrderDurationsValues.put(OrderDuration.FOK, "FillOrKill");
+	}
+	
 
 	public static enum Topic {
 		ORDERBOOKL2, TRADE, // non-authenticated
