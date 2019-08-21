@@ -1077,9 +1077,14 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		final OrderInfoBuilder builder = new OrderInfoBuilder(order.getSymbol(), order.getOrderID(), isBuy, type,
 				clientId, doNotIncrease);
-		builder.setStopPrice(order.getStopPx()).setLimitPrice(order.getPrice()).setUnfilled((int) order.getLeavesQty())
-				.setFilled((int) order.getCumQty()).setDuration(OrderDuration.GTC)
-				.setStatus(OrderStatus.WORKING);
+		
+		builder.setStopPrice(order.getStopPx())
+		.setLimitPrice(order
+		.getPrice())
+		.setUnfilled((int) order.getLeavesQty())		
+		.setFilled((int) order.getCumQty())
+		.setStatus(OrderStatus.WORKING);
+		
 		tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
 		builder.markAllUnchanged();
 
