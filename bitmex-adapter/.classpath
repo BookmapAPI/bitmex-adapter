@@ -10,5 +10,6 @@
 			<attribute name="javadoc_location" value="jar:file:/C:/Program%20Files/Bookmap/lib/bm-l1api-javadoc.jar!/"/>
 		</attributes>
 	</classpathentry>
+	<classpathentry kind="lib" path="C:/Program Files/Bookmap/lib/commons-collections4-4.1.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
