@@ -11,6 +11,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +24,8 @@ import javax.xml.bind.DatatypeConverter;
 import org.apache.commons.codec.binary.Hex;
 
 import com.google.gson.reflect.TypeToken;
+
+import velox.api.layer1.data.OrderDuration;
 
 public class ConnectorUtils {
 	public static final String version = "v.0.6.1-alpha";
@@ -55,6 +58,13 @@ public class ConnectorUtils {
 	public static enum GeneralType {
 		ORDER, ORDERBULK, ORDERALL, INSTRUMENT, EXECUTION, POSITION;
 	}
+	
+	public static final EnumSet<OrderDuration> bitmexOrderDurations = EnumSet.of(
+			OrderDuration.DAY,
+			OrderDuration.FOK,
+			OrderDuration.GTC,
+			OrderDuration.IOC,
+			OrderDuration.GTC_PO);
 
 	public static enum Topic {
 		ORDERBOOKL2, TRADE, // non-authenticated
