@@ -78,6 +78,8 @@ public class ConnectorUtils {
 		bitmexOrderDurationsValues.put(OrderDuration.FOK, "FillOrKill");
 	}
 	
+	public static final String GtcPoExecutionalInstruction = "ParticipateDoNotInitiate";
+
 
 	public static enum Topic {
 		ORDERBOOKL2, TRADE, // non-authenticated
