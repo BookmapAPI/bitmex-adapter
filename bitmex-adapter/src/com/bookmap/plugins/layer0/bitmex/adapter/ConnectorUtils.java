@@ -72,7 +72,7 @@ public class ConnectorUtils {
 	//**BitMEX supports the GTC_PO duration but it is set with the 'execInst=ParticipateDoNotInitiate' query field
 	//and not with the duration itself
 	static {
-		bitmexOrderDurationsValues.put(OrderDuration.DAY, "DAY");
+		bitmexOrderDurationsValues.put(OrderDuration.DAY, "Day");
 		bitmexOrderDurationsValues.put(OrderDuration.GTC, "GoodTillCancel");
 		bitmexOrderDurationsValues.put(OrderDuration.IOC, "ImmediateOrCancel");
 		bitmexOrderDurationsValues.put(OrderDuration.FOK, "FillOrKill");
