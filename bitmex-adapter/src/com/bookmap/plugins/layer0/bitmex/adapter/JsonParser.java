@@ -111,6 +111,7 @@ public class JsonParser {
 				preprocessMessage(str, Topic);
 			}
 		} catch (Exception e) {
+			e.printStackTrace();
 			throw new RuntimeException("[bitmex] Exception thrown to parser. String is: " + str, e);
 		}
 	}
