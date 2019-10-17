@@ -140,7 +140,7 @@ public class BmConnector implements Runnable {
 	public void wsConnect() {
 		SslContextFactory ssl = new SslContextFactory();
 		WebSocketClient client = new WebSocketClient(ssl);
-		Log.info("[bitmex" + Constants.version + "] BmConnector wsConnect websocket starting...");
+		Log.info("[bitmex " + Constants.version + "] BmConnector wsConnect websocket starting...");
 
 		try {
 			Log.info("[bitmex] BmConnector wsConnect websocket being created...");
