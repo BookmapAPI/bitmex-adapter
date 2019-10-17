@@ -2,6 +2,7 @@ package com.bookmap.plugins.layer0.bitmex.adapter;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.time.Instant;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -77,17 +78,17 @@ public class ClientSocket {
 				long l = lastMessageTime.get();
 				
 				if (System.currentTimeMillis() - l > maxDelay + 500) {
-					Log.info("[bitmex] ClientSocket launchPingTimer: last message UTC=" + l);
+					Log.info("[bitmex] ClientSocket launchPingTimer: last message UTC=" + Instant.ofEpochMilli(l));
 					// and if this happened before
 					if (isConnectionPossiblyLost.get()) {
 						Log.info("[bitmex] ClientSocket launchPingTimer: connection lost UTC="
-								+ System.currentTimeMillis());
+								+ Instant.ofEpochMilli(System.currentTimeMillis()));
 						close();
 					} else {// but this did not happen before
 						sendPing();
 						isConnectionPossiblyLost.set(true);
 						Log.info("[bitmex] ClientSocket launchPingTimer: connection possibly lost UTC="
-								+ System.currentTimeMillis());
+								+ Instant.ofEpochMilli(System.currentTimeMillis()));
 					}
 				} else {
 					// the last message was <5 seconds ago, everything is OK
