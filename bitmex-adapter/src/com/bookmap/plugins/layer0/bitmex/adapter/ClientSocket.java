@@ -34,7 +34,7 @@ public class ClientSocket {
 	private JsonParser parser;
 	private AtomicBoolean isConnectionPossiblyLost = new AtomicBoolean(false);
 	private AtomicLong lastMessageTime = new AtomicLong(System.currentTimeMillis());
-	long maxDelay = 5000;
+	long maxDelay = 5_000;
 	ScheduledExecutorService pingTimer;
 
 	@OnWebSocketClose
