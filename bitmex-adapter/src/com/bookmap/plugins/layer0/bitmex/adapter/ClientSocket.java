@@ -83,6 +83,7 @@ public class ClientSocket {
 					if (isConnectionPossiblyLost.get()) {
 						Log.info("[bitmex] ClientSocket launchPingTimer: connection lost UTC="
 								+ Instant.ofEpochMilli(System.currentTimeMillis()));
+						Log.info("[bitmex] ClientSocket launchPingTimer: pingTimer closes connection");
 						close();
 					} else {// but this did not happen before
 						sendPing();
