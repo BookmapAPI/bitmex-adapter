@@ -159,7 +159,7 @@ public class ClientSocket {
 			// Log.info("[bitmex] ClientSocket sendPing: PING");
 		} catch (WebSocketException e) {
 			// e.printStackTrace(System.err);
-			// Log.debug("RemoteEndpoint unavailable");
+			 Log.info("RemoteEndpoint unavailable");
 			// e.printStackTrace();
 		} catch (IOException e) {
 			// e.printStackTrace(System.err);
@@ -171,7 +171,7 @@ public class ClientSocket {
 	public void onFrame(Frame frame) {
 		if (frame.getType() == Type.PONG) {
 			lastMessageTime.set(System.currentTimeMillis());
-			// Log.info("[bitmex] ClientSocket onFrame: PONG");
+			 Log.info("[bitmex] ClientSocket onFrame: PONG");
 		}
 	}
 
