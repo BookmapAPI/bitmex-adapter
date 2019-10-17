@@ -7,6 +7,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
@@ -29,8 +31,8 @@ public class ClientSocket {
 	private CountDownLatch openingLatch = new CountDownLatch(1);
 	private CountDownLatch closingLatch = new CountDownLatch(1);
 	private JsonParser parser;
-	private boolean isConnectionPossiblyLost = false;
-	private long lastMessageTime = System.currentTimeMillis();
+	private AtomicBoolean isConnectionPossiblyLost = new AtomicBoolean(false);
+	private AtomicLong lastMessageTime = new AtomicLong(System.currentTimeMillis());
 	ScheduledExecutorService pingTimer;
 
 	@OnWebSocketClose
@@ -44,7 +46,7 @@ public class ClientSocket {
 
 		if (session != null && message != null) {
 			parser.parse(message);
-			lastMessageTime = System.currentTimeMillis();
+			lastMessageTime.set(System.currentTimeMillis());
 		}
 	}
 
@@ -71,16 +73,18 @@ public class ClientSocket {
 			public void run() {
 				// if the last message was > [5s + time to launch this timer]
 				// seconds ago
-				if (System.currentTimeMillis() - getLastMessageTime() > maxDelay + 500) {
-					Log.info("[bitmex] ClientSocket launchPingTimer: last message UTC=" + getLastMessageTime());
+				long l = lastMessageTime.get();
+				
+				if (System.currentTimeMillis() - l > maxDelay + 500) {
+					Log.info("[bitmex] ClientSocket launchPingTimer: last message UTC=" + l);
 					// and if this happened before
-					if (isConnectionPossiblyLost()) {
+					if (isConnectionPossiblyLost.get()) {
 						Log.info("[bitmex] ClientSocket launchPingTimer: connection lost UTC="
 								+ System.currentTimeMillis());
 						close();
 					} else {// but this did not happen before
 						sendPing();
-						setConnectionPossiblyLost(true);
+						isConnectionPossiblyLost.set(true);
 						Log.info("[bitmex] ClientSocket launchPingTimer: connection possibly lost UTC="
 								+ System.currentTimeMillis());
 					}
@@ -88,19 +92,11 @@ public class ClientSocket {
 					// the last message was <5 seconds ago, everything is OK
 					// Log.info("[bitmex] ClientSocket launchPingTimer:
 					// connection alive UTC=" + System.currentTimeMillis() );
-					setConnectionPossiblyLost(false);
+					isConnectionPossiblyLost.set(false);
 				}
 			}
 			// sleep maxDelay=5 seconds
 		}, 0, maxDelay, TimeUnit.MILLISECONDS);
-	}
-
-	public boolean isConnectionPossiblyLost() {
-		return isConnectionPossiblyLost;
-	}
-
-	public void setConnectionPossiblyLost(boolean isConnectionPossiblyLost) {
-		this.isConnectionPossiblyLost = isConnectionPossiblyLost;
 	}
 
 	public void sendMessage(String str) {
@@ -118,10 +114,6 @@ public class ClientSocket {
 
 	public CountDownLatch getOpeningLatch() {
 		return openingLatch;
-	}
-
-	public long getLastMessageTime() {
-		return lastMessageTime;
 	}
 
 	public CountDownLatch getClosingLatch() {
@@ -176,7 +168,7 @@ public class ClientSocket {
 	@OnWebSocketFrame
 	public void onFrame(Frame frame) {
 		if (frame.getType() == Type.PONG) {
-			lastMessageTime = System.currentTimeMillis();
+			lastMessageTime.set(System.currentTimeMillis());
 			// Log.info("[bitmex] ClientSocket onFrame: PONG");
 		}
 	}
