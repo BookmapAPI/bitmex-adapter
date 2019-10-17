@@ -47,8 +47,8 @@ public class ClientSocket {
 	public void onText(Session session, String message) throws IOException {
 
 		if (session != null && message != null) {
-			parser.parse(message);
 			lastMessageTime.set(System.currentTimeMillis());
+			parser.parse(message);
 		}
 	}
 
