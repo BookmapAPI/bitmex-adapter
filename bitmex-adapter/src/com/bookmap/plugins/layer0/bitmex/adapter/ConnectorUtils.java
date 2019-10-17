@@ -30,14 +30,6 @@ import com.google.gson.reflect.TypeToken;
 import velox.api.layer1.data.OrderDuration;
 
 public class ConnectorUtils {
-	public static final String version = "v.0.6.1-alpha";
-	public static final String bitmex_Wss = "wss://www.bitmex.com/realtime";
-	public static final String bitmex_restApi = "https://www.bitmex.com";
-	public static final String bitmex_restActiveInstrUrl = "https://www.bitmex.com/api/v1/instrument/active";
-
-	public static final String testnet_Wss = "wss://testnet.bitmex.com/realtime";
-	public static final String testnet_restApi = "https://testnet.bitmex.com";
-	public static final String testnet_restActiveInstrUrl = "https://testnet.bitmex.com/api/v1/instrument/active";
 
 	public static final String testnet_Note = "Please note, you are connected to testnet,"
 			+ " so the data you see\ndoes not match the actual data in the live environment."

@@ -17,6 +17,7 @@ import com.bookmap.plugins.layer0.bitmex.adapter.BmInstrument;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.GeneralType;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Method;
+import com.bookmap.plugins.layer0.bitmex.adapter.Constants;
 import com.bookmap.plugins.layer0.bitmex.adapter.JsonParser;
 import com.bookmap.plugins.layer0.bitmex.adapter.ResponseByRest;
 import com.bookmap.plugins.layer0.bitmex.adapter.TradeConnector;
@@ -711,13 +712,13 @@ public class Provider extends ExternalLiveBaseProvider {
 			if (userPasswordDemoLoginData.isDemo == true) {
 				adminListeners.forEach(l -> l.onSystemTextMessage(ConnectorUtils.testnet_Note,
 						SystemTextMessageType.UNCLASSIFIED));
-				connector.setWssUrl(ConnectorUtils.testnet_Wss);
-				connector.setRestApi(ConnectorUtils.testnet_restApi);
-				connector.setRestActiveInstrUrl(ConnectorUtils.testnet_restActiveInstrUrl);
+				connector.setWssUrl(Constants.testnet_Wss);
+				connector.setRestApi(Constants.testnet_restApi);
+				connector.setRestActiveInstrUrl(Constants.testnet_restActiveInstrUrl);
 			} else {
-				connector.setWssUrl(ConnectorUtils.bitmex_Wss);
-				connector.setRestApi(ConnectorUtils.bitmex_restApi);
-				connector.setRestActiveInstrUrl(ConnectorUtils.bitmex_restActiveInstrUrl);
+				connector.setWssUrl(Constants.bitmex_Wss);
+				connector.setRestApi(Constants.bitmex_restApi);
+				connector.setRestActiveInstrUrl(Constants.bitmex_restActiveInstrUrl);
 			}
 			// CONNECTOR
 			// this.connector = new BmConnector();
