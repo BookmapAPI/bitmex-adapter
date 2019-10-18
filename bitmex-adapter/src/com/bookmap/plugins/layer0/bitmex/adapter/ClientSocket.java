@@ -45,9 +45,10 @@ public class ClientSocket {
 
 	@OnWebSocketMessage
 	public void onText(Session session, String message) throws IOException {
+		isConnectionPossiblyLost.set(false);
+		lastMessageTime.set(System.currentTimeMillis());
 
 		if (session != null && message != null) {
-			lastMessageTime.set(System.currentTimeMillis());
 			parser.parse(message);
 		}
 	}
@@ -86,8 +87,8 @@ public class ClientSocket {
 						Log.info("[bitmex] ClientSocket launchPingTimer: pingTimer closes connection");
 						close();
 					} else {// but this did not happen before
-						sendPing();
 						isConnectionPossiblyLost.set(true);
+						sendPing();
 						Log.info("[bitmex] ClientSocket launchPingTimer: connection possibly lost UTC="
 								+ Instant.ofEpochMilli(System.currentTimeMillis()));
 					}
@@ -171,8 +172,9 @@ public class ClientSocket {
 	@OnWebSocketFrame
 	public void onFrame(Frame frame) {
 		if (frame.getType() == Type.PONG) {
+			isConnectionPossiblyLost.set(false);
 			lastMessageTime.set(System.currentTimeMillis());
-			 Log.info("[bitmex] ClientSocket onFrame: PONG");
+			Log.info("[bitmex] ClientSocket onFrame: PONG");
 		}
 	}
 
