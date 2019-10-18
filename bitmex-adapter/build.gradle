@@ -1,0 +1,27 @@
+plugins {
+    id 'java'
+}
+
+group 'com.bookmap.api.adapter'
+version '1.0-SNAPSHOT'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+    flatDir {
+        dirs 'libs'
+    }
+}
+
+dependencies {
+    compile name: 'bm-l1api'
+    compile name: 'commons-codec-1.10'
+    compile name: 'gson-2.4'
+    compile name: 'jetty-all-9.3.8.v20160314-uber'
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+}
+
+jar {
+    archiveName 'bitmex-adapter.jar'
+}
