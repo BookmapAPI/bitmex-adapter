@@ -908,6 +908,10 @@ public class Provider extends ExternalLiveBaseProvider {
 		UnitPosition validPosition = instr.getValidPosition();
 
 		updateValidPosition(validPosition, pos);
+		
+		if (pos.getLeverage() != null) {
+		    updateLeverage(pos.getSymbol(), pos.getLeverage());
+		}
 
 		StatusInfo info = new StatusInfo(validPosition.getSymbol(),
 				(double) validPosition.getUnrealisedPnl() / (double) instr.getMultiplier(),
@@ -1189,6 +1193,14 @@ public class Provider extends ExternalLiveBaseProvider {
 		connector.closeSocket();
 		connector.setInterruptionNeeded(true);
 		providerThread.interrupt();
+	}
+	
+	private void updateLeverage (String symbol, double leverage) {
+	    Double previousLeverage = leverages.get(symbol); 
+	    if (previousLeverage == null || !previousLeverage.equals(leverages)) {
+	        leverages.put(symbol, leverage);
+	        //send message to panel here
+	    }
 	}
 
 }
