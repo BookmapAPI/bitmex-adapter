@@ -16,7 +16,7 @@ public class UnitPosition extends UnitRaw{
 	private double initMarginReq;
 	private double maintMarginReq;
 	private long riskLimit;
-	private double leverage;
+	private Double leverage;
 	private boolean	crossMargin;
 	private double deleveragePercentile;
 	private long rebalancedPnl;
@@ -146,7 +146,7 @@ private String execType;//no such in spec
 	public long getRiskLimit() {
 		return riskLimit;
 	}
-	public double getLeverage() {
+	public Double getLeverage() {
 		return leverage;
 	}
 	public boolean isCrossMargin() {
@@ -419,7 +419,7 @@ private String execType;//no such in spec
 	public void setRiskLimit(long riskLimit) {
 		this.riskLimit = riskLimit;
 	}
-	public void setLeverage(double leverage) {
+	public void setLeverage(Double leverage) {
 		this.leverage = leverage;
 	}
 	public void setCrossMargin(boolean crossMargin) {
@@ -677,7 +677,7 @@ private String execType;//no such in spec
 	public String toString() {
 		return "UnitPosition [account=" + account + ", symbol=" + symbol + ", currency=" + currency + ", markValue="
 				+ markValue + ", realisedPnl=" + realisedPnl + ", unrealisedPnl=" + unrealisedPnl + ", avgEntryPrice="
-				+ avgEntryPrice + "]";
+				+ avgEntryPrice + ", leverage =" + leverage + "]";
 	}
 
 	
