@@ -89,6 +89,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	private Map<String, Double> trailingStops = new HashMap<>();
 	private List<String> batchCancels = new LinkedList<>();
 	private Map<String, BalanceInfo.BalanceInCurrency> balanceMap = new HashMap<>();
+	private Map<String, Double> leverages = new HashMap<>();
 
 	private CopyOnWriteArrayList<SubscribeInfo> knownInstruments = new CopyOnWriteArrayList<>();
 
