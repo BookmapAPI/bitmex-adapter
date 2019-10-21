@@ -263,6 +263,11 @@ public class TradeConnector {
 
 	public String require(GeneralType genType, Method method, String data, boolean isOrderListBeingCanceled) {
 		String subPath = ConnectorUtils.subPaths.get(genType);
+
+        if (genType.equals(GeneralType.POSITION) && data.contains("leverage")) {
+            subPath += "/leverage";
+        }
+
 		String path = provider.getConnector().getRestApi() + subPath;
 		long moment = ConnectorUtils.getMomentAndTimeToLive();
 		
