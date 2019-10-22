@@ -11,5 +11,5 @@ public class Constants {
 	public static final String testnet_restApi = "https://testnet.bitmex.com";
 	public static final String testnet_restActiveInstrUrl = "https://testnet.bitmex.com/api/v1/instrument/active";
 	
-	public static final String portNumbel = "1012";
+	public static final int portNumber = 1012;
 }
