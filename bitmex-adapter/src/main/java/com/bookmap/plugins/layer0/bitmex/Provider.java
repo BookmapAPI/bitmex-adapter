@@ -921,6 +921,11 @@ public class Provider extends ExternalLiveBaseProvider {
 			}
 		}
 
+		if (builder == null) {
+		    //executed order number does not fit any builder. Possibly restated execution
+		    LogBitmex.info("Skipped execution not matching any order: " + exec.toString());
+		    return;
+		}
 		exec.setExecTransactTime(ConnectorUtils.transactTimeToLong(exec.getTransactTime()));
 		builder.setModificationUtcTime(exec.getExecTransactTime());
 		OrderInfoBuilder finalBuilder = builder;
