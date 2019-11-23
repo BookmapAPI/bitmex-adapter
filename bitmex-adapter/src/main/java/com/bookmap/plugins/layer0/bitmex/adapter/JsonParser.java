@@ -47,7 +47,7 @@ public class JsonParser {
 	}
 
 	public void parse(String str) {
-
+if (str.contains("leverage")) Log.info(str);
 		try {
 			// first let's find out what kind of object we have here
 			ResponseByWebSocket responseWs = (ResponseByWebSocket) gson.fromJson(str, ResponseByWebSocket.class);
@@ -251,8 +251,11 @@ public class JsonParser {
 			Log.info("[bitmex] JsonParser preprocessMessage: partial acquired for  " + container.name);
 
 			if (topic.equals(Topic.ORDERBOOKL2)) {
-				BmInstrument instr = activeInstrumentsMap
-						.get(((MessageGeneric<UnitData>) msg0).getData().get(0).getSymbol());
+//			    Log.info("[bitmex] JsonParser 255  " + str);
+			    ArrayList<UnitData> data = ((MessageGeneric<UnitData>) msg0).getData();
+			    if (data.isEmpty()) return;
+			    String symbol = data.get(0).getSymbol();
+				BmInstrument instr = activeInstrumentsMap.get(symbol);
 				nonInstrumentPartialsParsed.add(container.name);
 				instr.setOrderBookSnapshotParsed(true);
 				Log.info("[bitmex] JsonParser preprocessMessage setOrderBookSnapshotParsed set true for "

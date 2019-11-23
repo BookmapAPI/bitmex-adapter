@@ -19,7 +19,8 @@ public class BmInstrument {
 	private long multiplier;
 	private long underlyingToSettleMultiplier;
 	private String settlCurrency;
-	private boolean isSubscribed = false;
+	private boolean isSubscribed;
+	private double initMargin;
 
 	private OrderBook orderBook = new OrderBook();
 	private BlockingQueue<Message> queue = new LinkedBlockingQueue<>();
@@ -31,6 +32,11 @@ public class BmInstrument {
 	private int executionsVolume = 0;
 	private int sellOrdersCount = 0;
 	private int buyOrdersCount = 0;
+	
+    {//temp workaround
+        this.validPosition.setOpenOrderBuyQty(0);
+        this.validPosition.setOpenOrderSellQty(0);
+    }
 
 	private transient Timer snapshotTimer = null;
 
@@ -59,7 +65,9 @@ public class BmInstrument {
 	}
 
 	public void setOrderBookSnapshotParsed(boolean orderBookSnapshotParsed) {
-		this.snapshotTimer.cancel();
+        if (snapshotTimer != null) {
+            snapshotTimer.cancel();
+        }
 		this.orderBookSnapshotParsed = orderBookSnapshotParsed;
 	}
 
@@ -194,6 +202,14 @@ public class BmInstrument {
 	public void setLastSell(double lastSell) {
 		this.lastSell = lastSell;
 	}
+
+    public double getInitMargin() {
+        return initMargin;
+    }
+
+    public void setInitMargin(double initMargin) {
+        this.initMargin = initMargin;
+    }
 
 	
 }

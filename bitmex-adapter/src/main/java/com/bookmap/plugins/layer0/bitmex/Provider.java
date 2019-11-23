@@ -4,10 +4,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.bookmap.plugins.layer0.bitmex.adapter.BmConnector;
@@ -17,6 +19,7 @@ import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.GeneralType;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Method;
 import com.bookmap.plugins.layer0.bitmex.adapter.Constants;
 import com.bookmap.plugins.layer0.bitmex.adapter.JsonParser;
+import com.bookmap.plugins.layer0.bitmex.adapter.PanelServerHelper;
 import com.bookmap.plugins.layer0.bitmex.adapter.ResponseByRest;
 import com.bookmap.plugins.layer0.bitmex.adapter.TradeConnector;
 import com.bookmap.plugins.layer0.bitmex.adapter.UnitData;
@@ -25,6 +28,7 @@ import com.bookmap.plugins.layer0.bitmex.adapter.UnitMargin;
 import com.bookmap.plugins.layer0.bitmex.adapter.UnitOrder;
 import com.bookmap.plugins.layer0.bitmex.adapter.UnitPosition;
 import com.bookmap.plugins.layer0.bitmex.adapter.UnitWallet;
+import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
@@ -73,11 +77,11 @@ public class Provider extends ExternalLiveBaseProvider {
 	private HashMap<String, OrderInfoBuilder> workingOrders = new HashMap<>();
 
 	private List<OrderInfoBuilder> pendingOrders = new ArrayList<>();
-	private long orderCount = 0;
-	private long orderOcoCount = 0;
-	private boolean isCredentialsEmpty = false;
+	private long orderCount;
+	private long orderOcoCount;
+	private boolean isCredentialsEmpty;
 
-	/*
+    /*
 	 * for ocoOrders Map <clOrdLinkID, List <realIds>> Map<realid,
 	 * clOrderLinkID>
 	 */
@@ -89,9 +93,12 @@ public class Provider extends ExternalLiveBaseProvider {
 	private Map<String, Double> trailingStops = new HashMap<>();
 	private List<String> batchCancels = new LinkedList<>();
 	private Map<String, BalanceInfo.BalanceInCurrency> balanceMap = new HashMap<>();
-	private Map<String, Double> leverages = new HashMap<>();
+	private Map<String, Integer> leverages = new ConcurrentHashMap<>();
+	public Map<String, Integer> maxLeverages = new HashMap<>();
 
 	private CopyOnWriteArrayList<SubscribeInfo> knownInstruments = new CopyOnWriteArrayList<>();
+	public final PanelServerHelper panelHelper = new PanelServerHelper();
+	private Gson gson = new Gson();
 
 	protected class Instrument {
 		protected final String alias;
@@ -106,9 +113,9 @@ public class Provider extends ExternalLiveBaseProvider {
 	protected HashMap<String, Instrument> instruments = new HashMap<>();
 
 	// This thread will perform data generation.
-	private Thread providerThread = null;
-	private Thread connectorThread = null;
-
+	private Thread providerThread;
+	private Thread connectorThread;
+	
 	public boolean isCredentialsEmpty() {
 		return isCredentialsEmpty;
 	}
@@ -272,7 +279,7 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	private void passCancelMessageIfNeededAndClearPendingList(String response) {
 		synchronized (pendingOrders) {
-			if (response != null) {// if bitmex responds with an error
+			if (response != null  && response.contains("error")) {// if bitmex responds with an error
 				for (OrderInfoBuilder builder : pendingOrders) {
 					rejectOrder(builder, response);
 				}
@@ -565,7 +572,7 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	// temporary solution
 	private void passCancelMessageIfNeededAndClearPendingListForResize(List<String> pendingIds, String response) {
-		if (response != null) {// if bitmex responds with an error
+		if (response != null && response.contains("error")) {// if bitmex responds with an error
 			adminListeners.forEach(l -> l.onSystemTextMessage(response,
 					SystemTextMessageType.ORDER_FAILURE));
 
@@ -697,13 +704,14 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		if (isValid || isCredentialsEmpty) {
 
-			Log.info("[bitmex] Provider handleLogin: credentials valid or empty");
-
-			connector = new BmConnector();
+            Log.info("[bitmex] Provider handleLogin: credentials valid or empty");
+            connector = new BmConnector();
 			tradeConnector = new TradeConnector();
 			tradeConnector.setProvider(this);
 			tradeConnector.setOrderApiKey(userPasswordDemoLoginData.user);
 			tradeConnector.setOrderApiSecret(userPasswordDemoLoginData.password);
+			panelHelper.setConnector(tradeConnector);
+			panelHelper.setProvider(this);
 			// if (isValid) {
 			// Report succesful login
 			adminListeners.forEach(Layer1ApiAdminListener::onLoginSuccessful);
@@ -910,7 +918,11 @@ public class Provider extends ExternalLiveBaseProvider {
 		updateValidPosition(validPosition, pos);
 		
 		if (pos.getLeverage() != null) {
-		    updateLeverage(pos.getSymbol(), pos.getLeverage());
+		    double leverage = pos.getLeverage();
+		    if (pos.isCrossMargin()) {
+		        leverage = 0.0;
+		    }
+		    updateLeverage(pos.getSymbol(), leverage);
 		}
 
 		StatusInfo info = new StatusInfo(validPosition.getSymbol(),
@@ -1190,17 +1202,34 @@ public class Provider extends ExternalLiveBaseProvider {
 	public void close() {
 		// Stop events generation
 		Log.info("[bitmex] Provider close(): ");
+		panelHelper.stop();
 		connector.closeSocket();
 		connector.setInterruptionNeeded(true);
 		providerThread.interrupt();
 	}
 	
-	private void updateLeverage (String symbol, double leverage) {
-	    Double previousLeverage = leverages.get(symbol); 
-	    if (previousLeverage == null || !previousLeverage.equals(leverages)) {
-	        leverages.put(symbol, leverage);
+	public void updateLeverage (String symbol, double leverage) {
+	    Log.info("updateLvrg " + symbol + " " + leverage);
+	    Integer previousLeverage = leverages.get(symbol); 
+	    if (previousLeverage == null || !previousLeverage.equals(leverage)) {
+	        leverages.put(symbol, (int) Math.round(leverage));
+	        Log.info("updateDLvrg " + symbol + " " + leverage);
+
 	        //send message to panel here
+	        LinkedHashMap<String, Object> map = new LinkedHashMap<>();
+            map.put("symbol", symbol);
+            map.put("leverage", leverage);
+            map.put("maxLeverage", connector.getMaximumLeverage(symbol));
+            gson.toJson(map);
+            String message = gson.toJson(map);
+            Log.info("bitmexSendMsg " + message);
+
+            panelHelper.sendMessage(message);
 	    }
+	}
+	
+	public Integer getLeverage (String symbol) {
+	    return leverages.get(symbol);
 	}
 
 }

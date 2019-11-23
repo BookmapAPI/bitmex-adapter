@@ -155,9 +155,11 @@ public class BmConnector implements Runnable {
 			URI echoUri = new URI(wssUrl);
 			ClientUpgradeRequest request = new ClientUpgradeRequest();
 
-			Log.info("[bitmex] BmConnector wsConnect websocket connecting...");
+			Log.info("[bitmex] BmConnector wsConnect websocket connecting..."); 
 			client.connect(socket, echoUri, request);
 			socket.getOpeningLatch().await();
+			boolean a = provider.isCredentialsEmpty();
+			boolean b = !a;
 
 			if (!provider.isCredentialsEmpty()) {// authentication needed
 				Log.info("[bitmex] BmConnector wsConnect websocket auth...");
@@ -172,7 +174,12 @@ public class BmConnector implements Runnable {
 
 				reportHistoricalExecutions("Filled");
 				reportHistoricalExecutions("Canceled");
+				
+                
 			}
+            Log.info("[bitmex] Starting panel server...");
+            provider.panelHelper.startInputConnection();
+            Log.info("[bitmex] Panel server started");
 
 			webSocketStartingLatch.countDown();
 			Log.info("[bitmex] BmConnector wsConnect websocket webSocketStartingLatch is down");
@@ -272,6 +279,7 @@ public class BmConnector implements Runnable {
 
 				for (BmInstrument instr : instrs) {
 					activeBmInstrumentsMap.put(instr.getSymbol(), instr);
+					provider.maxLeverages.put(instr.getSymbol(), (int) Math.round(1/instr.getInitMargin()));
 				}
 				activeBmInstrumentsMap.notify();
 			}
@@ -311,6 +319,8 @@ public class BmConnector implements Runnable {
 			}
 		};
 		
+		Timer previousTimer = instr.getSnapshotTimer();
+		if (previousTimer != null) previousTimer.cancel();
 		Timer timer = new Timer();
 		instr.setSnapshotTimer(timer);
 		Log.info("[bitmex] BmConnector launchSnapshotTimer " + localTimerCount + " for " + instr.getSymbol() + ": " + ZonedDateTime.now(ZoneOffset.UTC));
@@ -491,5 +501,10 @@ public class BmConnector implements Runnable {
 				socket.close();
 			}
 		}
+	}
+	
+	public int getMaximumLeverage(String alias) {
+	    double initMarginReq = getActiveInstrumentsMap().get(alias).getInitMargin();
+        return (int) Math.round(1/initMarginReq);
 	}
 }

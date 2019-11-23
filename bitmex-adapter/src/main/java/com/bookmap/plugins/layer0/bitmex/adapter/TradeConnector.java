@@ -189,13 +189,12 @@ public class TradeConnector {
 		return json;
 	}
 
-	public UnitOrder cancelOrder(String orderId) {
+	public void cancelOrder(String orderId) {
 		JsonObject json = new JsonObject();
 		json.addProperty("orderID", orderId);
 		String data = json.toString();
 		String res = require(GeneralType.ORDER, Method.DELETE, data);
 		Log.info("[bitmex] TradeConnector cancelOrder: " + res);
-		return null;
 	}
 
 	public void cancelOrder(List<String> orderIds) {
@@ -263,6 +262,8 @@ public class TradeConnector {
 
 	public String require(GeneralType genType, Method method, String data, boolean isOrderListBeingCanceled) {
 		String subPath = ConnectorUtils.subPaths.get(genType);
+		
+		if (data == null) data = "";
 
         if (genType.equals(GeneralType.POSITION) && data.contains("leverage")) {
             subPath += "/leverage";
@@ -311,6 +312,7 @@ public class TradeConnector {
 				provider.pushRateLimitWarning(rateLimitIfExists);
 			}
 
+            Log.info("[bitmex] TradeConnector require:  response code " + conn.getResponseCode());
 			if (conn.getResponseCode() != 200) {
 				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getErrorStream())));
 				StringBuilder sb = new StringBuilder("");
@@ -327,6 +329,17 @@ public class TradeConnector {
 					return sb.toString();
 				}
 				return resp;
+            } else {
+                Log.info("[bitmex] TradeConnector require:  response code " + conn.getResponseCode());
+                BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
+                StringBuilder sb = new StringBuilder();
+                String output = null;
+
+                while ((output = br.readLine()) != null) {
+                    sb.append(output);
+                }
+                String response = sb.toString();
+                return response;
 			}
 		} catch (UnknownHostException | NoRouteToHostException e) {
 			Log.info("[bitmex] TradeConnector require: no response from server");
