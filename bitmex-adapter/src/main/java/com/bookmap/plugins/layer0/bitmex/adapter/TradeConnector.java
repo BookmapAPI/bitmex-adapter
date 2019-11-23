@@ -19,7 +19,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 
-import velox.api.layer1.common.Log;
 import velox.api.layer1.data.OrderDuration;
 import velox.api.layer1.data.OrderMoveParameters;
 import velox.api.layer1.data.OrderType;
@@ -56,7 +55,7 @@ public class TradeConnector {
 		String addr = address;
 		long moment = ConnectorUtils.getMomentAndTimeToLive();
 
-		Log.info("[bitmex] TradeConnector makeRestGetQuery(xx) moment = " + moment);
+		LogBitmex.info("TradeConnector makeRestGetQuery(xx) moment = " + moment);
 
 		String messageBody = ConnectorUtils.createMessageBody("GET", addr, "",
 				moment);
@@ -95,14 +94,14 @@ public class TradeConnector {
 				while ((output = br.readLine()) != null) {
 					sb.append(output);
 				}
-				Log.info("[bitmex] TradeConnector makeRestGetQery err: " + sb.toString());
+				LogBitmex.info("TradeConnector makeRestGetQery err: " + sb.toString());
 			}
 		} catch (UnknownHostException | NoRouteToHostException e) {
-			Log.info("[bitmex] TradeConnector makeRestGetQuery: no response from server");
+			LogBitmex.info("TradeConnector makeRestGetQuery: no response from server");
 		} catch (java.net.SocketException e) {
-			Log.info("[bitmex] TradeConnector makeRestGetQuery: network is unreachable");
+			LogBitmex.info("TradeConnector makeRestGetQuery: network is unreachable");
 		} catch (IOException e) {
-			Log.info("[bitmex] TradeConnector makeRestGetQuery: buffer reading error");
+			LogBitmex.info("TradeConnector makeRestGetQuery: buffer reading error", e);
 			e.printStackTrace();
 		}
 		return response;
@@ -169,7 +168,7 @@ public class TradeConnector {
 			if (orderType == OrderType.STP) {// StopMarket
 				json.addProperty("ordType", "Stop");
 			} else if (orderType == OrderType.STP_LMT) {
-				Log.info("[bitmex] TradeConnector createSendData: STP_LMT trailing step == " + params.trailingStep);
+				LogBitmex.info("TradeConnector createSendData: STP_LMT trailing step == " + params.trailingStep);
 				json.addProperty("ordType", "StopLimit");
 				json.addProperty("price", params.limitPrice);
 			}
@@ -177,7 +176,7 @@ public class TradeConnector {
 			// used by stops to determine triggering price
 			execInst.add("LastPrice");
 			if (params.trailingStep > 0) {
-				Log.info("[bitmex] TradeConnector createSendData: STP trailing step == " + params.trailingStep);
+				LogBitmex.info("TradeConnector createSendData: STP trailing step == " + params.trailingStep);
 				json.addProperty("pegPriceType", "TrailingStopPeg");
 				json.addProperty("pegOffsetValue", getPegOffset(symbol, params.stopPrice));
 			}
@@ -194,7 +193,7 @@ public class TradeConnector {
 		json.addProperty("orderID", orderId);
 		String data = json.toString();
 		String res = require(GeneralType.ORDER, Method.DELETE, data);
-		Log.info("[bitmex] TradeConnector cancelOrder: " + res);
+		LogBitmex.info("TradeConnector cancelOrder: " + res);
 	}
 
 	public void cancelOrder(List<String> orderIds) {
@@ -205,7 +204,7 @@ public class TradeConnector {
 		}
 		sb.setLength(sb.length() - 1);
 		String data1 = sb.toString();
-		Log.info("[bitmex] TradeConnector cancelOrder (bulk): " + data1);
+		LogBitmex.info("TradeConnector cancelOrder (bulk): " + data1);
 		require(GeneralType.ORDER, Method.DELETE, data1, true);
 	}
 
@@ -226,7 +225,7 @@ public class TradeConnector {
 			array.add(json);
 		}
 		String data = "orders=" + array.toString();
-		Log.info("[bitmex] TradeConnector resizeOrder (bulk): " + data);
+		LogBitmex.info("TradeConnector resizeOrder (bulk): " + data);
 		return data;
 	}
 
@@ -272,9 +271,9 @@ public class TradeConnector {
 		String path = provider.getConnector().getRestApi() + subPath;
 		long moment = ConnectorUtils.getMomentAndTimeToLive();
 		
-		Log.info("[bitmex] TradeConnector makeRestGetQuery(xx) moment = " + moment);
+		LogBitmex.info("TradeConnector makeRestGetQuery(xx) moment = " + moment);
 
-		Log.info("[bitmex] TradeConnector require:  sending data => " + data);
+		LogBitmex.info("TradeConnector require:  sending data => " + data);
 
 		try {
 			URL url = new URL(path);
@@ -312,7 +311,7 @@ public class TradeConnector {
 				provider.pushRateLimitWarning(rateLimitIfExists);
 			}
 
-            Log.info("[bitmex] TradeConnector require:  response code " + conn.getResponseCode());
+            LogBitmex.info("TradeConnector require:  response code " + conn.getResponseCode());
 			if (conn.getResponseCode() != 200) {
 				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getErrorStream())));
 				StringBuilder sb = new StringBuilder("");
@@ -321,7 +320,7 @@ public class TradeConnector {
 				while ((output = br.readLine()) != null) {
 					sb.append(output);
 				}
-				Log.info("[bitmex] TradeConnector require:  response =>" + sb.toString());
+				LogBitmex.info("TradeConnector require:  response =>" + sb.toString());
 				String resp;
 				try {
 					resp = Provider.testReponseForError(sb.toString());
@@ -330,7 +329,7 @@ public class TradeConnector {
 				}
 				return resp;
             } else {
-                Log.info("[bitmex] TradeConnector require:  response code " + conn.getResponseCode());
+                LogBitmex.info("TradeConnector require:  response code " + conn.getResponseCode());
                 BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
                 StringBuilder sb = new StringBuilder();
                 String output = null;
@@ -342,12 +341,11 @@ public class TradeConnector {
                 return response;
 			}
 		} catch (UnknownHostException | NoRouteToHostException e) {
-			Log.info("[bitmex] TradeConnector require: no response from server");
+			LogBitmex.info("TradeConnector require: no response from server");
 		} catch (java.net.SocketException e) {
-			Log.info("[bitmex] TradeConnector require: network is unreachable");
+			LogBitmex.info("TradeConnector require: network is unreachable");
 		} catch (IOException e) {
-			Log.info("[bitmex] TradeConnector require: buffer reading error");
-			e.printStackTrace();
+			LogBitmex.info("TradeConnector require: buffer reading error", e);
 		}
 		return null;
 	}

@@ -672,6 +672,16 @@ private String execType;//no such in spec
 	public void setExecType(String execType) {
 		this.execType = execType;
 	}
+	
+	public Double getCommonLeverage() {
+	    if (crossMargin) {
+	        return 0.0; 
+	    } else if (leverage != null) {
+	        return leverage;
+	    } else {
+	        return null;
+	    }
+	}
 
 	@Override
 	public String toString() {

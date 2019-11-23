@@ -7,7 +7,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.WebSocketOperation;
 
-import velox.api.layer1.common.Log;
 import velox.api.layer1.layers.utils.OrderBook;
 
 /*BmInstrument is the short for BitMEX Instrument
@@ -158,7 +157,7 @@ public class BmInstrument {
 	}
 
 	public void setSellOrdersCount(int sellOrdersCount) {
-		Log.info("setSellOrdersCount " + sellOrdersCount);
+		LogBitmex.info("setSellOrdersCount " + sellOrdersCount);
 		this.sellOrdersCount = sellOrdersCount;
 	}
 
@@ -167,7 +166,7 @@ public class BmInstrument {
 	}
 
 	public void setBuyOrdersCount(int buyOrdersCount) {
-		Log.info("setBuyOrdersCount " + buyOrdersCount);
+		LogBitmex.info("setBuyOrdersCount " + buyOrdersCount);
 		this.buyOrdersCount = buyOrdersCount;
 	}
 

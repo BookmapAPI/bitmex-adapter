@@ -19,6 +19,7 @@ import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.GeneralType;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Method;
 import com.bookmap.plugins.layer0.bitmex.adapter.Constants;
 import com.bookmap.plugins.layer0.bitmex.adapter.JsonParser;
+import com.bookmap.plugins.layer0.bitmex.adapter.LogBitmex;
 import com.bookmap.plugins.layer0.bitmex.adapter.PanelServerHelper;
 import com.bookmap.plugins.layer0.bitmex.adapter.ResponseByRest;
 import com.bookmap.plugins.layer0.bitmex.adapter.TradeConnector;
@@ -39,7 +40,6 @@ import velox.api.layer1.Layer1ApiAdminListener;
 import velox.api.layer1.Layer1ApiDataListener;
 import velox.api.layer1.annotations.Layer1ApiVersion;
 import velox.api.layer1.annotations.Layer1ApiVersionValue;
-import velox.api.layer1.common.Log;
 import velox.api.layer1.data.BalanceInfo;
 import velox.api.layer1.data.BmSimpleHistoricalDataInfo;
 import velox.api.layer1.data.DisconnectionReason;
@@ -166,7 +166,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		final String exchange = subscribeInfo.exchange;
 		final String type = subscribeInfo.type;
 
-		Log.info("[bitmex] Provider subscribe");
+		LogBitmex.info("Provider subscribe");
 		String alias = createAlias(symbol, exchange, type);
 		// Since instruments also will be accessed from the data generation
 		// thread, synchronization is required
@@ -193,7 +193,7 @@ public class Provider extends ExternalLiveBaseProvider {
 							// waiting for the instruments map to be filled...
 							activeBmInstruments.wait();
 						} catch (InterruptedException e) {
-							e.printStackTrace();
+							LogBitmex.info("", e);
 						}
 					}
 					for (String key : activeBmInstruments.keySet()) {
@@ -205,7 +205,7 @@ public class Provider extends ExternalLiveBaseProvider {
 					try {
 						connector.getWebSocketStartingLatch().await();
 					} catch (InterruptedException e) {
-						e.printStackTrace();
+					    LogBitmex.info("", e);
 					}
 					BmInstrument instr = activeBmInstruments.get(symbol);
 					double pips = instr.getTickSize();
@@ -274,7 +274,7 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		String response = tradeConnector.require(genType, Method.POST, data);
 		passCancelMessageIfNeededAndClearPendingList(response);
-		Log.info("[bitmex] Provider sendOrder: response = " + response);
+		LogBitmex.info("Provider sendOrder: response = " + response);
 	}
 
 	private void passCancelMessageIfNeededAndClearPendingList(String response) {
@@ -309,7 +309,8 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		double limitPriceChecked = checkLImitPriceForBracket(simpleParams, bmInstrument);
 
-		SimpleOrderSendParameters stopLoss = new SimpleOrderSendParameters(
+		@SuppressWarnings("deprecation")
+        SimpleOrderSendParameters stopLoss = new SimpleOrderSendParameters(
 				simpleParams.alias,
 				!simpleParams.isBuy, // !
 				simpleParams.size,
@@ -327,7 +328,8 @@ public class Provider extends ExternalLiveBaseProvider {
 		int offsetMultiplier = simpleParams.isBuy ? 1 : -1;
 		double limitPriceChecked = checkLImitPriceForBracket(simpleParams, bmInstrument);
 
-		SimpleOrderSendParameters takeProfit = new SimpleOrderSendParameters(
+		@SuppressWarnings("deprecation")
+        SimpleOrderSendParameters takeProfit = new SimpleOrderSendParameters(
 				simpleParams.alias,
 				!simpleParams.isBuy, // !
 				simpleParams.size,
@@ -378,7 +380,7 @@ public class Provider extends ExternalLiveBaseProvider {
 			String contingencyType) {
 		// Detecting order type
 		OrderType orderType = OrderType.getTypeFromPrices(simpleParameters.stopPrice, simpleParameters.limitPrice);
-		Log.info("[bitmex] Provider prepareSimpleOrder: orderType = " + orderType.toString());
+		LogBitmex.info("Provider prepareSimpleOrder: orderType = " + orderType.toString());
 		String tempOrderId = System.currentTimeMillis() + "-temp-" + orderCount++;
 		final OrderInfoBuilder builder = new OrderInfoBuilder(simpleParameters.alias, tempOrderId,
 				simpleParameters.isBuy, orderType, simpleParameters.clientId, simpleParameters.doNotIncrease);
@@ -404,7 +406,7 @@ public class Provider extends ExternalLiveBaseProvider {
 			pendingOrders.add(builder);
 		}
 
-		Log.info("[bitmex] Provider prepareSimpleOrder: getting sent to bitmex");
+		LogBitmex.info("Provider prepareSimpleOrder: getting sent to bitmex");
 		synchronized (workingOrders) {
 			workingOrders.put(builder.getOrderId(), builder);
 		}
@@ -416,7 +418,7 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	public void rejectOrder(OrderInfoBuilder builder, String reas) {
 		String reason = "The order was rejected: \n" + reas;
-		Log.info("[bitmex] Provider rejectOrder");
+		LogBitmex.info("Provider rejectOrder");
 		/*
 		 * Necessary fields are already populated, so just change status to
 		 * rejected and send
@@ -431,48 +433,70 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	@Override
-	public void updateOrder(OrderUpdateParameters orderUpdateParameters) {
-		if (orderUpdateParameters.getClass() == OrderCancelParameters.class) {
-			OrderCancelParameters orderCancelParameters = (OrderCancelParameters) orderUpdateParameters;
-			Log.info("[bitmex] Provider updateOrder: (cancel) id=" + orderCancelParameters.orderId);
-			passCancelParameters(orderCancelParameters);
-		} else if (orderUpdateParameters.getClass() == OrderResizeParameters.class) {
-			Log.info("[bitmex] Provider updateOrder: (resize)");
-			OrderResizeParameters orderResizeParameters = (OrderResizeParameters) orderUpdateParameters;
-			passResizeParameters(orderResizeParameters);
-		} else if (orderUpdateParameters.getClass() == OrderMoveParameters.class) {
-			Log.info("[bitmex] Provider updateOrder: (move)");
-			OrderMoveParameters orderMoveParameters = (OrderMoveParameters) orderUpdateParameters;
+    public void updateOrder(OrderUpdateParameters orderUpdateParameters) {
+        try {
+            if (orderUpdateParameters.getClass() == OrderCancelParameters.class) {
+                OrderCancelParameters orderCancelParameters = (OrderCancelParameters) orderUpdateParameters;
+                LogBitmex.info("Provider updateOrder: (cancel) id=" + orderCancelParameters.orderId);
+                passCancelParameters(orderCancelParameters);
+            } else if (orderUpdateParameters.getClass() == OrderResizeParameters.class) {
+                LogBitmex.info("Provider updateOrder: (resize)");
+                OrderResizeParameters orderResizeParameters = (OrderResizeParameters) orderUpdateParameters;
+                passResizeParameters(orderResizeParameters);
+            } else if (orderUpdateParameters.getClass() == OrderMoveParameters.class) {
+                LogBitmex.info("Provider updateOrder: (move)");
+                OrderMoveParameters orderMoveParameters = (OrderMoveParameters) orderUpdateParameters;
 
-			boolean isBracketParent;
-			synchronized (bracketParents) {
-				isBracketParent = bracketParents.contains(orderMoveParameters.orderId);
-			}
+                boolean isBracketParent;
+                synchronized (bracketParents) {
+                    isBracketParent = bracketParents.contains(orderMoveParameters.orderId);
+                }
 
-			boolean isTrailingStop;
-			synchronized (trailingStops) {
-				isTrailingStop = trailingStops.containsKey(orderMoveParameters.orderId);
-			}
+                boolean isTrailingStop;
+                synchronized (trailingStops) {
+                    isTrailingStop = trailingStops.containsKey(orderMoveParameters.orderId);
+                }
 
-			if (isBracketParent) {
-				passBracketMoveParameters(orderMoveParameters);
-			} else if (isTrailingStop) {
-				// trailing stop
-				JsonObject json = tradeConnector.moveTrailingStepJson(orderMoveParameters);
-				tradeConnector.require(GeneralType.ORDER, Method.PUT, json.toString());
-			} else {// single order
-				boolean isStopTriggered;
-				synchronized (workingOrders) {
-					isStopTriggered = workingOrders.get(orderMoveParameters.orderId).isStopTriggered();
-				}
-				JsonObject json = tradeConnector.moveOrderJson(orderMoveParameters, isStopTriggered);
-				tradeConnector.require(GeneralType.ORDER, Method.PUT, json.toString());
-			}
-		} else {
-			throw new UnsupportedOperationException("Unsupported order type");
-		}
-
-	}
+                if (isBracketParent) {
+                    passBracketMoveParameters(orderMoveParameters);
+                } else if (isTrailingStop) {
+                    // trailing stop
+                    JsonObject json = tradeConnector.moveTrailingStepJson(orderMoveParameters);
+                    tradeConnector.require(GeneralType.ORDER, Method.PUT, json.toString());
+                } else {// single order
+                    boolean isStopTriggered;
+                    synchronized (workingOrders) {
+                        OrderInfoBuilder builder = workingOrders.get(orderMoveParameters.orderId);
+                        if (builder == null) {
+                            LogBitmex.info("Provider checking isStopTriggered | bulder NULL for "
+                                    + orderMoveParameters.orderId + ", not being sent to bitmex");
+                        } else {
+                            isStopTriggered = builder.isStopTriggered();
+                            JsonObject json = tradeConnector.moveOrderJson(orderMoveParameters, isStopTriggered);
+                            tradeConnector.require(GeneralType.ORDER, Method.PUT, json.toString());
+                        }
+                    }
+                }
+            } else {
+                throw new UnsupportedOperationException("Unsupported order type");
+            }
+        } catch (NullPointerException e) {
+            LogBitmex.info("", e);
+            LogBitmex.info("Provider updateOrder: no found " + orderUpdateParameters.toString());
+            if (workingOrders == null) {
+                LogBitmex.info("Provider updateOrder: workingOrders == null");
+            } else {
+                StringBuilder sb = new StringBuilder();
+                sb.append("Provider updateOrder: workingOrders {");
+                for (String id : workingOrders.keySet()) {
+                    sb.append("[" + id + ", " + workingOrders.get(id) + "], ");
+                }
+                sb.append("]");
+                LogBitmex.info(sb.toString());
+            }
+            throw new RuntimeException();
+        }
+    }
 
 	private void passCancelParameters(OrderCancelParameters orderCancelParameters) {
 		if (orderCancelParameters.batchEnd == true) {
@@ -502,11 +526,11 @@ public class Provider extends ExternalLiveBaseProvider {
 						bunchOfOrdersToCancel = LinkIdToRealIdsMap.get(clOrdLinkID);
 					}
 					tradeConnector.cancelOrder(bunchOfOrdersToCancel);
-					Log.info("[bitmex] Provider passCancelParameters: (batch cancel component)");
+					LogBitmex.info("Provider passCancelParameters: (batch cancel component)");
 				} else {
 					// finally, true single order
 					tradeConnector.cancelOrder(orderCancelParameters.orderId);
-					Log.info("[bitmex] Provider passCancelParameters: (single cancel)");
+					LogBitmex.info("Provider passCancelParameters: (single cancel)");
 				}
 			} else {
 				/*
@@ -516,7 +540,7 @@ public class Provider extends ExternalLiveBaseProvider {
 				batchCancels.add(orderCancelParameters.orderId);
 				tradeConnector.cancelOrder(batchCancels);
 				batchCancels.clear();
-				Log.info("[bitmex] Provider passCancelParameters: (batch cancel performed)");
+				LogBitmex.info("Provider passCancelParameters: (batch cancel performed)");
 
 			}
 		} else {/*
@@ -555,7 +579,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		setPendingStatus(pendingIds, OrderStatus.PENDING_MODIFY);
 		String response = tradeConnector.require(type, Method.PUT, data);
 		passCancelMessageIfNeededAndClearPendingListForResize(pendingIds, response);
-		Log.info("[bitmex] Provider passResizeParameters: server response" + response);
+		LogBitmex.info("Provider passResizeParameters: server response" + response);
 	}
 
 	private void setPendingStatus(List<String> pendingIds, OrderStatus status) {
@@ -689,7 +713,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	private void handleLogin(UserPasswordDemoLoginData userPasswordDemoLoginData) {
-		Log.info("[bitmex] Provider handleLogin");
+		LogBitmex.info("Provider handleLogin");
 		// With real connection provider would attempt establishing connection
 		// here.
 
@@ -704,7 +728,7 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		if (isValid || isCredentialsEmpty) {
 
-            Log.info("[bitmex] Provider handleLogin: credentials valid or empty");
+            LogBitmex.info("Provider handleLogin: credentials valid or empty");
             connector = new BmConnector();
 			tradeConnector = new TradeConnector();
 			tradeConnector.setProvider(this);
@@ -736,7 +760,7 @@ public class Provider extends ExternalLiveBaseProvider {
 			connectorThread.setName("->com.bookmap.plugins.layer0.bitmex.adapter: connector");
 			connectorThread.start();
 		} else if (isOneCredentialEmpty) {
-			Log.info("[bitmex] Provider handleLogin: empty credentials");
+			LogBitmex.info("Provider handleLogin: empty credentials");
 			// Report failed login
 			adminListeners.forEach(l -> l.onLoginFailed(LoginFailedReason.WRONG_CREDENTIALS,
 					"Either login or password is empty"));
@@ -768,21 +792,25 @@ public class Provider extends ExternalLiveBaseProvider {
 		OrderInfoBuilder builder = workingOrders.get(exec.getOrderID());
 
 		if (builder == null) {
-			Log.info("[bitmex] Provider listenForExecution: builder is null");
+			LogBitmex.info("Provider listenForExecution: builder is null looking for " + exec.getOrderID() + " "+ exec.toString());
 		}
 
 		if (exec.getExecType().equals("New")) {
-			Log.info("[bitmex] Provider listenForExecution: new");
+			LogBitmex.info("Provider listenForExecution: new");
 			String tempOrderId = exec.getClOrdID();
+			LogBitmex.info("Provider listenForExecution: looking for getClOrdID [" + tempOrderId + "]");
 
 			synchronized (workingOrders) {
 				builder = workingOrders.get(tempOrderId);
 			}
 
 			if (builder == null) {
+			    LogBitmex.info("Provider listenForExecution: looking for getClOrdID | not found | creating new");
 				createBookmapOrder((UnitOrder) exec);
 				synchronized (workingOrders) {
+		            LogBitmex.info("Provider listenForExecution: getting newly created orderID " + exec.getOrderID());
 					builder = workingOrders.get(exec.getOrderID());
+                    LogBitmex.info("Provider listenForExecution: found " + builder.toString());
 				}
 			}
 			
@@ -814,6 +842,7 @@ public class Provider extends ExternalLiveBaseProvider {
 			}
 
 			builder.setOrderId(exec.getOrderID());
+            LogBitmex.info("Provider listenForExecution: orderID changed to " + exec.getOrderID());
 			builder.setStatus(OrderStatus.WORKING);
 
 			if (exec.getTriggered().equals("NotTriggered")) {
@@ -825,7 +854,7 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		} else if (exec.getExecType().equals("Replaced")
 				|| exec.getExecType().equals("Restated")) {
-			Log.info("[bitmex] Provider listenForExecution: " + exec.getExecType());
+			LogBitmex.info("Provider listenForExecution: " + exec.getExecType());
 			builder.setUnfilled((int) exec.getLeavesQty());
 			builder.setLimitPrice(exec.getPrice());
 			builder.setStopPrice(exec.getStopPx());
@@ -835,7 +864,7 @@ public class Provider extends ExternalLiveBaseProvider {
 			}
 
 		} else if (exec.getExecType().equals("Trade")) {
-			Log.info("[bitmex] Provider listenForExecution: trade");
+			LogBitmex.info("Provider listenForExecution: trade " + exec.getOrderID());
 			ExecutionInfo executionInfo = new ExecutionInfo(exec.getOrderID(), (int) exec.getLastQty(),
 					exec.getLastPx(),
 					exec.getExecID(), System.currentTimeMillis());
@@ -854,21 +883,22 @@ public class Provider extends ExternalLiveBaseProvider {
 			builder.setFilled((int) exec.getCumQty());
 
 			if (exec.getOrdStatus().equals("Filled")) {
+			    LogBitmex.info("Provider listenForExecution: orderId filled " + exec.getOrderID()); 
 				builder.setStatus(OrderStatus.FILLED);
 			}
 		} else if (exec.getExecType().equals("Canceled")) {
-			Log.info("[bitmex] Provider listenForExecution: canceled");
+			LogBitmex.info("Provider listenForExecution: canceled");
 			builder.setStatus(OrderStatus.CANCELLED);
 		} else if (exec.getExecType().equals("TriggeredOrActivatedBySystem")) {
 			if (exec.getTriggered().equals("StopOrderTriggered")) {
-				Log.info("[bitmex] Provider listenForExecution: StopOrderTriggered");
+				LogBitmex.info("Provider listenForExecution: StopOrderTriggered");
 				builder.setStopTriggered(true);
 			} else if (exec.getTriggered().equals("Triggered")) {
-				Log.info("[bitmex] Provider listenForExecution: TriggeredOrActivatedBySystem + Triggered");
+				LogBitmex.info("Provider listenForExecution: TriggeredOrActivatedBySystem + Triggered");
 				builder.setStatus(OrderStatus.WORKING);
 			}
 		} else if (exec.getExecType().equals("Rejected")) {
-			Log.info("[bitmex] Provider listenForExecution: Rejected");
+			LogBitmex.info("Provider listenForExecution: Rejected");
 			if (builder == null) {
 				synchronized (workingOrders) {
 					builder = workingOrders.get(exec.getClOrdID());
@@ -883,10 +913,10 @@ public class Provider extends ExternalLiveBaseProvider {
 		} else if (exec.getExecType().equals("TriggeredOrActivatedBySystem")) {
 
 			if (exec.getTriggered().equals("StopOrderTriggered")) {
-				Log.info("[bitmex] Provider listenForExecution: TriggeredOrActivatedBySystem + StopOrderTriggered");
+				LogBitmex.info("Provider listenForExecution: TriggeredOrActivatedBySystem + StopOrderTriggered");
 				builder.setStopTriggered(true);
 			} else if (exec.getTriggered().equals("Triggered")) {
-				Log.info("[bitmex] Provider listenForExecution:  TriggeredOrActivatedBySystem + Triggered");
+				LogBitmex.info("Provider listenForExecution:  TriggeredOrActivatedBySystem + Triggered");
 				builder.setStatus(OrderStatus.WORKING);
 			}
 		}
@@ -895,6 +925,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		builder.setModificationUtcTime(exec.getExecTransactTime());
 		OrderInfoBuilder finalBuilder = builder;
 		tradingListeners.forEach(l -> l.onOrderUpdated(finalBuilder.build()));
+        LogBitmex.info("Provider listenForExecution: l.onOrderUpdated " + finalBuilder.getOrderId() + " " + exec.getExecType() + " " + exec.getExecID());
 		builder.markAllUnchanged();
 
 		synchronized (workingOrders) {
@@ -905,7 +936,10 @@ public class Provider extends ExternalLiveBaseProvider {
 					|| exec.getExecType().equals("Rejected")) {
 				workingOrders.remove(exec.getOrderID());
 			} else {// but we need to keep the changes if something has changed
+	            LogBitmex.info("Provider listenForExecution:  Putting to workingOrders " + finalBuilder.getOrderId());
 				workingOrders.put(finalBuilder.getOrderId(), builder);
+                LogBitmex.info("Provider listenForExecution:  Put to workingOrders " + finalBuilder.getOrderId());
+
 			}
 		}
 	}
@@ -918,11 +952,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		updateValidPosition(validPosition, pos);
 		
 		if (pos.getLeverage() != null) {
-		    double leverage = pos.getLeverage();
-		    if (pos.isCrossMargin()) {
-		        leverage = 0.0;
-		    }
-		    updateLeverage(pos.getSymbol(), leverage);
+		    updateLeverage(pos.getSymbol(), pos.getCommonLeverage());
 		}
 
 		StatusInfo info = new StatusInfo(validPosition.getSymbol(),
@@ -1068,11 +1098,11 @@ public class Provider extends ExternalLiveBaseProvider {
 		}
 		if (pos.getOpenOrderBuyQty() != null) {
 			validPosition.setOpenOrderBuyQty(pos.getOpenOrderBuyQty());
-			Log.info("[bitmex] Provider updateValidPosition:  add Buys=" + validPosition.getOpenOrderBuyQty());
+			LogBitmex.info("Provider updateValidPosition:  add Buys=" + validPosition.getOpenOrderBuyQty());
 		}
 		if (pos.getOpenOrderSellQty() != null) {
 			validPosition.setOpenOrderSellQty(pos.getOpenOrderSellQty());
-			Log.info("[bitmex] Provider updateValidPosition:  add Sells=" + validPosition.getOpenOrderSellQty());
+			LogBitmex.info("Provider updateValidPosition:  add Sells=" + validPosition.getOpenOrderSellQty());
 		}
 	}
 
@@ -1082,26 +1112,26 @@ public class Provider extends ExternalLiveBaseProvider {
 	 */
 
 	public void createBookmapOrder(UnitOrder order) {
-		Log.info("[bitmex] Provider createBookmapOrder:  order created id=" + order.getOrderID());
+		LogBitmex.info("Provider createBookmapOrder:  order created id=" + order.getOrderID());
 		boolean isBuy = order.getSide().equals("Buy") ? true : false;
 		String sType = order.getOrdType();
 
 		if (sType.equals("symbol")) {
-			Log.info("[bitmex] Provider createBookmapOrder:  ordType is symbol; return");
+			LogBitmex.info("Provider createBookmapOrder:  ordType is symbol; return");
 			return;
 		}
 		if (sType.equals("MarketIfTouched")) {
 			sType = "Stop";
-			Log.info("[bitmex] Provider createBookmapOrder:  MarketIfTouched castes to Stop");
+			LogBitmex.info("Provider createBookmapOrder:  MarketIfTouched castes to Stop");
 		}
 		if (sType.equals("LimitIfTouched")) {
 			sType = "StopLimit";
-			Log.info("[bitmex] Provider createBookmapOrder:  LimitIfTouched castes to StopLimit");
+			LogBitmex.info("Provider createBookmapOrder:  LimitIfTouched castes to StopLimit");
 		}
 
 		String sTypeUpper = sType.toUpperCase();
 		OrderType type = OrderType.valueOfLoose(sTypeUpper);
-		Log.info("[bitmex] Provider createBookmapOrder:  order created Type=" + type.toString());
+		LogBitmex.info("Provider createBookmapOrder:  order created Type=" + type.toString());
 		String clientId = tempClientId;
 		boolean doNotIncrease = false;// this field is being left true so far
 
@@ -1122,8 +1152,7 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		synchronized (workingOrders) {
 			workingOrders.put(order.getOrderID(), builder);
-			Log.info("BM ORDER PUT");
-		}
+			LogBitmex.info("Provider createBookmapOrder:  put to workingOrders id=" + order.getOrderID());		}
 	}
 
 	private void checkIfLinkedAndAddToMaps(UnitOrder order) {
@@ -1201,7 +1230,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	@Override
 	public void close() {
 		// Stop events generation
-		Log.info("[bitmex] Provider close(): ");
+		LogBitmex.info("Provider close(): ");
 		panelHelper.stop();
 		connector.closeSocket();
 		connector.setInterruptionNeeded(true);
@@ -1209,11 +1238,11 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 	
 	public void updateLeverage (String symbol, double leverage) {
-	    Log.info("updateLvrg " + symbol + " " + leverage);
+	    LogBitmex.info("updateLvrg " + symbol + " " + leverage);
 	    Integer previousLeverage = leverages.get(symbol); 
 	    if (previousLeverage == null || !previousLeverage.equals(leverage)) {
 	        leverages.put(symbol, (int) Math.round(leverage));
-	        Log.info("updateDLvrg " + symbol + " " + leverage);
+	        LogBitmex.info("updateDLvrg " + symbol + " " + leverage);
 
 	        //send message to panel here
 	        LinkedHashMap<String, Object> map = new LinkedHashMap<>();
@@ -1222,7 +1251,7 @@ public class Provider extends ExternalLiveBaseProvider {
             map.put("maxLeverage", connector.getMaximumLeverage(symbol));
             gson.toJson(map);
             String message = gson.toJson(map);
-            Log.info("bitmexSendMsg " + message);
+            LogBitmex.info("bitmexSendMsg " + message);
 
             panelHelper.sendMessage(message);
 	    }

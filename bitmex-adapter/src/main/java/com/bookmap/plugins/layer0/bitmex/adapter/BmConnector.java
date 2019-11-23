@@ -125,7 +125,7 @@ public class BmConnector implements Runnable {
 		String orderApiSecret = tradeConnector.getOrderApiSecret();
 		long moment = ConnectorUtils.getMomentAndTimeToLive();
 		
-		Log.info("[bitmex] BmConnector wssAuthTwo() moment = " + moment);
+		LogBitmex.info("BmConnector wssAuthTwo() moment = " + moment);
 		
 		String res = null;
 		String messageBody = ConnectorUtils.createMessageBody(method, subPath, null, moment);
@@ -140,31 +140,31 @@ public class BmConnector implements Runnable {
 	public void wsConnect() {
 		SslContextFactory ssl = new SslContextFactory();
 		WebSocketClient client = new WebSocketClient(ssl);
-		Log.info("[bitmex " + Constants.version + "] BmConnector wsConnect websocket starting...");
+		LogBitmex.info("[bitmex " + Constants.version + "] BmConnector wsConnect websocket starting...");
 
 		try {
-			Log.info("[bitmex] BmConnector wsConnect websocket being created...");
+			LogBitmex.info("BmConnector wsConnect websocket being created...");
 			socket = new ClientSocket();
 			parser.setActiveInstrumentsMap(Collections.unmodifiableMap(activeBmInstrumentsMap));
 			socket.setParser(parser);
 			parser.setProvider(provider);
 
-			Log.info("[bitmex] BmConnector wsConnect client starting...");
+			LogBitmex.info("BmConnector wsConnect client starting...");
 
 			client.start();
 			URI echoUri = new URI(wssUrl);
 			ClientUpgradeRequest request = new ClientUpgradeRequest();
 
-			Log.info("[bitmex] BmConnector wsConnect websocket connecting..."); 
+			LogBitmex.info("BmConnector wsConnect websocket connecting..."); 
 			client.connect(socket, echoUri, request);
 			socket.getOpeningLatch().await();
 			boolean a = provider.isCredentialsEmpty();
 			boolean b = !a;
 
 			if (!provider.isCredentialsEmpty()) {// authentication needed
-				Log.info("[bitmex] BmConnector wsConnect websocket auth...");
+				LogBitmex.info("BmConnector wsConnect websocket auth...");
 				String mes = wssAuthTwo();
-				Log.info("[bitmex] BmConnector wsConnect websocket auth message passed");
+				LogBitmex.info("BmConnector wsConnect websocket auth message passed");
 				socket.sendMessage(mes);
 				webSocketAuthLatch.await();
 				WsData wsData = new WsData(WebSocketOperation.SUBSCRIBE,
@@ -177,12 +177,12 @@ public class BmConnector implements Runnable {
 				
                 
 			}
-            Log.info("[bitmex] Starting panel server...");
+            LogBitmex.info("Starting panel server...");
             provider.panelHelper.startInputConnection();
-            Log.info("[bitmex] Panel server started");
+            LogBitmex.info("Panel server started");
 
 			webSocketStartingLatch.countDown();
-			Log.info("[bitmex] BmConnector wsConnect websocket webSocketStartingLatch is down");
+			LogBitmex.info("BmConnector wsConnect websocket webSocketStartingLatch is down");
 
 			if (isReconnecting) {
 				provider.reportRestoredCoonection();
@@ -202,23 +202,19 @@ public class BmConnector implements Runnable {
 			isReconnecting = true;
 
 		} catch (UpgradeException e) {
-			e.printStackTrace();
-			Log.info("[bitmex] BmConnector wsConnect client cannot connect 0 ");
+			LogBitmex.info("BmConnector wsConnect client cannot connect 0 ");
 		} catch (UnresolvedAddressException e) {
-			e.printStackTrace();
-			Log.info("[bitmex] BmConnector wsConnect client cannot connect 1 ");
+			LogBitmex.info("BmConnector wsConnect client cannot connect 1 ");
 		} catch (WebSocketException e) {
-			e.printStackTrace();
-			Log.info("[bitmex] BmConnector wsConnect connection must be lost ");
-		} catch (Exception | Error e) {
-			Log.info("[bitmex] BmConnector wsConnect an Exception thrown from the websocket");
+			LogBitmex.info("BmConnector wsConnect connection must be lost ");
+		} catch (Exception e) {
+			LogBitmex.info("BmConnector wsConnect an Exception thrown from the websocket", e);
 			throw new RuntimeException(e);
 		} finally {
 			try {
 				client.stop();
 			} catch (Exception e) {
-				Log.info("[bitmex] BmConnector wsConnect Got trouble stoppping client");
-				e.printStackTrace();
+				LogBitmex.info("BmConnector wsConnect Got trouble stoppping client", e);
 				throw new RuntimeException(e);
 			}
 		}
@@ -228,10 +224,10 @@ public class BmConnector implements Runnable {
 		try {
 			getWebSocketStartingLatch().await();
 		} catch (InterruptedException e) {
-			e.printStackTrace();
+            LogBitmex.info("Sending message interrupted", e);
 			throw new RuntimeException();
 		}
-		Log.info("[bitmex] BmConnector wsConnect Send websocket message");
+		LogBitmex.info("BmConnector wsConnect Send websocket message");
 
 		synchronized (socketLock) {
 			if (socket != null) {
@@ -261,12 +257,11 @@ public class BmConnector implements Runnable {
 				response = sb.toString();
 			}
 		} catch (UnknownHostException | NoRouteToHostException e) {
-			Log.info("[bitmex] BmConnector getServerResponse: no response from server");
+			LogBitmex.info("BmConnector getServerResponse: no response from server");
 		} catch (SocketException e) {
-			Log.info("[bitmex] BmConnector getServerResponse: network is unreachable");
+			LogBitmex.info("BmConnector getServerResponse: network is unreachable");
 		} catch (IOException e) {
-			Log.info("[bitmex] BmConnector getServerResponse: buffer reading exception");
-			e.printStackTrace();
+			LogBitmex.info("BmConnector getServerResponse: buffer reading exception", e);
 		}
 		return response;
 	}
@@ -298,23 +293,26 @@ public class BmConnector implements Runnable {
 				Thread.currentThread().setName("-> BmConnector: snapshotTimer " + localTimerCount + " for" + instr.getSymbol() );
 			
 				if (socket == null || isReconnecting){
-					Log.info("[bitmex] Waiting for the socket, timer " + localTimerCount + " shutdown");
+					LogBitmex.info("Waiting for the socket, timer " + localTimerCount + " shutdown");
 					return;
 				}
 				
 				if (!instr.isOrderBookSnapshotParsed()) {
-					Log.info("[bitmex] BmConnector launchSnapshotTimer " + localTimerCount + " for " + instr.getSymbol() + ": resubscribe " + ZonedDateTime.now(ZoneOffset.UTC));
+					LogBitmex.info("BmConnector launchSnapshotTimer " + localTimerCount + " for " + instr.getSymbol() + ": resubscribe " + ZonedDateTime.now(ZoneOffset.UTC));
 					unSubscribe(instr);
 					
 					try {
 						Thread.sleep(5000);
 					} catch (InterruptedException e) {
-						e.printStackTrace();
+					    LogBitmex.info("BmConnector sleeping interrupted ", e);
 					}
-					
-					subscribe(instr);
+                    try {
+                        subscribe(instr);
+                    } catch (Exception e) {
+                        LogBitmex.info("", e);
+                    }
 				} else {
-					Log.info("[bitmex] BmConnector launchSnapshotTimer " + localTimerCount + " for " + instr.getSymbol() + ": end " + ZonedDateTime.now(ZoneOffset.UTC));
+					LogBitmex.info("BmConnector launchSnapshotTimer " + localTimerCount + " for " + instr.getSymbol() + ": end " + ZonedDateTime.now(ZoneOffset.UTC));
 				}
 			}
 		};
@@ -323,7 +321,7 @@ public class BmConnector implements Runnable {
 		if (previousTimer != null) previousTimer.cancel();
 		Timer timer = new Timer();
 		instr.setSnapshotTimer(timer);
-		Log.info("[bitmex] BmConnector launchSnapshotTimer " + localTimerCount + " for " + instr.getSymbol() + ": " + ZonedDateTime.now(ZoneOffset.UTC));
+		LogBitmex.info("BmConnector launchSnapshotTimer " + localTimerCount + " for " + instr.getSymbol() + ": " + ZonedDateTime.now(ZoneOffset.UTC));
 		timer.schedule(task, 10000);
 		timerCount++;
 	}
@@ -338,7 +336,7 @@ public class BmConnector implements Runnable {
 		ScheduledExecutorService executionsResetTimer = Executors
 				.newSingleThreadScheduledExecutor(new CustomThreadFactory());
 		this.executionsResetTimer = executionsResetTimer;
-		Log.info("[bitmex] BmConnector launchExecutionsResetTimer(): ");
+		LogBitmex.info("BmConnector launchExecutionsResetTimer(): ");
 		executionsResetTimer.scheduleWithFixedDelay(new Runnable() {
 			@Override
 			public void run() {
@@ -364,9 +362,9 @@ public class BmConnector implements Runnable {
 	}
 
 	public void subscribe(BmInstrument instr) {
-		Log.info("[bitmex] BmConnector subscribe: " + instr.getSymbol());
+		LogBitmex.info("BmConnector subscribe: " + instr.getSymbol());
 		instr.setSubscribed(true);
-		Log.info("[bitmex] BmConnector subscribe: set true");
+		LogBitmex.info("BmConnector subscribe: set true");
 
 		sendWebsocketMessage(instr.getSubscribeReq());
 		launchSnapshotTimer(instr);
@@ -377,12 +375,16 @@ public class BmConnector implements Runnable {
 	}
 
 	public void unSubscribe(BmInstrument instr) {
-		sendWebsocketMessage(instr.getUnSubscribeReq());
+        try {
+            sendWebsocketMessage(instr.getUnSubscribeReq());
+        } catch (Exception e) {
+            LogBitmex.info("", e);
+        }
 		
 		Timer timer = instr.getSnapshotTimer();
 		if (timer != null) {
 			timer.cancel();
-			Log.info("[bitmex] BmConnector unSubscribe: timer gets cancelled");
+			LogBitmex.info("BmConnector unSubscribe: timer gets cancelled");
 			}
 		instr.setSubscribed(false);
 		
@@ -407,7 +409,7 @@ public class BmConnector implements Runnable {
 			}
 		}
 
-		Log.info("[bitmex] BmConnector countExecution volume: " + st0);
+		LogBitmex.info("BmConnector countExecution volume: " + st0);
 		return sum;
 	}
 
@@ -445,7 +447,7 @@ public class BmConnector implements Runnable {
 				}
 			}
 		}
-		Log.info("[bitmex] BmConnector report " + ordStatus + ": listSize =  " + historicalExecutions.size());
+		LogBitmex.info("BmConnector report " + ordStatus + ": listSize =  " + historicalExecutions.size());
 
 		if (historicalExecutions != null && historicalExecutions.size() > 0) {
 			provider.updateExecutionsHistory(
@@ -461,7 +463,7 @@ public class BmConnector implements Runnable {
 				try {
 					Thread.sleep(5000);
 				} catch (InterruptedException e) {
-					e.printStackTrace();
+					LogBitmex.info("", e);
 					throw new RuntimeException();
 				}
 				continue;
@@ -492,7 +494,7 @@ public class BmConnector implements Runnable {
 		executionsResetTimer.shutdownNow();
 		closeSocket();
 
-		Log.info("[bitmex] BmConnector run: closing");
+		LogBitmex.info("BmConnector run: closing");
 	}
 	
 	public void closeSocket(){

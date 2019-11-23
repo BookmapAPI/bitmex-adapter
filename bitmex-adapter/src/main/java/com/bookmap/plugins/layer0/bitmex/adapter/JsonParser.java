@@ -15,11 +15,10 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 
-import velox.api.layer1.common.Log;
+import velox.api.layer1.data.SystemTextMessageType;
 import velox.api.layer1.layers.utils.OrderBook;
 
 public class JsonParser {
-	private Provider provider;
 
 	public static <T> T[] getArrayFromJson(String input, Class<T[]> cls) {
 		return (T[]) new Gson().fromJson(input, cls);
@@ -35,6 +34,7 @@ public class JsonParser {
 
 	public static final Gson gson = new GsonBuilder().create();
 
+    private Provider provider;
 	private Map<String, BmInstrument> activeInstrumentsMap = new HashMap<>();
 	private Set<String> nonInstrumentPartialsParsed = new HashSet<>();
 
@@ -46,8 +46,7 @@ public class JsonParser {
 		this.activeInstrumentsMap = activeInstrumentsMap;
 	}
 
-	public void parse(String str) {
-if (str.contains("leverage")) Log.info(str);
+	public void parse(String str) {;
 		try {
 			// first let's find out what kind of object we have here
 			ResponseByWebSocket responseWs = (ResponseByWebSocket) gson.fromJson(str, ResponseByWebSocket.class);
@@ -57,8 +56,19 @@ if (str.contains("leverage")) Log.info(str);
 				}
 
 				if (responseWs.getStatus() != null && responseWs.getStatus() != 200) {
-					Log.info("[bitmex] JsonParser parser: websocket response status = " + responseWs.getError());
-					provider.reportWrongCredentials(responseWs.getError());
+					LogBitmex.info("JsonParser parser: websocket response status = " + responseWs.getError());
+					String errorMessage = responseWs.getError();
+					
+					if (errorMessage.toUpperCase().contains("Signature not valid".toUpperCase()) ||
+					        errorMessage.toUpperCase().contains("Invalid API Key".toUpperCase()) ||
+                            errorMessage.toUpperCase().contains("Account does not exist".toUpperCase())) {
+                        provider.reportWrongCredentials(errorMessage);
+                    } else {
+                        final String messageToShow = errorMessage == null ? str : errorMessage;
+                      
+                        provider.adminListeners.forEach(l -> l.onSystemTextMessage(messageToShow,
+                                SystemTextMessageType.UNCLASSIFIED));
+                    }
 					return;
 				}
 
@@ -69,8 +79,8 @@ if (str.contains("leverage")) Log.info(str);
 				if (responseWs.getSuccess() == true && responseWs.getRequest().getOp().equals("unsubscribe")) {
 					String symbol = responseWs.getUnsubscribeSymbol();
 					if (symbol != null) {
-						Log.info(
-								"[bitmex] JsonParser parser: getting unsbscribed from orderBookL2, symbol = " + symbol);
+						LogBitmex.info(
+								"JsonParser parser: getting unsbscribed from orderBookL2, symbol = " + symbol);
 						BmInstrument instr = activeInstrumentsMap.get(symbol);
 						instr.clearOrderBook();
 					}
@@ -78,19 +88,19 @@ if (str.contains("leverage")) Log.info(str);
 
 				if (responseWs.getSuccess() == null && responseWs.getError() == null && responseWs.getTable() == null
 						&& responseWs.getInfo() == null) {
-					Log.info("[bitmex] JsonParser parser: parser fails to parse " + str);
+					LogBitmex.info("JsonParser parser: parser fails to parse " + str);
 					throw new RuntimeException();
 				}
 
 				if (responseWs.getSuccess() != null || responseWs.getInfo() != null) {
-					Log.info("[bitmex] JsonParser parser: service message " + str);
+					LogBitmex.info("JsonParser parser: service message " + str);
 					return;
 				}
 
 				if (responseWs.getError() != null) {
-					Log.info("[bitmex] JsonParser parser: error message " + str);
+					LogBitmex.info("JsonParser parser: error message " + str);
 					BmErrorMessage error = new Gson().fromJson(str, BmErrorMessage.class);
-					Log.info(error.getMessage());
+					LogBitmex.info(error.getMessage());
 					return;
 				}
 				return;
@@ -103,7 +113,7 @@ if (str.contains("leverage")) Log.info(str);
 
 			// skip a messages if it contains empty data
 			if (msg.getData() == null) {
-				Log.info("[bitmex] JsonParser parser: data == null =>" + str);
+				LogBitmex.info("JsonParser parser: data == null =>" + str);
 			}
 
 			if (ConnectorUtils.stringToTopic.keySet().contains(msg.getTable())) {
@@ -111,8 +121,8 @@ if (str.contains("leverage")) Log.info(str);
 				preprocessMessage(str, Topic);
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
-			throw new RuntimeException("[bitmex] Exception thrown to parser. String is: " + str, e);
+			LogBitmex.info("Exception thrown from parser. String is: " + str, e);
+			throw new RuntimeException(e);
 		}
 	}
 
@@ -248,17 +258,17 @@ if (str.contains("leverage")) Log.info(str);
 
 		if (msg0.getAction().equals("partial")) {
 			nonInstrumentPartialsParsed.add(container.name);
-			Log.info("[bitmex] JsonParser preprocessMessage: partial acquired for  " + container.name);
+			LogBitmex.info("JsonParser preprocessMessage: partial acquired for  " + container.name);
 
 			if (topic.equals(Topic.ORDERBOOKL2)) {
-//			    Log.info("[bitmex] JsonParser 255  " + str);
+//			    LogBitmex.info("JsonParser 255  " + str);
 			    ArrayList<UnitData> data = ((MessageGeneric<UnitData>) msg0).getData();
 			    if (data.isEmpty()) return;
 			    String symbol = data.get(0).getSymbol();
 				BmInstrument instr = activeInstrumentsMap.get(symbol);
 				nonInstrumentPartialsParsed.add(container.name);
 				instr.setOrderBookSnapshotParsed(true);
-				Log.info("[bitmex] JsonParser preprocessMessage setOrderBookSnapshotParsed set true for "
+				LogBitmex.info("JsonParser preprocessMessage setOrderBookSnapshotParsed set true for "
 						+ instr.getSymbol());
 				performOrderBookL2SpecificOpSetOne((MessageGeneric<UnitData>) msg0);
 			}
@@ -267,11 +277,11 @@ if (str.contains("leverage")) Log.info(str);
 		if (nonInstrumentPartialsParsed.contains(container.name)) {
 			if (topic.equals(Topic.ORDER)) {
 				performOrderSpecificOp();
-				Log.info("[bitmex] JsonParser preprocessMessage: (order)" + str);
+				LogBitmex.info("JsonParser preprocessMessage: (order)" + str);
 			}
 
 			if (msg0.getData().isEmpty()) {
-				Log.info("[bitmex] JsonParser preprocessMessage: skips data == [] => " + str);
+				LogBitmex.info("JsonParser preprocessMessage: skips data == [] => " + str);
 				return;
 			}
 
@@ -286,7 +296,7 @@ if (str.contains("leverage")) Log.info(str);
 			}
 
 			if (topic.equals(Topic.EXECUTION)) {
-				Log.info("[bitmex] JsonParser parser: execution => " + str);
+				LogBitmex.info("JsonParser parser: execution => " + str);
 			}
 		}
 		return;
@@ -294,7 +304,7 @@ if (str.contains("leverage")) Log.info(str);
 
 	private void performOrderSpecificOp() {
 		nonInstrumentPartialsParsed.remove("order");
-		Log.info("[bitmex] JsonParser performOrderSpecificOp: 'order' removed from partialsParsed");
+		LogBitmex.info("JsonParser performOrderSpecificOp: 'order' removed from partialsParsed");
 		// we need only the snapshot.
 		// the rest of info comes from execution Topic.
 		// it will be a good idea to get unsubscribed from orders
@@ -331,7 +341,7 @@ if (str.contains("leverage")) Log.info(str);
 				provider.listenForPosition((UnitPosition) unit);
 			} else if (clazz == UnitOrder.class) {
 				UnitOrder ord = (UnitOrder) unit;
-				Log.info("[bitmex] JsonParser dispatchRawUnits: orderId" + ord.getOrderID());
+				LogBitmex.info("JsonParser dispatchRawUnits: orderId" + ord.getOrderID());
 				provider.createBookmapOrder((UnitOrder) unit);
 			} else if (clazz == UnitTrade.class) {
 				// specific
