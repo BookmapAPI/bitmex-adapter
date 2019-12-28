@@ -257,9 +257,9 @@ public class BmConnector implements Runnable {
 				response = sb.toString();
 			}
 		} catch (UnknownHostException | NoRouteToHostException e) {
-			LogBitmex.info("BmConnector getServerResponse: no response from server");
+			LogBitmex.info("BmConnector getServerResponse: no response from server", e);
 		} catch (SocketException e) {
-			LogBitmex.info("BmConnector getServerResponse: network is unreachable");
+			LogBitmex.info("BmConnector getServerResponse: network is unreachable", e);
 		} catch (IOException e) {
 			LogBitmex.info("BmConnector getServerResponse: buffer reading exception", e);
 		}
