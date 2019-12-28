@@ -2,7 +2,7 @@ package com.bookmap.plugins.layer0.bitmex.adapter;
 
 public class Constants {
 
-	public static final String version = "v.0.7.0.3-alpha";
+	public static final String version = "v.0.7.0.4-alpha";
 	public static final String bitmex_Wss = "wss://www.bitmex.com/realtime";
 	public static final String bitmex_restApi = "https://www.bitmex.com";
 	public static final String bitmex_restActiveInstrUrl = "https://www.bitmex.com/api/v1/instrument/active";
