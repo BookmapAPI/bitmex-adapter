@@ -37,7 +37,6 @@ import org.eclipse.jetty.websocket.client.WebSocketClient;
 import com.bookmap.plugins.layer0.bitmex.Provider;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.WebSocketOperation;
 
-import velox.api.layer1.common.Log;
 import velox.api.layer1.data.SubscribeInfo;
 
 public class BmConnector implements Runnable {
@@ -158,8 +157,6 @@ public class BmConnector implements Runnable {
 			LogBitmex.info("BmConnector wsConnect websocket connecting..."); 
 			client.connect(socket, echoUri, request);
 			socket.getOpeningLatch().await();
-			boolean a = provider.isCredentialsEmpty();
-			boolean b = !a;
 
 			if (!provider.isCredentialsEmpty()) {// authentication needed
 				LogBitmex.info("BmConnector wsConnect websocket auth...");
@@ -276,7 +273,6 @@ public class BmConnector implements Runnable {
 					activeBmInstrumentsMap.put(instr.getSymbol(), instr);
 					provider.maxLeverages.put(instr.getSymbol(), (int) Math.round(1/instr.getInitMargin()));
 				}
-				activeBmInstrumentsMap.notify();
 			}
 		}
 	}
