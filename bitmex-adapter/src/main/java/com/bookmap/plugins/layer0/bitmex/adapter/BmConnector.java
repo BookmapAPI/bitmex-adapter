@@ -491,7 +491,9 @@ public class BmConnector implements Runnable {
 			}
 
 		}
-		executionsResetTimer.shutdownNow();
+        if (executionsResetTimer != null) {
+            executionsResetTimer.shutdownNow();
+        }
 		closeSocket();
 
 		LogBitmex.info("BmConnector run: closing");
