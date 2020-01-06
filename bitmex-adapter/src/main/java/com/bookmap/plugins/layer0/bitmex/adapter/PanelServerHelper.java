@@ -250,5 +250,9 @@ public class PanelServerHelper {
             LogBitmex.infoClassOf(this.getClass(), latestMessage); 
         }
     }
+    
+    public void setEnabled(boolean isEnabled) {
+        this.isEnabled.set(isEnabled);
+    }
 
 }

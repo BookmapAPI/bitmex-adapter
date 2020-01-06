@@ -492,6 +492,14 @@ public class BitmexPanel implements Layer1ApiFinishable
                     break;
                 } catch (Exception e) {
                     printIfChanged("no server " + this.hashCode());
+                    messages.clear();
+                    leverages.clear();
+                    maxLeverages.clear();
+                    
+                    for (ScreenSpacePainterAdapterExternal painter : painters.values()) {
+                        painter.setNeedUpdate(true);
+                    }
+                    
                     try {
                         Thread.sleep(1_000);
                     } catch (InterruptedException ex) {
@@ -511,6 +519,7 @@ public class BitmexPanel implements Layer1ApiFinishable
 
             if (isConnected.get()) {
                 synchronized (objectLock) {
+                    symbolsToRequestLeverage.addAll(activeAliases);
                     if (!symbolsToRequestLeverage.isEmpty()) {
                         requestLeverage();
                         symbolsToRequestLeverage.clear();

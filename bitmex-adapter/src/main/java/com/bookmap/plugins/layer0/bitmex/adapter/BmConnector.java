@@ -177,6 +177,7 @@ public class BmConnector implements Runnable {
                 
 			}
             LogBitmex.info("Starting panel server...");
+            provider.panelHelper.setEnabled(true);
             provider.panelHelper.startInputConnection();
             LogBitmex.info("Panel server started");
 
@@ -492,6 +493,7 @@ public class BmConnector implements Runnable {
 				wsConnect();
 			}
 			if (!interruptionNeeded) {
+	            provider.panelHelper.stop();
 				provider.reportLostConnection();
 			}
 
