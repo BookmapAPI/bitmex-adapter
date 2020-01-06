@@ -160,7 +160,7 @@ public class ClientSocket {
 			// LogBitmex.info("ClientSocket sendPing: PING");
 		} catch (WebSocketException e) {
 			// e.printStackTrace(System.err);
-			 LogBitmex.info("RemoteEndpoint unavailable");
+			 LogBitmex.info("RemoteEndpoint unavailable", e);
 			// e.printStackTrace();
 		} catch (IOException e) {
 			// e.printStackTrace(System.err);
