@@ -62,6 +62,7 @@ public class BmConnector implements Runnable {
 	
 	private Object socketLock = new Object();
 	private int timerCount = 0;
+	private boolean isInitiallyConnected;
 
 	public Provider getProvider() {
 		return provider;
@@ -456,12 +457,23 @@ public class BmConnector implements Runnable {
 	public void run() {
 		while (!interruptionNeeded) {
 
-			if (!isConnectionEstablished()) {
-                provider.adminListeners.forEach(l -> l.onConnectionLost(DisconnectionReason.FATAL, "No connection with BitMEX"));
-                interruptionNeeded = true;
-				continue;
-			}
-
+            if (!isConnectionEstablished()) {
+                if (!isInitiallyConnected) {
+                    provider.adminListeners
+                            .forEach(l -> l.onConnectionLost(DisconnectionReason.FATAL, "No connection with BitMEX"));
+                    interruptionNeeded = true;
+                } else {
+                    try {
+                        Thread.sleep(5000);
+                    } catch (InterruptedException e) {
+                        LogBitmex.info("", e);
+                        throw new RuntimeException();
+                    }
+                }
+                continue;
+            }
+            isInitiallyConnected = true;
+            
 			if (activeBmInstrumentsMap.isEmpty()) {
 				fillActiveBmInstrumentsMap();
 
