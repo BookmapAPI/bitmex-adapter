@@ -37,6 +37,7 @@ import org.eclipse.jetty.websocket.client.WebSocketClient;
 import com.bookmap.plugins.layer0.bitmex.Provider;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.WebSocketOperation;
 
+import velox.api.layer1.data.DisconnectionReason;
 import velox.api.layer1.data.SubscribeInfo;
 
 public class BmConnector implements Runnable {
@@ -456,12 +457,8 @@ public class BmConnector implements Runnable {
 		while (!interruptionNeeded) {
 
 			if (!isConnectionEstablished()) {
-				try {
-					Thread.sleep(5000);
-				} catch (InterruptedException e) {
-					LogBitmex.info("", e);
-					throw new RuntimeException();
-				}
+                provider.adminListeners.forEach(l -> l.onConnectionLost(DisconnectionReason.FATAL, "No connection with BitMEX"));
+                interruptionNeeded = true;
 				continue;
 			}
 
