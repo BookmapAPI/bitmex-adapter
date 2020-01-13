@@ -276,6 +276,7 @@ public class BmConnector implements Runnable {
 					activeBmInstrumentsMap.put(instr.getSymbol(), instr);
 					provider.maxLeverages.put(instr.getSymbol(), (int) Math.round(1/instr.getInitMargin()));
 				}
+				activeBmInstrumentsMap.notify();
 			}
 		}
 	}
