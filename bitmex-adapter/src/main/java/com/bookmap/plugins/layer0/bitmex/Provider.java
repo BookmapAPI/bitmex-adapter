@@ -155,7 +155,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		ResponseByRest answ = (ResponseByRest) JsonParser.gson.fromJson(str, ResponseByRest.class);
 
 		if (answ.getError() != null) {
-			return answ.getError().getMessage();
+			return str;
 		}
 		return null;
 	}
@@ -279,7 +279,7 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	private void passCancelMessageIfNeededAndClearPendingList(String response) {
 		synchronized (pendingOrders) {
-			if (response != null  && response.contains("error")) {// if bitmex responds with an error
+			if (response != null  && response.toLowerCase().contains("error")) {// if bitmex responds with an error
 				for (OrderInfoBuilder builder : pendingOrders) {
 					rejectOrder(builder, response);
 				}
@@ -794,6 +794,10 @@ public class Provider extends ExternalLiveBaseProvider {
 		if (builder == null) {
 			LogBitmex.info("Provider listenForExecution: builder is null looking for " + exec.getOrderID() + " "+ exec.toString());
 		}
+		if (builder == null && exec.getExecType().equals("Canceled")) {
+		    // a workaround for a misplaced GTC_PO order
+		    exec.setExecType("Rejected");
+        }
 
 		if (exec.getExecType().equals("New")) {
 			LogBitmex.info("Provider listenForExecution: new");
@@ -904,8 +908,16 @@ public class Provider extends ExternalLiveBaseProvider {
 					builder = workingOrders.get(exec.getClOrdID());
 				}
 			}
-			String reason = "The order was rejected: \n" +
-					exec.getOrdRejReason();
+			StringBuilder sb = new StringBuilder();
+			sb.append("The order was rejected:");
+			
+			if (exec.getOrdRejReason() != null && !exec.getOrdRejReason().equals("")) {
+			    sb.append("\n").append(exec.getOrdRejReason());
+			}
+			if (exec.getOrdRejReason() != null && !exec.getText().equals("")) {
+			    sb.append("\n").append(exec.getText());
+			}
+			String reason = sb.toString();
 			builder.setStatus(OrderStatus.REJECTED);
 			// Provider can complain to user here explaining what was done wrong
 			adminListeners.forEach(l -> l.onSystemTextMessage(reason,
