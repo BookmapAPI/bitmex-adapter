@@ -95,6 +95,9 @@ public class Provider extends ExternalLiveBaseProvider {
 	private Map<String, BalanceInfo.BalanceInCurrency> balanceMap = new HashMap<>();
 	private Map<String, Integer> leverages = new ConcurrentHashMap<>();
 	public Map<String, Integer> maxLeverages = new HashMap<>();
+	
+	private int untriggeredBuysQty;
+	private int untriggeredSellsQty;
 
 	private CopyOnWriteArrayList<SubscribeInfo> knownInstruments = new CopyOnWriteArrayList<>();
 	public final PanelServerHelper panelHelper = new PanelServerHelper();
@@ -856,6 +859,19 @@ public class Provider extends ExternalLiveBaseProvider {
 
 			checkIfLinkedAndAddToMaps(exec);
 
+			//adding untriggered orders to TCP
+            if (builder.getType() == OrderType.STP || builder.getType() == OrderType.STP_LMT) {
+                String symbol = exec.getSymbol();
+                UnitPosition blankPosition = new UnitPosition();
+                blankPosition.setSymbol(symbol);
+                
+                if (exec.getSide().equals("Buy")) {
+                    untriggeredBuysQty += exec.getOrderQty();
+                } else {
+                    untriggeredSellsQty += exec.getOrderQty();
+                }
+                listenForPosition(blankPosition);
+            }
 		} else if (exec.getExecType().equals("Replaced")
 				|| exec.getExecType().equals("Restated")) {
 			LogBitmex.info("Provider listenForExecution: " + exec.getExecType());
@@ -892,11 +908,16 @@ public class Provider extends ExternalLiveBaseProvider {
 			}
 		} else if (exec.getExecType().equals("Canceled")) {
 			LogBitmex.info("Provider listenForExecution: canceled");
+			
+            if (!exec.getTriggered().equals("StopOrderTriggered")) {
+                subtractUntriggeredStops(exec);
+            }
 			builder.setStatus(OrderStatus.CANCELLED);
 		} else if (exec.getExecType().equals("TriggeredOrActivatedBySystem")) {
 			if (exec.getTriggered().equals("StopOrderTriggered")) {
 				LogBitmex.info("Provider listenForExecution: StopOrderTriggered");
 				builder.setStopTriggered(true);
+				subtractUntriggeredStops(exec);
 			} else if (exec.getTriggered().equals("Triggered")) {
 				LogBitmex.info("Provider listenForExecution: TriggeredOrActivatedBySystem + Triggered");
 				builder.setStatus(OrderStatus.WORKING);
@@ -922,15 +943,6 @@ public class Provider extends ExternalLiveBaseProvider {
 			// Provider can complain to user here explaining what was done wrong
 			adminListeners.forEach(l -> l.onSystemTextMessage(reason,
 					SystemTextMessageType.ORDER_FAILURE));
-		} else if (exec.getExecType().equals("TriggeredOrActivatedBySystem")) {
-
-			if (exec.getTriggered().equals("StopOrderTriggered")) {
-				LogBitmex.info("Provider listenForExecution: TriggeredOrActivatedBySystem + StopOrderTriggered");
-				builder.setStopTriggered(true);
-			} else if (exec.getTriggered().equals("Triggered")) {
-				LogBitmex.info("Provider listenForExecution:  TriggeredOrActivatedBySystem + Triggered");
-				builder.setStatus(OrderStatus.WORKING);
-			}
 		}
 
 		if (builder == null) {
@@ -960,6 +972,21 @@ public class Provider extends ExternalLiveBaseProvider {
 			}
 		}
 	}
+	
+	private void subtractUntriggeredStops(UnitExecution exec) {
+        if ((exec.getOrdType().equals("Stop") || exec.getOrdType().equals("StopLimit"))) {
+            String symbol = exec.getSymbol();
+            UnitPosition blankPosition = new UnitPosition();
+            blankPosition.setSymbol(symbol);
+
+            if (exec.getSide().equals("Buy")) {
+                untriggeredBuysQty -= exec.getOrderQty();
+            } else {
+                untriggeredSellsQty -= exec.getOrderQty();
+            }
+            listenForPosition(blankPosition);
+        }
+	}
 
 	public void listenForPosition(UnitPosition pos) {
 		String symbol = pos.getSymbol();
@@ -978,7 +1005,8 @@ public class Provider extends ExternalLiveBaseProvider {
 				"",
 				(int) pos.getCurrentQty(),
 				validPosition.getAvgEntryPrice(), instr.getExecutionsVolume(),
-				validPosition.getOpenOrderBuyQty().intValue(), validPosition.getOpenOrderSellQty().intValue());
+				validPosition.getOpenOrderBuyQty().intValue() + untriggeredBuysQty,
+				validPosition.getOpenOrderSellQty().intValue() + untriggeredSellsQty);
 
 		tradingListeners.forEach(l -> l.onStatus(info));
 	}
@@ -1115,11 +1143,11 @@ public class Provider extends ExternalLiveBaseProvider {
 		}
 		if (pos.getOpenOrderBuyQty() != null) {
 			validPosition.setOpenOrderBuyQty(pos.getOpenOrderBuyQty());
-			LogBitmex.info("Provider updateValidPosition:  add Buys=" + validPosition.getOpenOrderBuyQty());
+			LogBitmex.info("Provider updateValidPosition:  add triggered Buys=" + validPosition.getOpenOrderBuyQty());
 		}
 		if (pos.getOpenOrderSellQty() != null) {
 			validPosition.setOpenOrderSellQty(pos.getOpenOrderSellQty());
-			LogBitmex.info("Provider updateValidPosition:  add Sells=" + validPosition.getOpenOrderSellQty());
+			LogBitmex.info("Provider updateValidPosition:  add triggered Sells=" + validPosition.getOpenOrderSellQty());
 		}
 	}
 
