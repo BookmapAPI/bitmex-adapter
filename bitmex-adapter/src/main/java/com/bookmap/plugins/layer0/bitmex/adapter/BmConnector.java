@@ -293,20 +293,21 @@ public class BmConnector implements Runnable {
 				Thread.currentThread().setName("-> BmConnector: snapshotTimer " + localTimerCount + " for" + instr.getSymbol() );
 			
 				if (socket == null || isReconnecting){
-					LogBitmex.info("Waiting for the socket, timer " + localTimerCount + " shutdown");
+					LogBitmex.info("SnapshotTimer waiting for the socket, timer " + localTimerCount + " shutdown");
 					return;
 				}
 				
 				if (!instr.isOrderBookSnapshotParsed()) {
-					LogBitmex.info("BmConnector launchSnapshotTimer " + localTimerCount + " for " + instr.getSymbol() + ": resubscribe " + ZonedDateTime.now(ZoneOffset.UTC));
+					LogBitmex.info("SnapshotTimer launchSnapshotTimer " + localTimerCount + " for " + instr.getSymbol() + ": resubscribe " + ZonedDateTime.now(ZoneOffset.UTC));
 					unSubscribe(instr);
 					
 					try {
 						Thread.sleep(5000);
 					} catch (InterruptedException e) {
-					    LogBitmex.info("BmConnector sleeping interrupted ", e);
+					    LogBitmex.info("SnapshotTimer sleeping interrupted ", e);
 					}
                     try {
+                        LogBitmex.info("SnapshotTimer: subscribing ...");
                         subscribe(instr);
                     } catch (Exception e) {
                         LogBitmex.info("", e);
@@ -328,7 +329,8 @@ public class BmConnector implements Runnable {
 
 	private void launchExecutionsResetTimer() {
 		class CustomThreadFactory implements ThreadFactory {
-			public Thread newThread(Runnable r) {
+			@Override
+            public Thread newThread(Runnable r) {
 				return new Thread(r, "-> BmConnector: executionsResetTimer");
 			}
 		}
