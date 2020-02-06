@@ -183,7 +183,7 @@ public class BitmexPanel implements Layer1ApiFinishable
                     try {
                         Thread.sleep(100);
                     } catch (InterruptedException e1) {
-                        e1.printStackTrace();
+                        //
                     }
                 }
                 printIfChanged("Panel thread: passed to SwingUtilities");
@@ -503,7 +503,7 @@ public class BitmexPanel implements Layer1ApiFinishable
                     try {
                         Thread.sleep(1_000);
                     } catch (InterruptedException ex) {
-                        ex.printStackTrace();
+                        //
                     }
                 }
             }
@@ -546,6 +546,12 @@ public class BitmexPanel implements Layer1ApiFinishable
                     closeSocket();
                     printIfChanged(" client socket closed (reading thread)");
                     isConnected.set(false);
+                    
+                    try {
+                        Thread.sleep(1_000);
+                    } catch (InterruptedException ex) {
+                        //
+                    }
                     
                     synchronized (threadLock) {
                         if (!isConnecting.get()) {

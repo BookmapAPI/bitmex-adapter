@@ -92,6 +92,11 @@ public class PanelServerHelper {
                     synchronized (lock) {
                         if (!isConnecting.get()) {
                             printIfChanged(" starting server thread in catch block");
+                            try {
+                                Thread.sleep(1_000);
+                            } catch (InterruptedException e1) {
+                                // do nothing
+                            }
                             startInputConnection();
                         }    
                     }
@@ -134,6 +139,11 @@ public class PanelServerHelper {
 
                     synchronized (lock) {
                         if (!isConnecting.get()) {
+                            try {
+                                Thread.sleep(1_000);
+                            } catch (InterruptedException e1) {
+                                // do nothing
+                            }
                             startInputConnection();
                         }
                     }
