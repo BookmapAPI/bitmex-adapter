@@ -12,6 +12,11 @@ public class Constants {
 	public static final String activeInstrSubpath = "/api/v1/instrument/active";
 	
 	public static final String user_agent = "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36";
+
+	/**
+	 * Repeating position request is done for keeping persistent connection.
+	 */
+	public static final int positionRequestDelaySeconds = 150;
 	
 	public static final int portNumber = 9998;
 }

@@ -51,6 +51,7 @@ public class BmConnector implements Runnable {
 	private TradeConnector tradeConnector;
 
 	private ScheduledExecutorService executionsResetTimer;
+	private ScheduledExecutorService positionRequestTimer;
 	private int executionDay = 0;
 	private boolean isExecutionReset;
 	
@@ -328,6 +329,26 @@ public class BmConnector implements Runnable {
 			}
 		}, 0, 1, TimeUnit.SECONDS);
 	}
+	
+	private void startPositionRequestTimer() {
+	    class CustomThreadFactory implements ThreadFactory {
+	        @Override
+	        public Thread newThread(Runnable r) {
+	            return new Thread(r, "-> BmConnector: positionRequestTimer");
+	        }
+	    }
+	    
+	    ScheduledExecutorService positionRequestTimer = Executors
+	            .newSingleThreadScheduledExecutor(new CustomThreadFactory());
+	    this.positionRequestTimer = positionRequestTimer;
+
+	    positionRequestTimer.scheduleWithFixedDelay(new Runnable() {
+	        @Override
+	        public void run() {
+	            clientHolder.makeRequest(GeneralType.POSITION, Method.GET, null);
+	        }
+	    }, Constants.positionRequestDelaySeconds, Constants.positionRequestDelaySeconds, TimeUnit.SECONDS);
+	}
 
 	public void subscribe(BmInstrument instr) {
 		LogBitmex.info("BmConnector subscribe: " + instr.getSymbol());
@@ -457,6 +478,9 @@ public class BmConnector implements Runnable {
 				provider.setKnownInstruments(knownInstruments);
 
 				launchExecutionsResetTimer();
+				if (!provider.isCredentialsEmpty()) {
+				    startPositionRequestTimer();
+				}
 				if (activeBmInstrumentsMap.isEmpty()) {
 					continue;
 				}
@@ -475,6 +499,9 @@ public class BmConnector implements Runnable {
         }
 		closeSocket();
 
+        if (positionRequestTimer != null) {
+            positionRequestTimer.shutdownNow();
+        }
 		LogBitmex.info("BmConnector run: closing");
 	}
 	
