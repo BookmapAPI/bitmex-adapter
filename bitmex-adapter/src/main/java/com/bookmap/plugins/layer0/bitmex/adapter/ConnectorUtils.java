@@ -8,6 +8,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.EnumMap;
@@ -24,6 +25,7 @@ import javax.xml.bind.DatatypeConverter;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.collections4.BidiMap;
 import org.apache.commons.collections4.bidimap.DualHashBidiMap;
+import org.apache.http.Header;
 
 import com.google.gson.reflect.TypeToken;
 
@@ -50,7 +52,7 @@ public class ConnectorUtils {
 	}
 
 	public static enum GeneralType {
-		ORDER, ORDERBULK, ORDERALL, INSTRUMENT, EXECUTION, POSITION;
+		ORDER, ORDERBULK, ORDERALL, INSTRUMENT, EXECUTION, POSITION, ACTIVE_INSTRUMENTS, BLANK;
 	}
 	
 	public static final EnumSet<OrderDuration> bitmexOrderDurations = EnumSet.of(
@@ -121,6 +123,8 @@ public class ConnectorUtils {
 		subPaths.put(GeneralType.POSITION, "/api/v1/position");
 		// for canceling orders only
 		subPaths.put(GeneralType.ORDERALL, "/api/v1/order/all");
+		subPaths.put(GeneralType.ACTIVE_INSTRUMENTS, Constants.activeInstrSubpath);
+		subPaths.put(GeneralType.BLANK, "");
 	}
 
 	public static enum Method {
@@ -217,6 +221,33 @@ public class ConnectorUtils {
 		}
 		return null;
 	}
+	
+    public static String processRateLimitHeaders(Header[] headers) {
+        Header rateLimitHeader = Arrays.stream(headers)
+                .filter(header -> header.getName().equals("X-RateLimit-Limit"))
+                .findAny()
+                .orElse(null);
+        Header rateLimitRemainingHeader = Arrays.stream(headers)
+                .filter(header -> header.getName().equals("X-RateLimit-Remaining"))
+                .findAny()
+                .orElse(null);
+        
+        if (rateLimitHeader != null && rateLimitRemainingHeader != null) {
+            try {
+                int rateLimit = Integer.parseInt(rateLimitHeader.getValue());
+                int rateLimitRemaining = Integer.parseInt(rateLimitRemainingHeader.getValue());
+                int ratio = 100 * rateLimitRemaining / rateLimit;
+                if (ratio <= 10) {
+                    return Integer.toString(ratio);
+                }
+            } catch (Exception e) {
+                LogBitmex.infoClassOf(ConnectorUtils.class, " no ratelimit data", e);
+            }
+        }
+
+
+        return null;
+    }
 
 	public static String[] getAuthenticatedTopicsList() {
 		String[] array = { ConnectorUtils.containers.get(ConnectorUtils.Topic.POSITION).name,

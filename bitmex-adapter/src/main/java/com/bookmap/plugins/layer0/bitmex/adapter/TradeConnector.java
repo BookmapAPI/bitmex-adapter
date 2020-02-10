@@ -1,23 +1,12 @@
 package com.bookmap.plugins.layer0.bitmex.adapter;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.net.NoRouteToHostException;
-import java.net.URL;
-import java.net.UnknownHostException;
 import java.util.List;
-
-import javax.net.ssl.HttpsURLConnection;
 
 import com.bookmap.plugins.layer0.bitmex.Provider;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.GeneralType;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Method;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonSyntaxException;
 
 import velox.api.layer1.data.OrderDuration;
 import velox.api.layer1.data.OrderMoveParameters;
@@ -27,11 +16,17 @@ import velox.api.layer1.layers.utils.OrderBook;
 
 public class TradeConnector {
 
+    HttpClientHolder clientHolder;
 	private String orderApiKey;
 	private String orderApiSecret;
 	private Provider provider;
 
-	public void setProvider(Provider provider) {
+    public TradeConnector(HttpClientHolder clientHolder) {
+        super();
+        this.clientHolder = clientHolder;
+    }
+
+    public void setProvider(Provider provider) {
 		this.provider = provider;
 	}
 
@@ -49,62 +44,6 @@ public class TradeConnector {
 
 	public void setOrderApiSecret(String orderApiSecret) {
 		this.orderApiSecret = orderApiSecret;
-	}
-
-	public String makeRestGetQuery(String address) {
-		String addr = address;
-		long moment = ConnectorUtils.getMomentAndTimeToLive();
-
-		LogBitmex.info("TradeConnector makeRestGetQuery(xx) moment = " + moment);
-
-		String messageBody = ConnectorUtils.createMessageBody("GET", addr, "",
-				moment);
-		String signature = ConnectorUtils.generateSignature(orderApiSecret, messageBody);
-		String response = null;
-
-		try {
-			URL url = new URL(provider.getConnector().getRestApi() + addr);
-			HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
-			conn.setRequestMethod("GET");
-			// conn.setRequestProperty("Content-Type", "application/json");
-			conn.setRequestProperty("Accept", "application/json");
-			conn.setRequestProperty("api-expires", Long.toString(moment));
-			conn.setRequestProperty("api-key", orderApiKey);
-			conn.setRequestProperty("api-signature", signature);
-
-			if (conn.getResponseCode() == 200) {
-				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
-				StringBuilder sb = new StringBuilder("");
-				String output = null;
-
-				while ((output = br.readLine()) != null) {
-					sb.append(output);
-				}
-				// conn.disconnect();
-				String rateLimitIfExists = ConnectorUtils.processRateLimitHeaders(conn.getHeaderFields());
-				if (rateLimitIfExists != null) {
-					provider.pushRateLimitWarning(rateLimitIfExists);
-				}
-				response = sb.toString();
-			} else {
-				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getErrorStream())));
-				StringBuilder sb = new StringBuilder("");
-				String output = null;
-
-				while ((output = br.readLine()) != null) {
-					sb.append(output);
-				}
-				LogBitmex.info("TradeConnector makeRestGetQery err: " + sb.toString());
-			}
-		} catch (UnknownHostException | NoRouteToHostException e) {
-			LogBitmex.info("TradeConnector makeRestGetQuery: no response from server");
-		} catch (java.net.SocketException e) {
-			LogBitmex.info("TradeConnector makeRestGetQuery: network is unreachable");
-		} catch (IOException e) {
-			LogBitmex.info("TradeConnector makeRestGetQuery: buffer reading error", e);
-			e.printStackTrace();
-		}
-		return response;
 	}
 
 	private double getPegOffset(String symbol, double stopPrice) {
@@ -256,98 +195,15 @@ public class TradeConnector {
 	}
 
 	public String require(GeneralType genType, Method method, String data) {
-		return require(genType, method, data, false);
+	    return clientHolder.makeRequest(genType, method, data);
 	}
 
 	public String require(GeneralType genType, Method method, String data, boolean isOrderListBeingCanceled) {
-		String subPath = ConnectorUtils.subPaths.get(genType);
-		
-		if (data == null) data = "";
-
-        if (genType.equals(GeneralType.POSITION) && data.contains("leverage")) {
-            subPath += "/leverage";
-        }
-
-		String path = provider.getConnector().getRestApi() + subPath;
-		long moment = ConnectorUtils.getMomentAndTimeToLive();
-		
-		LogBitmex.info("TradeConnector makeRestGetQuery(xx) moment = " + moment);
-
-		LogBitmex.info("TradeConnector require:  sending data => " + data);
-
-		try {
-			URL url = new URL(path);
-			HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
-
-			if (!method.equals(Method.GET)) {
-				// if (method.equals(Method.POST) || method.equals(Method.PUT)){
-				conn.setDoOutput(true);
-			}
-			// arguable at the moment
-			conn.setDoOutput(true);
-
-			String messageBody = ConnectorUtils.createMessageBody(ConnectorUtils.methods.get(method), subPath, data,
-					moment);
-			String signature = ConnectorUtils.generateSignature(orderApiSecret, messageBody);
-			conn.setRequestMethod(ConnectorUtils.methods.get(method));
-			String contentType = genType.equals(GeneralType.ORDERBULK) || isOrderListBeingCanceled
-					? "application/x-www-form-urlencoded" : "application/json";
-
-			conn.setRequestProperty("Content-Type", contentType);
-			conn.setRequestProperty("Accept", "application/json");
-			conn.setRequestProperty("api-expires", Long.toString(moment));
-			conn.setRequestProperty("api-key", orderApiKey);
-			conn.setRequestProperty("api-signature", signature);
-			conn.setRequestProperty("Content-Length", Integer.toString(data.getBytes("UTF-8").length));
-
-			OutputStream os = conn.getOutputStream();
-			OutputStreamWriter osw = new OutputStreamWriter(os, "UTF-8");
-			osw.write(data);
-			osw.flush();
-			osw.close();
-
-			String rateLimitIfExists = ConnectorUtils.processRateLimitHeaders(conn.getHeaderFields());
-			if (rateLimitIfExists != null) {
-				provider.pushRateLimitWarning(rateLimitIfExists);
-			}
-
-            LogBitmex.info("TradeConnector require:  response code " + conn.getResponseCode());
-			if (conn.getResponseCode() != 200) {
-				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getErrorStream())));
-				StringBuilder sb = new StringBuilder("");
-				String output = null;
-
-				while ((output = br.readLine()) != null) {
-					sb.append(output);
-				}
-				LogBitmex.info("TradeConnector require:  response =>" + sb.toString());
-				String resp;
-				try {
-					resp = Provider.testReponseForError(sb.toString());
-				} catch (JsonSyntaxException e) {
-					return sb.toString();
-				}
-				return resp;
-            } else {
-                LogBitmex.info("TradeConnector require:  response code " + conn.getResponseCode());
-                BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
-                StringBuilder sb = new StringBuilder();
-                String output = null;
-
-                while ((output = br.readLine()) != null) {
-                    sb.append(output);
-                }
-                String response = sb.toString();
-                return response;
-			}
-		} catch (UnknownHostException | NoRouteToHostException e) {
-			LogBitmex.info("TradeConnector require: no response from server");
-		} catch (java.net.SocketException e) {
-			LogBitmex.info("TradeConnector require: network is unreachable");
-		} catch (IOException e) {
-			LogBitmex.info("TradeConnector require: buffer reading error", e);
-		}
-		return null;
+	    return clientHolder.makeRequest(genType, method, data, isOrderListBeingCanceled);
+	}
+	
+	public String require(GeneralType genType, Method method, String data, boolean isOrderListBeingCanceled, String requestParameters) {
+	    return clientHolder.makeRequest(genType, method, data, isOrderListBeingCanceled, requestParameters);
 	}
 
 }

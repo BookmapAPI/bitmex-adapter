@@ -1,13 +1,6 @@
 package com.bookmap.plugins.layer0.bitmex.adapter;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.NoRouteToHostException;
-import java.net.SocketException;
 import java.net.URI;
-import java.net.URL;
-import java.net.UnknownHostException;
 import java.nio.channels.UnresolvedAddressException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -26,7 +19,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
-import javax.net.ssl.HttpsURLConnection;
 
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.websocket.api.UpgradeException;
@@ -35,6 +27,8 @@ import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 
 import com.bookmap.plugins.layer0.bitmex.Provider;
+import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.GeneralType;
+import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Method;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.WebSocketOperation;
 
 import velox.api.layer1.data.DisconnectionReason;
@@ -43,9 +37,9 @@ import velox.api.layer1.data.SubscribeInfo;
 public class BmConnector implements Runnable {
 
 	private boolean interruptionNeeded = false;
+	private HttpClientHolder clientHolder;
 	private String wssUrl;
 	private String restApi;
-	private String restActiveInstrUrl;
 	private HashMap<String, BmInstrument> activeBmInstrumentsMap = new HashMap<>();
 	private CountDownLatch webSocketStartingLatch = new CountDownLatch(1);
 	private CountDownLatch webSocketAuthLatch = new CountDownLatch(1);
@@ -63,6 +57,11 @@ public class BmConnector implements Runnable {
 	private Object socketLock = new Object();
 	private int timerCount = 0;
 	private boolean isInitiallyConnected;
+	
+	public BmConnector(HttpClientHolder clientHolder) {
+        super();
+        this.clientHolder = clientHolder;
+    }
 
 	public Provider getProvider() {
 		return provider;
@@ -101,10 +100,7 @@ public class BmConnector implements Runnable {
 	}
 
 	private boolean isConnectionEstablished() {
-		if (getServerResponse(restApi) == null) {
-			return false;
-		}
-		return true;
+		return clientHolder.makeRequest(GeneralType.BLANK, Method.GET, null) != null;
 	}
 
 	public void setWssUrl(String wssUrl) {
@@ -113,10 +109,6 @@ public class BmConnector implements Runnable {
 
 	public void setRestApi(String restApi) {
 		this.restApi = restApi;
-	}
-
-	public void setRestActiveInstrUrl(String restActiveInstrUrl) {
-		this.restActiveInstrUrl = restActiveInstrUrl;
 	}
 
 	public String wssAuthTwo() {
@@ -236,46 +228,20 @@ public class BmConnector implements Runnable {
 		}
 	}
 
-	private String getServerResponse(String address) {
-		String response = null;
-
-		try {
-			URL url = new URL(address);
-			HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
-			conn.setRequestMethod("GET");
-			conn.setRequestProperty("Accept", "application/json");
-
-			if (conn.getResponseCode() == 200) {
-				BufferedReader br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
-				StringBuilder sb = new StringBuilder();
-				String output = null;
-
-				while ((output = br.readLine()) != null) {
-					sb.append(output);
-				}
-				// conn.disconnect();
-				response = sb.toString();
-			}
-		} catch (UnknownHostException | NoRouteToHostException e) {
-			LogBitmex.info("BmConnector getServerResponse: no response from server", e);
-		} catch (SocketException e) {
-			LogBitmex.info("BmConnector getServerResponse: network is unreachable", e);
-		} catch (IOException e) {
-			LogBitmex.info("BmConnector getServerResponse: buffer reading exception", e);
-		}
-		return response;
-	}
-
 	public void fillActiveBmInstrumentsMap() {
 		synchronized (activeBmInstrumentsMap) {
-			String str = getServerResponse(restActiveInstrUrl);
-			if (str != null) {
-				BmInstrument[] instrs = JsonParser.getArrayFromJson(str, BmInstrument[].class);
+            String str = clientHolder.makeRequest(GeneralType.ACTIVE_INSTRUMENTS, Method.GET, null);
+            if (str != null) {
+                try {
+                    BmInstrument[] instrs = JsonParser.getArrayFromJson(str, BmInstrument[].class);
 
-				for (BmInstrument instr : instrs) {
-					activeBmInstrumentsMap.put(instr.getSymbol(), instr);
-					provider.maxLeverages.put(instr.getSymbol(), (int) Math.round(1/instr.getInitMargin()));
-				}
+                    for (BmInstrument instr : instrs) {
+                        activeBmInstrumentsMap.put(instr.getSymbol(), instr);
+                        provider.maxLeverages.put(instr.getSymbol(), (int) Math.round(1 / instr.getInitMargin()));
+                    }
+                } catch (Exception e) {
+                    LogBitmex.info("", e);
+                }
 				activeBmInstrumentsMap.notify();
 			}
 		}
@@ -392,28 +358,31 @@ public class BmConnector implements Runnable {
 		
 	}
 
-	private int countExecutionsVolume(String symbol) {
-		String dataADayBefore = ConnectorUtils.getDateTwentyFourHoursAgoAsUrlEncodedString();
-		StringBuilder sb = new StringBuilder();
-		sb.append("/api/v1/execution?symbol=").append(symbol)
-				.append("&filter=%7B%22ordStatus%22%3A%22Filled%22%7D&count=100&reverse=false&startTime=")
-				.append(dataADayBefore);
+    private int countExecutionsVolume(String symbol) {
+        String dataADayBefore = ConnectorUtils.getDateTwentyFourHoursAgoAsUrlEncodedString();
+        StringBuilder sb = new StringBuilder();
+        sb.append("?symbol=").append(symbol)
+                .append("&filter=%7B%22ordStatus%22%3A%22Filled%22%7D&count=100&reverse=false&startTime=")
+                .append(dataADayBefore);
 
-		String addr = sb.toString();
+        String addr = sb.toString();
+        String result = tradeConnector.require(GeneralType.EXECUTION, Method.GET, null, false, addr);
+        
+        try {
+            UnitOrder[] orders = JsonParser.getArrayFromJson(result, UnitOrder[].class);
+            int sum = 0;
 
-		String st0 = tradeConnector.makeRestGetQuery(addr);
-		UnitOrder[] orders = JsonParser.getArrayFromJson(st0, UnitOrder[].class);
-		int sum = 0;
-
-		if (orders != null && orders.length > 0) {
-			for (UnitOrder order : orders) {
-				sum += order.getOrderQty();
-			}
-		}
-
-		LogBitmex.info("BmConnector countExecution volume: " + st0);
-		return sum;
-	}
+            if (orders != null && orders.length > 0) {
+                for (UnitOrder order : orders) {
+                    sum += order.getOrderQty();
+                }
+            }
+            return sum;
+        } catch (NullPointerException e) {
+            LogBitmex.info("", e);
+            return 0;
+        }
+    }
 
 	private void reportHistoricalExecutions(String ordStatus) {
 		// private void reportHistoricalExecutions(String symbol, String
@@ -428,13 +397,13 @@ public class BmConnector implements Runnable {
 		List<UnitExecution> historicalExecutions = new LinkedList<>();
 		for (int i = 0;; i += 500) {
 			StringBuilder sb = new StringBuilder();
-			sb.append("/api/v1/execution?").append("filter=%7B%22ordStatus%22%3A%20%22")
-					.append(ordStatus).append("%22%7D&count=500&reverse=true&startTime=")
-					.append(startTime).append("&endTime=").append(now)
-					.append("&start=").append(i);
+			sb.append("?filter=%7B%22ordStatus%22%3A%20%22")
+            .append(ordStatus).append("%22%7D&count=500&reverse=true&startTime=")
+            .append(startTime).append("&endTime=").append(now)
+            .append("&start=").append(i);
 
-			String addr = sb.toString();
-			String response = tradeConnector.makeRestGetQuery(addr);
+	        String address = sb.toString();
+	        String response = tradeConnector.require(GeneralType.EXECUTION, Method.GET, null, false, address);
 
 			UnitExecution[] executions = JsonParser.getArrayFromJson(response,
 					UnitExecution[].class);

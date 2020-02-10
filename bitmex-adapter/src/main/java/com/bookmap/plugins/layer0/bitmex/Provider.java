@@ -1,5 +1,6 @@
 package com.bookmap.plugins.layer0.bitmex;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -18,6 +19,7 @@ import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.GeneralType;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Method;
 import com.bookmap.plugins.layer0.bitmex.adapter.Constants;
+import com.bookmap.plugins.layer0.bitmex.adapter.HttpClientHolder;
 import com.bookmap.plugins.layer0.bitmex.adapter.JsonParser;
 import com.bookmap.plugins.layer0.bitmex.adapter.LogBitmex;
 import com.bookmap.plugins.layer0.bitmex.adapter.PanelServerHelper;
@@ -73,6 +75,7 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	private BmConnector connector;
 	private TradeConnector tradeConnector;
+	private HttpClientHolder httpClientHolder;
 	private String tempClientId;
 	private HashMap<String, OrderInfoBuilder> workingOrders = new HashMap<>();
 
@@ -732,8 +735,9 @@ public class Provider extends ExternalLiveBaseProvider {
 		if (isValid || isCredentialsEmpty) {
 
             LogBitmex.info("Provider handleLogin: credentials valid or empty");
-            connector = new BmConnector();
-			tradeConnector = new TradeConnector();
+            httpClientHolder = new HttpClientHolder(userPasswordDemoLoginData.user, userPasswordDemoLoginData.password, this);
+            connector = new BmConnector(httpClientHolder);
+			tradeConnector = new TradeConnector(httpClientHolder);
 			tradeConnector.setProvider(this);
 			tradeConnector.setOrderApiKey(userPasswordDemoLoginData.user);
 			tradeConnector.setOrderApiSecret(userPasswordDemoLoginData.password);
@@ -748,14 +752,10 @@ public class Provider extends ExternalLiveBaseProvider {
 						SystemTextMessageType.UNCLASSIFIED));
 				connector.setWssUrl(Constants.testnet_Wss);
 				connector.setRestApi(Constants.testnet_restApi);
-				connector.setRestActiveInstrUrl(Constants.testnet_restActiveInstrUrl);
 			} else {
 				connector.setWssUrl(Constants.bitmex_Wss);
 				connector.setRestApi(Constants.bitmex_restApi);
-				connector.setRestActiveInstrUrl(Constants.bitmex_restActiveInstrUrl);
 			}
-			// CONNECTOR
-			// this.connector = new BmConnector();
 
 			connector.setProvider(this);
 			connector.setTradeConnector(tradeConnector);
@@ -1143,11 +1143,9 @@ public class Provider extends ExternalLiveBaseProvider {
 		}
 		if (pos.getOpenOrderBuyQty() != null) {
 			validPosition.setOpenOrderBuyQty(pos.getOpenOrderBuyQty());
-			LogBitmex.info("Provider updateValidPosition:  add triggered Buys=" + validPosition.getOpenOrderBuyQty());
 		}
 		if (pos.getOpenOrderSellQty() != null) {
 			validPosition.setOpenOrderSellQty(pos.getOpenOrderSellQty());
-			LogBitmex.info("Provider updateValidPosition:  add triggered Sells=" + validPosition.getOpenOrderSellQty());
 		}
 	}
 
@@ -1279,6 +1277,13 @@ public class Provider extends ExternalLiveBaseProvider {
 		panelHelper.stop();
 		connector.closeSocket();
 		connector.setInterruptionNeeded(true);
+
+		try {
+            httpClientHolder.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+		
 		providerThread.interrupt();
 	}
 	

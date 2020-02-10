@@ -8,9 +8,11 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Type;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -229,11 +231,16 @@ public class PanelServerHelper {
                 sendMessage(msg);
             } else {
                 StringBuilder sb = new StringBuilder();
-                sb.append("/api/v1/position?filter={\"symbol\":\"").append(symbol).append("\"}");
-                String addr = sb.toString();
-
-                String str = connector.makeRestGetQuery(addr);
-                UnitPosition[] positions = JsonParser.getArrayFromJson(str, UnitPosition[].class);
+                sb.append("{\"symbol\":\"").append(symbol).append("\"}");
+                String filter = sb.toString();
+                try {
+                    filter = URLEncoder.encode(filter,"UTF-8");
+                } catch (UnsupportedEncodingException e) {
+                    e.printStackTrace();
+                }
+                String address = "?filter=" + filter;
+                String result = connector.require(GeneralType.POSITION, Method.GET, null, false, address);
+                UnitPosition[] positions = JsonParser.getArrayFromJson(result, UnitPosition[].class);
 
                 if (positions.length == 0) {
                     mp.put("leverage", 0);
