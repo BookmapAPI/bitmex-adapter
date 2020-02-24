@@ -493,6 +493,11 @@ public class BmConnector implements Runnable {
 				provider.reportLostConnection();
 			}
 
+			try {
+                Thread.sleep(1_000);
+            } catch (InterruptedException e) {
+                LogBitmex.info("", e);
+            }
 		}
         if (executionsResetTimer != null) {
             executionsResetTimer.shutdownNow();
