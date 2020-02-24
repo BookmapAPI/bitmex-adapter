@@ -115,7 +115,7 @@ public class HttpClientHolder implements Closeable {
             requestBase.addHeader("User-Agent", Constants.user_agent);
             requestBase.addHeader("Content-Type", contentType);
 
-            if (!StringUtils.isBlank(orderApiSecret)) {
+            if (!StringUtils.isBlank(orderApiSecret) && genType != GeneralType.ACTIVE_INSTRUMENTS) {
                 long moment = ConnectorUtils.getMomentAndTimeToLive();
                 String messageBody = ConnectorUtils.createMessageBody(ConnectorUtils.methods.get(method), subPath, data,
                         moment);
