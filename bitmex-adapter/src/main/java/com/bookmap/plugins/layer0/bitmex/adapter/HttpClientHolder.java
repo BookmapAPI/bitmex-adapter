@@ -30,6 +30,8 @@ import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Method;
 import com.bookmap.plugins.layer0.bitmex.messages.ModuleTargetedHttpRequestFeedbackMessage;
 import com.google.gson.JsonSyntaxException;
 
+import velox.api.layer1.messages.Layer1ApiUserInterModuleMessage;
+
 public class HttpClientHolder implements Closeable {
     
     public static class HttpDeleteWithBody extends HttpEntityEnclosingRequestBase {
@@ -149,8 +151,15 @@ public class HttpClientHolder implements Closeable {
                 br.close();
                 httpResponse.close();
                 requestBase.releaseConnection();
-                provider.onUserMessage(new ModuleTargetedHttpRequestFeedbackMessage(genType, method, data,
-                        isOrderListBeingCanceled, requestParameters, headers, statusCode, response));
+                
+                try {
+                    if (Class.forName("velox.api.layer1.messages.Layer1ApiUserInterModuleMessage") != null) {
+                        provider.onUserMessage(new ModuleTargetedHttpRequestFeedbackMessage(genType, method, data,
+                                isOrderListBeingCanceled, requestParameters, headers, statusCode, response));
+                    }
+                } catch (ClassNotFoundException e) {
+                    //this is the desired behavior for 7.0 so no warnings needed
+                }
                 return response;
             } else {
                 BufferedReader br = new BufferedReader(new InputStreamReader((entity.getContent())));
@@ -165,8 +174,15 @@ public class HttpClientHolder implements Closeable {
                 br.close();
                 httpResponse.close();
                 requestBase.releaseConnection();
-                provider.onUserMessage(new ModuleTargetedHttpRequestFeedbackMessage(genType, method, data,
-                        isOrderListBeingCanceled, requestParameters, headers, statusCode, response));
+                
+                try {
+                    if (Class.forName("velox.api.layer1.messages.Layer1ApiUserInterModuleMessage") != null) {
+                        provider.onUserMessage(new ModuleTargetedHttpRequestFeedbackMessage(genType, method, data,
+                                isOrderListBeingCanceled, requestParameters, headers, statusCode, response));
+                    }
+                } catch (ClassNotFoundException e) {
+                    // this is the desired behavior for 7.0 so no warnings needed
+                }
                 return response;
             }
         } catch (UnknownHostException | NoRouteToHostException e) {

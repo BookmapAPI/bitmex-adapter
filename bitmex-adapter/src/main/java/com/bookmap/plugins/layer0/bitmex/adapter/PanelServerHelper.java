@@ -35,16 +35,26 @@ public class PanelServerHelper {
     }
     
     public void onUserMessage (String message) {
-        ModuleTargetedLeverageMessage bitmexMessage = new ModuleTargetedLeverageMessage();
-        bitmexMessage.setMessage(message);
-        provider.onUserMessage(bitmexMessage);
+        try {
+            if (Class.forName("velox.api.layer1.messages.Layer1ApiUserInterModuleMessage") != null) {
+                ModuleTargetedLeverageMessage bitmexMessage = new ModuleTargetedLeverageMessage();
+                bitmexMessage.setMessage(message);
+                provider.onUserMessage(bitmexMessage);
+            }
+        } catch (ClassNotFoundException e) {
+            // this is the desired behavior for 7.0 so no warnings needed
+        }
     }
 
     public void stop() {
     }
 
     public void acceptMessage(String message) {
-        printIfChanged(" from client" + message);
+        try {
+            if (Class.forName("velox.api.layer1.messages.Layer1ApiUserInterModuleMessage") != null) return;
+        } catch (ClassNotFoundException e1) {
+            // this is the desired behavior for 7.0 so no warnings needed
+        }
 
         Map<String, Object> map = new HashMap<>();
         Type mapType = new TypeToken<Map<String, Object>>() {
