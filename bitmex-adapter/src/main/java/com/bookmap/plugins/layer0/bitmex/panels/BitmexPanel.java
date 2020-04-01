@@ -1,4 +1,4 @@
-package com.bookmap.plugins.layer1.panels;
+package com.bookmap.plugins.layer0.bitmex.panels;
 
 import java.awt.AlphaComposite;
 import java.awt.Color;
@@ -10,17 +10,9 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.font.TextAttribute;
 import java.awt.image.BufferedImage;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
+import java.io.ByteArrayInputStream;
+import java.io.Serializable;
 import java.lang.reflect.Type;
-import java.net.InetAddress;
-import java.net.Socket;
 import java.text.AttributedString;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -29,15 +21,29 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JSlider;
 import javax.swing.SwingUtilities;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
+import org.apache.commons.io.input.ClassLoaderObjectInputStream;
+import org.apache.commons.lang3.SerializationUtils;
+import org.apache.http.Header;
+
+import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils;
+import com.bookmap.plugins.layer0.bitmex.adapter.Constants;
 import com.bookmap.plugins.layer0.bitmex.adapter.LogBitmex;
+import com.bookmap.plugins.layer0.bitmex.messages.ModuleTargetedHttpRequestFeedbackMessage;
+import com.bookmap.plugins.layer0.bitmex.messages.ModuleTargetedLeverageMessage;
+import com.bookmap.plugins.layer0.bitmex.messages.ProviderTargetedLeverageMessage;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
@@ -64,9 +70,13 @@ import velox.api.layer1.layers.strategies.interfaces.ScreenSpaceCanvasFactory.Sc
 import velox.api.layer1.layers.strategies.interfaces.ScreenSpacePainter;
 import velox.api.layer1.layers.strategies.interfaces.ScreenSpacePainterAdapter;
 import velox.api.layer1.layers.strategies.interfaces.ScreenSpacePainterFactory;
+import velox.api.layer1.messages.Layer1ApiUserInterModuleMessage;
 import velox.api.layer1.messages.UserMessageLayersChainCreatedTargeted;
 import velox.api.layer1.messages.indicators.AliasFilter;
 import velox.api.layer1.messages.indicators.Layer1ApiUserMessageModifyScreenSpacePainter;
+import velox.api.layer1.messages.indicators.SettingsAccess;
+import velox.api.layer1.settings.Layer1ConfigSettingsInterface;
+import velox.api.layer1.settings.StrategySettingsVersion;
 import velox.gui.StrategyPanel;
 
 @Layer1Attachable
@@ -78,8 +88,11 @@ public class BitmexPanel implements Layer1ApiFinishable
 , Layer1ApiAdminAdapter
 , Layer1ApiInstrumentAdapter
 , ScreenSpacePainterFactory
+, Layer1ConfigSettingsInterface
 
 {
+    public static final String rateLimitName = "rateLimit";
+
     private static interface ScreenSpacePainterAdapterExternal extends ScreenSpacePainterAdapter{
         void setNeedUpdate(boolean needUpdate);
     }
@@ -123,23 +136,38 @@ public class BitmexPanel implements Layer1ApiFinishable
             return BitmexPanel.isBitmex(alias);
         }  
     };
-     
+
+    @StrategySettingsVersion(currentVersion = 1, compatibleVersions = {})
+    private static class PanelSettings{
+        public Map<String, Object> settings;
+
+        public Object getSettingsUnit(String name) {
+            if (settings == null) {
+                settings = new HashMap<>();
+            }
+            return settings.get(name);
+        }
+
+        public void addSettings(String name, Object value) {
+            this.settings.put(name, value);
+        }
+    }
+
+    private SettingsAccess settingsAccess;
+    private Map<String, PanelSettings> settingsMap = new HashMap<>();
+    private Object lock = new Object();
+
     private static final String INDICATOR_NAME = "Leverage";
     private static final String notConnectedMessage = "not connected to adapter";
     private static final Gson gson = new Gson();
+    private int rateLimit;
+    private int rateLimitRemaining;
+    private int timeOut;
     
-    private Socket client;
-    private BufferedReader br;
-    private PrintWriter pw;
-    private DataInputStream in;
-    private Object threadLock = new Object();
     private Object objectLock = new Object();
-    private Thread connectingThread;
-    private AtomicBoolean isConnecting = new AtomicBoolean(true);
-    private AtomicBoolean isEnabled= new AtomicBoolean(true);
-    private final int socketPort = 9998;
-    private AtomicBoolean isConnected = new AtomicBoolean(false);
     private final String targetPattern = "Leverage: ";
+    private final String rateLimitPattern = "RateLimit left: ";
+    private final String rateLimitJoinPattern = " of ";
     private Map <String, ScreenSpacePainterAdapterExternal> painters = new ConcurrentHashMap<>();
     private Map <String, JLabel> statusLabels = new ConcurrentHashMap<>();
     private Map <String, CustomSettingsPanel> panels = new ConcurrentHashMap<>();
@@ -152,7 +180,10 @@ public class BitmexPanel implements Layer1ApiFinishable
     private Layer1ApiProvider provider;
     private Map<String, String> indicatorsFullNameToUserName = new HashMap<>();
     private Map<String, String> indicatorsUserNameToFullName = new HashMap<>();
-    Set<String> symbolsToRequestLeverage = new HashSet<>();
+    private Set<String> symbolsToRequestLeverage = new HashSet<>();
+    private String currentAlias;
+    private ScheduledExecutorService oneSecondTimer;
+
     
     public BitmexPanel(Layer1ApiProvider provider) {
         this.provider = provider;
@@ -178,10 +209,12 @@ public class BitmexPanel implements Layer1ApiFinishable
                 String symbol = alias.split("@")[0];
 
                 printIfChanged("Panel thread: Checking Leverage or maxLeverage == null");
+                int i = 0;
 
-                while (maxLeverages.get(symbol) == null || leverages.get(symbol) == null) {
+                while (i < 10 && (maxLeverages.get(symbol) == null || leverages.get(symbol) == null)) {
                     try {
-                        Thread.sleep(100);
+                        Thread.sleep(1000);
+                        i++;
                     } catch (InterruptedException e1) {
                         //
                     }
@@ -211,8 +244,10 @@ public class BitmexPanel implements Layer1ApiFinishable
             panel.revalidate();
             panel.getParent().repaint();
         }
-        isEnabled.set(false);
-        closeSocket();
+
+        if (oneSecondTimer != null) {
+            oneSecondTimer.shutdownNow();
+        }
 
         synchronized (indicatorsFullNameToUserName) {
             for (String userName: indicatorsFullNameToUserName.values()) {
@@ -223,12 +258,26 @@ public class BitmexPanel implements Layer1ApiFinishable
         }
     }
     
-    private Color setLabelColor(int value, int maxValue) {
-        if (maxValue == 1) {
+    private Color getLabelColor(int value, int maxValue) {
+        if (maxValue <= 1) {
             return Color.GRAY;
-        } if (value*100/maxValue <= 5) {
+        }
+        if (value*100/maxValue <= 5) {
             return Color.GREEN;
         } else if ((value*100/maxValue <= 25)) {
+            return Color.ORANGE;
+        } else {
+            return Color.RED;
+        }
+    }
+    
+    private Color getRateLimitColor(int value, int maxValue) {
+        if (maxValue <= 1) {
+            return Color.GRAY;
+        } 
+        if (value*100/maxValue >= 50) {
+            return Color.GREEN;
+        } else if ((value*100/maxValue >= 15)) {
             return Color.ORANGE;
         } else {
             return Color.RED;
@@ -238,74 +287,95 @@ public class BitmexPanel implements Layer1ApiFinishable
 
     private void addLeverageSettings(final CustomSettingsPanel panel, String alias) {
         String symbol = alias.split("@")[0];
+        Integer maxValue = maxLeverages.get(symbol);
 
-        int maxValue = maxLeverages.get(symbol);
+        if (maxValue == null) return;
+        
         if (maxValue == 1) {
             panel.setEnabled(false);
         } else {
-        int value = leverages.get(symbol);
-        JSlider slider = new JSlider(0, maxValue, (int)value);
-        
+            int value = leverages.get(symbol);
+            JSlider slider = new JSlider(0, maxValue, (int) value);
+            Hashtable<Integer, JLabel> labels = new Hashtable<>();
+            int surplus = maxValue / 5;
 
-        Hashtable<Integer, JLabel> labels = new Hashtable<>();
-        int surplus = maxValue/5;
-        
-        for (int i = 0; i <= maxValue; i+=surplus) {
-            JLabel label = new JLabel(String.valueOf(i));
-            label.setForeground(Color.WHITE);
-            labels.put(i, label);
-        }
-        slider.setPaintLabels(true);
-        slider.setLabelTable(labels);
-        
-        JLabel statusLabel = new JLabel("",JLabel.LEFT);
-        statusLabel.setForeground(setLabelColor(value, maxValue));
-        statusLabel.setText(String.valueOf(value));
-        
-        slider.addChangeListener(new ChangeListener() {
-            @Override
-            public void stateChanged(ChangeEvent e) {
-                if (slider.getValueIsAdjusting()) {
-                    int value = (int)((JSlider)e.getSource()).getValue();
-                    statusLabel.setForeground(setLabelColor(value, maxValue));
-                    statusLabel.setText(String.valueOf(value));
-                } else {
-                int leverage = (int) ((JSlider)e.getSource()).getValue();
-                Integer actualLeverage = leverages.get(symbol); 
-
-                if (actualLeverage == null || actualLeverage != leverage){
-                    statusLabel.setText(String.valueOf(leverage));
-                    statusLabel.setForeground(Color.GRAY);
-                }
-                LinkedHashMap<String, Object> map = new LinkedHashMap<>();
-                map.put("symbol", alias);
-                map.put("leverage", leverage);
-                gson.toJson(map);
-                String message = gson.toJson(map);
-                sendToSocket(message);
-                }
+            for (int i = 0; i <= maxValue; i += surplus) {
+                JLabel label = new JLabel(String.valueOf(i));
+                label.setForeground(Color.WHITE);
+                labels.put(i, label);
             }
-        });
-        
-        statusLabels.put(symbol, statusLabel);
-        panels.put(symbol, panel);
-        panel.addSettingsItem("Leverage:", slider);
-        panel.addSettingsItem("Value:", statusLabel);
-        panel.invalidate();
-        panel.revalidate();
-        panel.getParent().repaint();
-        printIfChanged("Panel revalidated");
+            slider.setPaintLabels(true);
+            slider.setLabelTable(labels);
+
+            JLabel statusLabel = new JLabel("", JLabel.LEFT);
+            statusLabel.setForeground(getLabelColor(value, maxValue));
+            statusLabel.setText(String.valueOf(value));
+
+            slider.addChangeListener(new ChangeListener() {
+                @Override
+                public void stateChanged(ChangeEvent e) {
+                    if (slider.getValueIsAdjusting()) {
+                        int value = (int) ((JSlider) e.getSource()).getValue();
+                        statusLabel.setForeground(getLabelColor(value, maxValue));
+                        statusLabel.setText(String.valueOf(value));
+                    } else {
+                        int leverage = (int) ((JSlider) e.getSource()).getValue();
+                        Integer actualLeverage = leverages.get(symbol);
+
+                        if (actualLeverage == null || actualLeverage != leverage) {
+                            statusLabel.setText(String.valueOf(leverage));
+                            statusLabel.setForeground(Color.GRAY);
+                        }
+                        LinkedHashMap<String, Object> map = new LinkedHashMap<>();
+                        map.put("symbol", alias);
+                        map.put("leverage", leverage);
+                        gson.toJson(map);
+                        String message = gson.toJson(map);
+                        sendToSocket(message);
+                    }
+                }
+            });
+
+            JCheckBox checkBox = new JCheckBox();
+            boolean isShowRateLimit = getShowRateLimit(alias);
+            checkBox.setSelected(isShowRateLimit);
+            checkBox.addChangeListener(new ChangeListener() {
+
+                @Override
+                public void stateChanged(ChangeEvent e) {
+                    boolean isShowRateLimit = checkBox.isSelected();
+                    PanelSettings settings = getSettingsFor(alias);
+                    settings.addSettings(rateLimitName, isShowRateLimit);
+                    settingsChanged(currentAlias, settings);
+                    ScreenSpacePainterAdapterExternal painter = painters.get(symbol);
+                    if (painter != null) {
+                        painter.setNeedUpdate(true);
+                    }
+                }
+            });
+
+            statusLabels.put(symbol, statusLabel);
+            panels.put(symbol, panel);
+            panel.addSettingsItem("Leverage:", slider);
+            panel.addSettingsItem("Value:", statusLabel);
+            panel.addSettingsItem("Show RateLimit:", checkBox);
+            panel.invalidate();
+            panel.revalidate();
+            panel.getParent().repaint();
+            printIfChanged("Panel revalidated");
         }
     }
 
   
    public void addIndicator() {
-       printIfChanged("Indicator added");
-       Layer1ApiUserMessageModifyScreenSpacePainter message = getUserMessageAdd(INDICATOR_NAME);
-       
-       synchronized (indicatorsFullNameToUserName) {
-           indicatorsFullNameToUserName.put(message.fullName, message.userName);
-           indicatorsUserNameToFullName.put(message.userName, message.fullName);
+        printIfChanged("Indicator added");
+        Layer1ApiUserMessageModifyScreenSpacePainter message = getUserMessageAdd(INDICATOR_NAME);
+
+        
+
+        synchronized (indicatorsFullNameToUserName) {
+            indicatorsFullNameToUserName.put(message.fullName, message.userName);
+            indicatorsUserNameToFullName.put(message.userName, message.fullName);
        }
        provider.sendUserMessage(message);
    }
@@ -323,16 +393,63 @@ public class BitmexPanel implements Layer1ApiFinishable
        if (data.getClass() == UserMessageLayersChainCreatedTargeted.class) {
            UserMessageLayersChainCreatedTargeted message = (UserMessageLayersChainCreatedTargeted) data;
            if (message.targetClass == getClass()) {
-               printIfChanged("on user message");
                addIndicator();
-               startOutputConnection();
            }
-       }
+       } else if (data instanceof Layer1ApiUserInterModuleMessage) {
+           String message = null;
+
+           try (ClassLoaderObjectInputStream str = new ClassLoaderObjectInputStream(getClass().getClassLoader(),
+                    new ByteArrayInputStream(SerializationUtils.serialize((Serializable) data)))) {
+               data = str.readObject();
+
+               if (data instanceof ModuleTargetedLeverageMessage) {
+                   ModuleTargetedLeverageMessage ptm = (ModuleTargetedLeverageMessage) data;
+                   message = ptm.getMessage();
+                   acceptMessage(message);
+               } else if (data instanceof ModuleTargetedHttpRequestFeedbackMessage) {
+                   ModuleTargetedHttpRequestFeedbackMessage feedbackMessage = (ModuleTargetedHttpRequestFeedbackMessage) data;
+                   Header[] headers = feedbackMessage.headers;
+
+                   Header rateLimitHeader = ConnectorUtils.getHeader(headers, Constants.rateLimitHeaderName);
+                   Header rateLimitRemainingHeader = ConnectorUtils.getHeader(headers, Constants.rateLimitRemainingHeaderName);
+
+                   if (rateLimitHeader != null && rateLimitRemainingHeader != null) {
+                       try {
+                           rateLimit = Integer.parseInt(rateLimitHeader.getValue());
+                           rateLimitRemaining = Integer.parseInt(rateLimitRemainingHeader.getValue());
+
+                           String symbol = currentAlias.split("@")[0];
+                           requestUpdateForSymbol(symbol);
+                       } catch (Exception e) {
+                           LogBitmex.infoClassOf(ConnectorUtils.class, " no ratelimit data", e);
+                       }
+                   }
+
+                   if (feedbackMessage.response.contains("error")) {
+                        if (feedbackMessage.response.contains("The system is currently overloaded")) {
+                            this.rateLimit = 0;
+                        } else {
+                            Integer timeOut = getTimeoutFromErrorMessage(feedbackMessage.response);
+                            if (timeOut != null) {
+                                this.timeOut = timeOut;
+                            }
+                        }
+                   }
+               }
+            } catch (Exception e) {
+                LogBitmex.info("", e);
+            }
+        }
    }
 
    @Override
    public ScreenSpacePainter createScreenSpacePainter(String indicatorName, String indicatorAlias,
            ScreenSpaceCanvasFactory screenSpaceCanvasFactory) {
+       currentAlias = indicatorAlias;
+
+       if (oneSecondTimer == null) {
+           initializeExecutorWithTask();
+       }
        
        ScreenSpaceCanvas heatmapCanvas = screenSpaceCanvasFactory.createCanvas(ScreenSpaceCanvasType.HEATMAP);
        ScreenSpacePainterAdapterExternal painter = new ScreenSpacePainterAdapterExternal() {
@@ -358,6 +475,7 @@ public class BitmexPanel implements Layer1ApiFinishable
            @Override
            public void onMoveEnd() {
                if (needToUpdateHeatmapImage) {
+
                    PreparedImage icon = generateCrossedBoxIcon(
                            heatmapFullPixelsWidth, heatmapPixelsHeight);
                    
@@ -410,11 +528,44 @@ public class BitmexPanel implements Layer1ApiFinishable
                        leverageColor = Color.RED;
                        rectangleLength = textLength*9;
                    } else {
-                       leverageColor = setLabelColor(leverage, maxLeverage);
+                       leverageColor = getLabelColor(leverage, maxLeverage);
                    }
                    text.addAttribute(TextAttribute.FOREGROUND, leverageColor, 10, textLength);
                }
-               g2d.fillRoundRect(1, 1, rectangleLength, 36, 10, 10);
+
+               boolean isShowRateLimit = getShowRateLimit(currentAlias);
+
+               if (isShowRateLimit) {
+                    AttributedString rateLimitText = null;
+                    String rateLimitTarget = null;
+                    int beginIndex = rateLimitPattern.length();
+                    Color rateLimitColor;
+                    int endIndex = 0;
+                    
+                    if (rateLimit < 1) {
+                        String unknownValue = "unknown";
+                        rateLimitTarget = rateLimitPattern + unknownValue;
+                        rateLimitText = new AttributedString(rateLimitTarget);
+                        rateLimitColor = Color.ORANGE;
+                        endIndex = rateLimitTarget.length();
+                    } else {
+                        rateLimitTarget = rateLimitPattern + String.valueOf(rateLimitRemaining)
+                                + rateLimitJoinPattern + String.valueOf(rateLimit);
+                        rateLimitText = new AttributedString(rateLimitTarget);
+                        rateLimitColor = getRateLimitColor(rateLimitRemaining, rateLimit);
+                        
+                        endIndex = beginIndex + String.valueOf(rateLimit).length();
+                    }
+                    int rectangle1Length = (rateLimitPattern.length() + rateLimitJoinPattern.length() + 4) * 9;
+                    g2d.fillRoundRect(1, 38, rectangle1Length, 36, 10, 10);
+                    g2d.fillRoundRect(1, 1, Math.max(rectangleLength, rectangle1Length), 36, 10, 10);
+
+                    rateLimitText.addAttribute(TextAttribute.FOREGROUND, Color.WHITE, 0, rateLimitTarget.length());
+                    rateLimitText.addAttribute(TextAttribute.FOREGROUND, rateLimitColor, beginIndex, endIndex);
+                    textLength = rateLimitTarget.length();
+                    rateLimitText.addAttribute(TextAttribute.FONT, new Font("Arial", Font.BOLD, 14), 0, textLength);
+                    g2d.drawString(rateLimitText.getIterator(), 24, 24 + 38);
+                }
                g2d.drawString(text.getIterator(), 24, 24);
                g2d.dispose();
 
@@ -438,143 +589,10 @@ public class BitmexPanel implements Layer1ApiFinishable
        return painter;
    }
 
-    public boolean isConnected() {
-        return isConnected.get();
-    }
-
-    public void setConnected(boolean isConnected) {
-        boolean isChanged = this.isConnected.compareAndSet(!isConnected, isConnected);
-        if (isChanged) {
-            printIfChanged("isConnected changed from " + !isConnected + " to " + isConnected + ". Now isConnected = " + this.isConnected.get());
-        } else {
-            printIfChanged("isConnected not changed from " + !isConnected + " to " + isConnected + ". isConnected = " + this.isConnected.get());
-        }
-    }
-
     public void sendToSocket(String message) {
-            if (isConnected.get()) {
-                printIfChanged("TO SERVER" + message);
-              pw.println(message);
-
-            if (pw.checkError()) {
-                printIfChanged("Server not accessible");
-                closeSocket();
-                isConnected.set(false);
-
-                synchronized (threadLock) {
-                    if (!isConnecting.get()) {
-                        startOutputConnection();
-                    }
-                }
-            }
-        }
-    }
-    
-    private void startOutputConnection() {
-        isConnecting.set(true);
-        
-        connectingThread = new Thread(() -> {
-            printIfChanged("start client thread");
-            
-            while (isEnabled.get() && !isConnected.get()) {
-                try {
-                    InetAddress addr = InetAddress.getByName("localhost");
-                    client = new Socket(addr, socketPort);
-                    DataOutputStream out = new DataOutputStream(client.getOutputStream());
-                    in = new DataInputStream(client.getInputStream());
-                    br = new BufferedReader(new InputStreamReader(in));
-                    pw = new PrintWriter(new BufferedWriter(new OutputStreamWriter(out)), true);
-                    isConnected.set(true);
-                    isConnecting.set(false);
-                    printIfChanged("client connection enabled");
-
-                    startReading();
-                    break;
-                } catch (Exception e) {
-                    printIfChanged("no server " + this.hashCode());
-                    messages.clear();
-                    leverages.clear();
-                    maxLeverages.clear();
-                    
-                    for (ScreenSpacePainterAdapterExternal painter : painters.values()) {
-                        painter.setNeedUpdate(true);
-                    }
-                    
-                    try {
-                        Thread.sleep(1_000);
-                    } catch (InterruptedException ex) {
-                        //
-                    }
-                }
-            }
-        });
-        connectingThread.setName("->com.bookmap.plugins.layer1.panels.BitmexPanel: client connecting thread");
-        connectingThread.start();
-        sendToSocket("PING");
-    }
-    
-    private void startReading() {
-        Thread readingThread = new Thread(() -> {
-            printIfChanged(" start client reading thread");
-
-            if (isConnected.get()) {
-                synchronized (objectLock) {
-                    symbolsToRequestLeverage.addAll(activeAliases);
-                    if (!symbolsToRequestLeverage.isEmpty()) {
-                        requestLeverage();
-                        symbolsToRequestLeverage.clear();
-                    }
-                }
-            }
-
-            while (isEnabled.get() && isConnected.get()) {
-                printIfChanged("client reading cycle");
-                
-                try {
-                    printIfChanged("reading from server");
-                    String message = br.readLine();
-                    printIfChanged("from client " + message);
-                    if (message != null) {
-                        acceptMessage(message);
-                    } else {
-                        throw new IOException();
-                    }
-                    printIfChanged("has been read from server");
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    printIfChanged(" closing client...");
-                    closeSocket();
-                    printIfChanged(" client socket closed (reading thread)");
-                    isConnected.set(false);
-                    
-                    try {
-                        Thread.sleep(1_000);
-                    } catch (InterruptedException ex) {
-                        //
-                    }
-                    
-                    synchronized (threadLock) {
-                        if (!isConnecting.get()) {
-                            startOutputConnection();
-                        }
-                    }
-                    break;
-                }
-            }
-            printIfChanged("stopped client reading thread");
-
-        });
-        readingThread.setName("->com.bookmap.plugins.layer1.panels.BitmexPanel: server reading thread");
-        readingThread.start();
-    }
-
-    private void closeSocket() {
-        try {
-            if (client != null) client.close();
-            printIfChanged(" client socket closed (reading thread)");
-         } catch (IOException e) {
-             e.printStackTrace();
-         }
+        ProviderTargetedLeverageMessage providerMessage = new ProviderTargetedLeverageMessage();
+        providerMessage.setMessage(message);
+        provider.sendUserMessage(providerMessage);
     }
     
     private void printIfChanged(String text) {
@@ -587,17 +605,16 @@ public class BitmexPanel implements Layer1ApiFinishable
     @Override
     public void onInstrumentAdded(String alias, InstrumentInfo instrumentInfo) {
         printIfChanged("symbolsToRequestLeverage added " + alias);
-        if (!isBitmex(alias)) return;
+        if (!isBitmex(alias))
+            return;
 
         synchronized (objectLock) {
             symbolsToRequestLeverage.add(alias);
             activeAliases.add(alias);
         }
-        
-        if (isConnected.get()) {
-            requestLeverage();
-            symbolsToRequestLeverage.clear();
-        }
+
+        requestLeverage();
+        symbolsToRequestLeverage.clear();
         printIfChanged("Active alias added " + alias);
     }
     
@@ -672,7 +689,7 @@ public class BitmexPanel implements Layer1ApiFinishable
         
         if (leverage != null && maxLeverage != null) {
             text = String.valueOf(leverage);
-            labelColor = setLabelColor(leverage, maxLeverage);
+            labelColor = getLabelColor(leverage, maxLeverage);
             
             if (label != null) {
                 SwingUtilities.invokeLater(() -> {
@@ -692,10 +709,7 @@ public class BitmexPanel implements Layer1ApiFinishable
             messages.put(symbol, symbolMessage);
         }
         
-      ScreenSpacePainterAdapterExternal painter = painters.get(symbol);
-      if (painter != null) {
-          painter.setNeedUpdate(true);
-      }
+        requestUpdateForSymbol(symbol);
         return symbol;
     }
     
@@ -704,4 +718,83 @@ public class BitmexPanel implements Layer1ApiFinishable
         return aliasSplitted != null && aliasSplitted.length != 0 && aliasSplitted[1].equals("MEX");
     }
     
+    private void requestUpdateForSymbol(String symbol) {
+        ScreenSpacePainterAdapterExternal painter = painters.get(symbol);
+        if (painter != null) {
+            painter.setNeedUpdate(true);
+        }
+    }
+    
+    static Integer getTimeoutFromErrorMessage(String errorMessage) {
+        Pattern patcher = Pattern.compile("Rate limit exceeded, retry in \\d+ seconds.");
+        Matcher matcher = patcher.matcher(errorMessage);
+
+        if (matcher.find()) {
+            String exp = matcher.group();
+            patcher = Pattern.compile("\\d+");
+            matcher = patcher.matcher(exp);
+
+            if (matcher.find()) {
+                String s = matcher.group();
+                return Integer.valueOf(s);
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public void acceptSettingsInterface(SettingsAccess arg0) {
+        synchronized (lock) {
+            this.settingsAccess = arg0;
+        }
+    }
+    
+    public boolean getShowRateLimit(String alias) {
+        PanelSettings settings = getSettingsFor(alias);
+        
+        if (settings != null) {
+            Boolean getShowRateLimit = (Boolean) settings.getSettingsUnit(rateLimitName);
+            if (getShowRateLimit != null) return getShowRateLimit;
+        }
+        return true;
+    }
+    
+    private PanelSettings getSettingsFor(String alias) {
+        synchronized (lock) {
+            PanelSettings settings = settingsMap.get(alias);
+            if (settings == null) {
+                settings = (PanelSettings) settingsAccess.getSettings(alias, getClass().getName(), PanelSettings.class);
+                settingsMap.put(alias, settings);
+            }
+            return settings;
+        }
+    }
+    
+    protected void settingsChanged(String settingsAlias, PanelSettings settingsObject) {
+        synchronized (lock) {
+            settingsAccess.setSettings(settingsAlias, getClass().getName(), settingsObject, settingsObject.getClass());
+        }
+    }
+
+    private void initializeExecutorWithTask() {
+        
+        oneSecondTimer = Executors.newSingleThreadScheduledExecutor();
+        
+        oneSecondTimer.scheduleWithFixedDelay(new Runnable() {
+
+            @Override
+            public void run() {
+                if (rateLimitRemaining < rateLimit) {
+                    if (timeOut > 0) {
+                        timeOut--;
+                    } else {
+                        rateLimitRemaining++;
+                    }
+                    String symbol = currentAlias.split("@")[0];
+                    requestUpdateForSymbol(symbol);
+                }
+            }
+        }, 1, 1, TimeUnit.SECONDS);
+
+    }
 }

@@ -1,26 +1,16 @@
 package com.bookmap.plugins.layer0.bitmex.adapter;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Type;
-import java.net.ServerSocket;
-import java.net.Socket;
 import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.bookmap.plugins.layer0.bitmex.Provider;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.GeneralType;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Method;
+import com.bookmap.plugins.layer0.bitmex.messages.ModuleTargetedLeverageMessage;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 
@@ -28,17 +18,8 @@ import velox.api.layer1.data.SystemTextMessageType;
 
 
 public class PanelServerHelper {
-    private ServerSocket server;
-    private Socket client;
     private TradeConnector connector;
     private Provider provider;
-    private AtomicBoolean isConnected = new AtomicBoolean(false); 
-    private AtomicBoolean isConnecting = new AtomicBoolean(); 
-    private AtomicBoolean isEnabled= new AtomicBoolean(true);
-    private Object lock = new Object();
-    private PrintWriter pw;
-    private BufferedReader br;
-    private DataInputStream is;
     private String latestMessage = "";
     
     public PanelServerHelper() {
@@ -53,126 +34,16 @@ public class PanelServerHelper {
         this.provider = provider;
     }
     
-    public void sendMessage (String message) {
-        printIfChanged(" to client " + message);
-
-        if (isConnected.get()) {
-            pw.println(message);
-
-            if (pw.checkError()) {
-                printIfChanged(" Client not accessible");
-                closeServer();
-              if (!isConnecting.get()) startInputConnection();
-            }
-        }
-    }
-    
-    public void startInputConnection() {
-        isConnecting.set(true);
-        
-        Thread connectingThread = new Thread(() -> {
-            printIfChanged(" starting server thread");
-            while (isEnabled.get() && isConnecting.get()) {
-                try {
-                    server = new ServerSocket(Constants.portNumber);
-                    client = server.accept();
-                    pw = new PrintWriter(
-                            new BufferedWriter(new OutputStreamWriter(new DataOutputStream(client.getOutputStream()))),
-                            true);
-                    is = new DataInputStream(client.getInputStream());
-                    br = new BufferedReader(new InputStreamReader(is));
-                    isConnecting.set(false);
-                    isConnected.set(true);
-                    printIfChanged(" server started");
-                    break;
-                } catch (Exception e) {
-                    printIfChanged(" closing server");
-                    closeServer();
-                    printIfChanged(" server closed");
-                    isConnected.set(false);
-                    
-                    synchronized (lock) {
-                        if (!isConnecting.get()) {
-                            printIfChanged(" starting server thread in catch block");
-                            try {
-                                Thread.sleep(1_000);
-                            } catch (InterruptedException e1) {
-                                // do nothing
-                            }
-                            startInputConnection();
-                        }    
-                    }
-                }
-            }
-            startReading();
-        });
-        connectingThread.setName("->com.bookmap.plugins.layer0.bitmex.adapter.PanelServerHelper: server connecting thread");
-        connectingThread.start();
+    public void onUserMessage (String message) {
+        ModuleTargetedLeverageMessage bitmexMessage = new ModuleTargetedLeverageMessage();
+        bitmexMessage.setMessage(message);
+        provider.onUserMessage(bitmexMessage);
     }
 
     public void stop() {
-        isConnected.set(false);
-        isEnabled.set(false);
-        closeServer();
-    }
-      
-    private void startReading() {
-        Thread readingThread = new Thread(() -> {
-            printIfChanged(" start server reading thread");
-
-            while (isEnabled.get() && isConnected.get()) {
-                printIfChanged(" reading from client ...");
-                
-                try {
-                    String message = br.readLine();
-                    printIfChanged(" from client " + message);
-                    if (message != null) {
-                        acceptMessage(message);
-                    } else {
-                        throw new IOException();
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    printIfChanged(" no client ");
-                    printIfChanged(" closing server reading thread");
-                    closeServer();
-                    printIfChanged(" server reading thread closed");
-                    isConnected.set(false);
-
-                    synchronized (lock) {
-                        if (!isConnecting.get()) {
-                            try {
-                                Thread.sleep(1_000);
-                            } catch (InterruptedException e1) {
-                                // do nothing
-                            }
-                            startInputConnection();
-                        }
-                    }
-                    break;
-                }
-            }
-        });
-        readingThread.setName("->com.bookmap.plugins.layer0.bitmex.adapter.PanelServerHelper: server reading thread");
-        readingThread.start();
     }
 
-    private void closeServer() {
-        try {
-            if (client != null) client.close();
-            printIfChanged(" server: client socket closed");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        try {
-            if (server != null) server.close();
-            printIfChanged(" server: server socket closed");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-    
-    private void acceptMessage(String message) {
+    public void acceptMessage(String message) {
         printIfChanged(" from client" + message);
 
         Map<String, Object> map = new HashMap<>();
@@ -190,7 +61,7 @@ public class PanelServerHelper {
                 mp.put("isCredentialsEmpty", true);
                 String msg = JsonParser.gson.toJson(mp);
                 printIfChanged(" CredentialsEmpty " + msg);
-                sendMessage(msg);
+                onUserMessage(msg);
                 return;
             }
             
@@ -217,7 +88,7 @@ public class PanelServerHelper {
                 mp.put("isCredentialsEmpty", true);
                 String msg = JsonParser.gson.toJson(mp);
                 LogBitmex.infoClassOf(this.getClass(), "CredentialsEmpty " + msg);
-                sendMessage(msg);
+                onUserMessage(msg);
                 return;
             }
 
@@ -228,7 +99,7 @@ public class PanelServerHelper {
                 mp.put("maxLeverage", maxLeverage);
                 String msg = JsonParser.gson.toJson(mp);
                 LogBitmex.infoClassOf(this.getClass(), "pong " + msg);
-                sendMessage(msg);
+                onUserMessage(msg);
             } else {
                 StringBuilder sb = new StringBuilder();
                 sb.append("{\"symbol\":\"").append(symbol).append("\"}");
@@ -252,7 +123,7 @@ public class PanelServerHelper {
                     JsonParser.gson.toJson(mp);
                     String msg = JsonParser.gson.toJson(mp);
                     LogBitmex.infoClassOf(this.getClass(), "pong " + msg);
-                    sendMessage(msg);
+                    onUserMessage(msg);
                 } else {
                     UnitPosition position = positions[0];
                     provider.listenForPosition(position);
@@ -266,10 +137,6 @@ public class PanelServerHelper {
             latestMessage = text;
             LogBitmex.infoClassOf(this.getClass(), latestMessage); 
         }
-    }
-    
-    public void setEnabled(boolean isEnabled) {
-        this.isEnabled.set(isEnabled);
     }
 
 }

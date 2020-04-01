@@ -169,10 +169,6 @@ public class BmConnector implements Runnable {
 				
                 
 			}
-            LogBitmex.info("Starting panel server...");
-            provider.panelHelper.setEnabled(true);
-            provider.panelHelper.startInputConnection();
-            LogBitmex.info("Panel server started");
 
 			webSocketStartingLatch.countDown();
 			LogBitmex.info("BmConnector wsConnect websocket webSocketStartingLatch is down");

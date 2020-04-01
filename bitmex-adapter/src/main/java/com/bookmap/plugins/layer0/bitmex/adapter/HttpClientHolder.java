@@ -27,6 +27,7 @@ import org.apache.http.impl.client.HttpClients;
 import com.bookmap.plugins.layer0.bitmex.Provider;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.GeneralType;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Method;
+import com.bookmap.plugins.layer0.bitmex.messages.ModuleTargetedHttpRequestFeedbackMessage;
 import com.google.gson.JsonSyntaxException;
 
 public class HttpClientHolder implements Closeable {
@@ -126,13 +127,7 @@ public class HttpClientHolder implements Closeable {
             }
             
             CloseableHttpResponse httpResponse = client.execute(requestBase);
-            
             Header[] headers = httpResponse.getAllHeaders();
-            String rateLimitIfExists = ConnectorUtils.processRateLimitHeaders(headers);
-            if (rateLimitIfExists != null) {
-                provider.pushRateLimitWarning(rateLimitIfExists);
-            }
-            
             int statusCode = httpResponse.getStatusLine().getStatusCode();
             HttpEntity entity = httpResponse.getEntity();
 
@@ -145,16 +140,18 @@ public class HttpClientHolder implements Closeable {
                     sb.append(output);
                 }
                 LogBitmex.info("TradeConnector require:  response =>" + sb.toString());
-                String resp;
+                String response;
                 try {
-                    resp = Provider.testReponseForError(sb.toString());
+                    response = Provider.testReponseForError(sb.toString());
                 } catch (JsonSyntaxException e) {
                     return sb.toString();
                 }
                 br.close();
                 httpResponse.close();
                 requestBase.releaseConnection();
-                return resp;
+                provider.onUserMessage(new ModuleTargetedHttpRequestFeedbackMessage(genType, method, data,
+                        isOrderListBeingCanceled, requestParameters, headers, statusCode, response));
+                return response;
             } else {
                 BufferedReader br = new BufferedReader(new InputStreamReader((entity.getContent())));
                 StringBuilder sb = new StringBuilder();
@@ -168,6 +165,8 @@ public class HttpClientHolder implements Closeable {
                 br.close();
                 httpResponse.close();
                 requestBase.releaseConnection();
+                provider.onUserMessage(new ModuleTargetedHttpRequestFeedbackMessage(genType, method, data,
+                        isOrderListBeingCanceled, requestParameters, headers, statusCode, response));
                 return response;
             }
         } catch (UnknownHostException | NoRouteToHostException e) {

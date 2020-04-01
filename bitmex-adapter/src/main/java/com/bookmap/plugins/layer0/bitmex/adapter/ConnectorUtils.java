@@ -14,7 +14,6 @@ import java.util.Date;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -210,43 +209,12 @@ public class ConnectorUtils {
 		return sb.toString();
 	}
 
-	public static String processRateLimitHeaders(Map<String, List<String>> map) {
-		if (map != null && map.get("X-RateLimit-Limit") != null) {
-			int rateLimit = Integer.parseInt(map.get("X-RateLimit-Limit").get(0));
-			int rateLimitRemaining = Integer.parseInt(map.get("X-RateLimit-Remaining").get(0));
-			int ratio = 100 * rateLimitRemaining / rateLimit;
-			if (ratio <= 10) {
-				return Integer.toString(ratio);
-			}
-		}
-		return null;
-	}
-	
-    public static String processRateLimitHeaders(Header[] headers) {
+    public static Header getHeader(Header[] headers, String name) {
         Header rateLimitHeader = Arrays.stream(headers)
-                .filter(header -> header.getName().equals("X-RateLimit-Limit"))
+                .filter(header -> header.getName().equals(name))
                 .findAny()
                 .orElse(null);
-        Header rateLimitRemainingHeader = Arrays.stream(headers)
-                .filter(header -> header.getName().equals("X-RateLimit-Remaining"))
-                .findAny()
-                .orElse(null);
-        
-        if (rateLimitHeader != null && rateLimitRemainingHeader != null) {
-            try {
-                int rateLimit = Integer.parseInt(rateLimitHeader.getValue());
-                int rateLimitRemaining = Integer.parseInt(rateLimitRemainingHeader.getValue());
-                int ratio = 100 * rateLimitRemaining / rateLimit;
-                if (ratio <= 10) {
-                    return Integer.toString(ratio);
-                }
-            } catch (Exception e) {
-                LogBitmex.infoClassOf(ConnectorUtils.class, " no ratelimit data", e);
-            }
-        }
-
-
-        return null;
+        return rateLimitHeader;
     }
 
 	public static String[] getAuthenticatedTopicsList() {

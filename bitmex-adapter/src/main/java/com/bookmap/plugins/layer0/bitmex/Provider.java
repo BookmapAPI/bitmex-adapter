@@ -1,6 +1,8 @@
 package com.bookmap.plugins.layer0.bitmex;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -12,6 +14,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+
+import org.apache.commons.io.input.ClassLoaderObjectInputStream;
+import org.apache.commons.lang3.SerializationUtils;
 
 import com.bookmap.plugins.layer0.bitmex.adapter.BmConnector;
 import com.bookmap.plugins.layer0.bitmex.adapter.BmInstrument;
@@ -31,6 +36,7 @@ import com.bookmap.plugins.layer0.bitmex.adapter.UnitMargin;
 import com.bookmap.plugins.layer0.bitmex.adapter.UnitOrder;
 import com.bookmap.plugins.layer0.bitmex.adapter.UnitPosition;
 import com.bookmap.plugins.layer0.bitmex.adapter.UnitWallet;
+import com.bookmap.plugins.layer0.bitmex.messages.ProviderTargetedLeverageMessage;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -68,6 +74,7 @@ import velox.api.layer1.data.SystemTextMessageType;
 import velox.api.layer1.data.TradeInfo;
 import velox.api.layer1.data.UserPasswordDemoLoginData;
 import velox.api.layer1.layers.utils.OrderBook;
+import velox.api.layer1.messages.UserProviderTargetedMessage;
 
 @Layer1ApiVersion(Layer1ApiVersionValue.VERSION1)
 @Layer0LiveModule(shortName = "MEX", fullName = "BitMEX")
@@ -1303,7 +1310,7 @@ public class Provider extends ExternalLiveBaseProvider {
             String message = gson.toJson(map);
             LogBitmex.info("bitmexSendMsg " + message);
 
-            panelHelper.sendMessage(message);
+            panelHelper.onUserMessage(message);
 	    }
 	}
 	
@@ -1311,4 +1318,37 @@ public class Provider extends ExternalLiveBaseProvider {
 	    return leverages.get(symbol);
 	}
 
+    @Override
+    public Object sendUserMessage(Object data) {
+        if (isTargetedAtBitmexAdapter(data)) {
+
+            try {
+                try (
+                ClassLoaderObjectInputStream str = new ClassLoaderObjectInputStream(getClass().getClassLoader(), new ByteArrayInputStream(SerializationUtils.serialize((Serializable) data)))){
+                    data = str.readObject();
+                }
+
+
+                ProviderTargetedLeverageMessage ptm = (ProviderTargetedLeverageMessage) data;
+                String message = ptm.getMessage();
+                panelHelper.acceptMessage(message);
+            } catch (Exception e) {
+                LogBitmex.info("", e);
+            }
+
+        }
+        return super.sendUserMessage(data);
+    }
+
+    private boolean isTargetedAtBitmexAdapter(Object data) {
+        if (data instanceof UserProviderTargetedMessage && data.getClass().getSimpleName().equals(ProviderTargetedLeverageMessage.class.getSimpleName())) {
+            String programmaticName = ((UserProviderTargetedMessage) data).getProviderProgrammaticName();
+            return programmaticName.equals(Constants.programmaticName);
+        }
+        return false;
+    }
+    
+    public void onUserMessage(Object data) {
+        adminListeners.forEach(l -> l.onUserMessage(data));
+    }
 }
