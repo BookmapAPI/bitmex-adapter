@@ -51,7 +51,9 @@ public class PanelServerHelper {
 
     public void acceptMessage(String message) {
         try {
-            if (Class.forName("velox.api.layer1.messages.Layer1ApiUserInterModuleMessage") != null) return;
+            if (Class.forName("velox.api.layer1.messages.Layer1ApiUserInterModuleMessage") != null) {
+                // do nothing
+            }
         } catch (ClassNotFoundException e1) {
             // this is the desired behavior for 7.0 so no warnings needed
         }
