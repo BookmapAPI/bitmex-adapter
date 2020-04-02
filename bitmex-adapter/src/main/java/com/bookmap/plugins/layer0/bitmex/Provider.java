@@ -1321,21 +1321,17 @@ public class Provider extends ExternalLiveBaseProvider {
     @Override
     public Object sendUserMessage(Object data) {
         if (isTargetedAtBitmexAdapter(data)) {
-
             try {
                 try (
                 ClassLoaderObjectInputStream str = new ClassLoaderObjectInputStream(getClass().getClassLoader(), new ByteArrayInputStream(SerializationUtils.serialize((Serializable) data)))){
                     data = str.readObject();
                 }
-
-
                 ProviderTargetedLeverageMessage ptm = (ProviderTargetedLeverageMessage) data;
                 String message = ptm.getMessage();
                 panelHelper.acceptMessage(message);
             } catch (Exception e) {
                 LogBitmex.info("", e);
             }
-
         }
         return super.sendUserMessage(data);
     }
