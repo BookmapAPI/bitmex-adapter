@@ -17,7 +17,7 @@ public class Constants {
 	 * Repeating position request is done for keeping persistent connection.
 	 */
 	public static final int positionRequestDelaySeconds = 150;
-	public static final String programmaticName = "com.bookmap.plugins.layer0.bitmex.Provider";
+	public static final String programmaticName = "EXT:" + "com.bookmap.plugins.layer0.bitmex.Provider";
 	public static final String rateLimitHeaderName = "X-RateLimit-Limit";
 	public static final String rateLimitRemainingHeaderName = "X-RateLimit-Remaining";
 	
