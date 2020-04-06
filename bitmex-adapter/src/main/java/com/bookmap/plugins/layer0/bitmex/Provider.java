@@ -83,11 +83,9 @@ public class Provider extends ExternalLiveBaseProvider {
 	private BmConnector connector;
 	private TradeConnector tradeConnector;
 	private HttpClientHolder httpClientHolder;
-	private String tempClientId;
 	private HashMap<String, OrderInfoBuilder> workingOrders = new HashMap<>();
 
 	private List<OrderInfoBuilder> pendingOrders = new ArrayList<>();
-	private long orderCount;
 	private long orderOcoCount;
 	private boolean isCredentialsEmpty;
 
@@ -394,8 +392,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		// Detecting order type
 		OrderType orderType = OrderType.getTypeFromPrices(simpleParameters.stopPrice, simpleParameters.limitPrice);
 		LogBitmex.info("Provider prepareSimpleOrder: orderType = " + orderType.toString());
-		String tempOrderId = System.currentTimeMillis() + "-temp-" + orderCount++;
-		final OrderInfoBuilder builder = new OrderInfoBuilder(simpleParameters.alias, tempOrderId,
+		final OrderInfoBuilder builder = new OrderInfoBuilder(simpleParameters.alias, simpleParameters.clientId,
 				simpleParameters.isBuy, orderType, simpleParameters.clientId, simpleParameters.doNotIncrease);
 
 		// You need to set these fields, otherwise Bookmap might not handle
@@ -421,10 +418,10 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		LogBitmex.info("Provider prepareSimpleOrder: getting sent to bitmex");
 		synchronized (workingOrders) {
-			workingOrders.put(builder.getOrderId(), builder);
+			workingOrders.put(simpleParameters.clientId, builder);
 		}
 
-		JsonObject json = tradeConnector.createSendData(simpleParameters, orderType, tempOrderId, clOrdLinkID,
+		JsonObject json = tradeConnector.createSendData(simpleParameters, orderType, simpleParameters.clientId, clOrdLinkID,
 				contingencyType);
 		return json;
 	}
@@ -1098,7 +1095,7 @@ public class Provider extends ExternalLiveBaseProvider {
 					exec.getSymbol(), exec.getOrderID(),
 					exec.getSide().equals("Buy"),
 					OrderType.getTypeFromPrices(exec.getStopPx(), exec.getPrice()),
-					exec.getClientId(),
+					exec.getClOrdID(),
 					false);
 
 			OrderStatus status = exec.getOrdStatus().equals("Filled") ? OrderStatus.FILLED : OrderStatus.CANCELLED;
@@ -1182,13 +1179,12 @@ public class Provider extends ExternalLiveBaseProvider {
 		String sTypeUpper = sType.toUpperCase();
 		OrderType type = OrderType.valueOfLoose(sTypeUpper);
 		LogBitmex.info("Provider createBookmapOrder:  order created Type=" + type.toString());
-		String clientId = tempClientId;
 		boolean doNotIncrease = false;// this field is being left true so far
 
 		checkIfLinkedAndAddToMaps(order);
 
 		final OrderInfoBuilder builder = new OrderInfoBuilder(order.getSymbol(), order.getOrderID(), isBuy, type,
-				clientId, doNotIncrease);
+		        order.getClOrdID(), doNotIncrease);
 		
 		builder.setStopPrice(order.getStopPx())
 		.setLimitPrice(order

@@ -55,7 +55,7 @@ public class TradeConnector {
 		return pegOffset;
 	}
 
-	public JsonObject createSendData(SimpleOrderSendParameters params, OrderType orderType, String tempOrderId,
+	public JsonObject createSendData(SimpleOrderSendParameters params, OrderType orderType, String clOrdId,
 			String clOrdLinkID, String contingencyType) {
 		String symbol = ConnectorUtils.isolateSymbol(params.alias);
 		String side = params.isBuy ? "Buy" : "Sell";
@@ -65,7 +65,7 @@ public class TradeConnector {
 		json.addProperty("symbol", symbol);
 		json.addProperty("side", side);
 		json.addProperty("orderQty", orderQty);
-		json.addProperty("clOrdID", tempOrderId);
+		json.addProperty("clOrdID", clOrdId);
 		
 		JsonArray execInst = new JsonArray();
 		
