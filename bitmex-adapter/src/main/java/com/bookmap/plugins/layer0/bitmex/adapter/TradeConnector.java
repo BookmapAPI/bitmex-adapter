@@ -188,8 +188,9 @@ public class TradeConnector {
 	public JsonObject moveTrailingStepJson(OrderMoveParameters params) {
 		JsonObject json = new JsonObject();
 		json.addProperty("orderID", params.orderId);
+		String clientId = provider.getClientId(params.orderId);
 		String symbol = ConnectorUtils
-				.isolateSymbol(provider.getWorkingOrders().get(params.orderId).getInstrumentAlias());
+				.isolateSymbol(provider.getAlias(clientId));
 		json.addProperty("pegOffsetValue", getPegOffset(symbol, params.stopPrice));
 		return json;
 	}
