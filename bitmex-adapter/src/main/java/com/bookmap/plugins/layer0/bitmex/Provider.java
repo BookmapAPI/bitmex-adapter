@@ -89,14 +89,6 @@ public class Provider extends ExternalLiveBaseProvider {
 	private long orderOcoCount;
 	private boolean isCredentialsEmpty;
 
-    /*
-	 * for ocoOrders Map <clOrdLinkID, List <realIds>> Map<realid,
-	 * clOrderLinkID>
-	 */
-	private Map<String, List<String>> LinkIdToRealIdsMap = new HashMap<>();
-	private Map<String, String> RealToLinkIdMap = new HashMap<>();
-	private Set<String> bracketParents = new HashSet<>();
-
 	// <id, trailingStep>
 	private Map<String, Double> trailingStops = new HashMap<>();
 	private List<String> batchCancels = new LinkedList<>();
@@ -457,19 +449,11 @@ public class Provider extends ExternalLiveBaseProvider {
                 LogBitmex.info("Provider updateOrder: (move)");
                 OrderMoveParameters orderMoveParameters = (OrderMoveParameters) orderUpdateParameters;
 
-                boolean isBracketParent;
-                synchronized (bracketParents) {
-                    isBracketParent = bracketParents.contains(orderMoveParameters.orderId);
-                }
-
                 boolean isTrailingStop;
                 synchronized (trailingStops) {
                     isTrailingStop = trailingStops.containsKey(orderMoveParameters.orderId);
                 }
 
-                if (isBracketParent) {
-                    passBracketMoveParameters(orderMoveParameters);
-                } else if (isTrailingStop) {
                     // trailing stop
                     JsonObject json = tradeConnector.moveTrailingStepJson(orderMoveParameters);
                     tradeConnector.require(GeneralType.ORDER, Method.PUT, json.toString());
@@ -570,22 +554,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		String data;
 		GeneralType type;
 
-		boolean isLinkedOrder;
-		synchronized (RealToLinkIdMap) {
-			isLinkedOrder = RealToLinkIdMap.containsKey(builder.getOrderId());
-		}
 
-		if (!isLinkedOrder) {
-			// single order
-			pendingIds.add(builder.getOrderId());
-			type = GeneralType.ORDER;
-			data = tradeConnector.resizeOrder(builder.getOrderId(), newSize);
-		} else { // ***** OCO
-			List<String> otherIds = getOtherLinkedOrdersId(builder.getOrderId());
-			pendingIds.addAll(otherIds);
-			type = GeneralType.ORDERBULK;
-			data = tradeConnector.resizeOrder(otherIds, newSize);
-		}
 		setPendingStatus(pendingIds, OrderStatus.PENDING_MODIFY);
 		String response = tradeConnector.require(type, Method.PUT, data);
 		passCancelMessageIfNeededAndClearPendingListForResize(pendingIds, response);
@@ -622,94 +591,6 @@ public class Provider extends ExternalLiveBaseProvider {
 		}
 		// should be cleared anyway
 		pendingIds.clear();
-	}
-
-	private List<String> getBracketChildren(String parentId) {
-		List<String> brackets;
-		String clOrdLinkId;
-
-		synchronized (RealToLinkIdMap) {
-			clOrdLinkId = RealToLinkIdMap.get(parentId);
-		}
-
-		synchronized (LinkIdToRealIdsMap) {
-			brackets = LinkIdToRealIdsMap.get(clOrdLinkId);
-		}
-
-		List<String> children = new ArrayList<>();
-		for (String id : brackets) {
-			if (!id.equals(parentId)) {
-				children.add(id);
-			}
-		}
-
-		if (children.size() != 2) {
-			throw new RuntimeException("Bracket children count != 2");
-		}
-		return children;
-	}
-
-	private void passBracketMoveParameters(OrderMoveParameters orderMoveParameters) {
-		List<String> children = getBracketChildren(orderMoveParameters.orderId);
-		double difference = getDifference(orderMoveParameters);
-		OrderMoveParameters moveParamsOne = getIndividualMoveParameters(children.get(0), difference);
-		OrderMoveParameters moveParamsTwo = getIndividualMoveParameters(children.get(1), difference);
-
-		JsonArray array = new JsonArray();
-		boolean isParentStopTriggered;
-		boolean isChildZeroStopTriggered;
-		boolean isChildOneStopTriggered;
-		synchronized (workingOrders) {
-			isParentStopTriggered = workingOrders.get(orderMoveParameters.orderId).isStopTriggered();
-			isChildZeroStopTriggered = workingOrders.get(children.get(0)).isStopTriggered();
-			isChildOneStopTriggered = workingOrders.get(children.get(1)).isStopTriggered();
-		}
-		array.add(tradeConnector.moveOrderJson(orderMoveParameters, isParentStopTriggered));
-		array.add(tradeConnector.moveOrderJson(moveParamsOne, isChildZeroStopTriggered));
-		array.add(tradeConnector.moveOrderJson(moveParamsTwo, isChildOneStopTriggered));
-		String data = "orders=" + array.toString();
-		tradeConnector.require(GeneralType.ORDERBULK, Method.PUT, data);
-	}
-
-	private double getDifference(OrderMoveParameters orderMoveParameters) {
-		double difference = 0.0;
-		synchronized (workingOrders) {
-			if (!Double.isNaN(orderMoveParameters.limitPrice)) {
-				difference += orderMoveParameters.limitPrice
-						- workingOrders.get(orderMoveParameters.orderId).getLimitPrice();
-			}
-			if (!Double.isNaN(orderMoveParameters.stopPrice)) {
-				difference += orderMoveParameters.stopPrice
-						- workingOrders.get(orderMoveParameters.orderId).getStopPrice();
-			}
-		}
-		return difference;
-	}
-
-	private OrderMoveParameters getIndividualMoveParameters(String id, double finiteDifference) {
-		double stopPrice;
-		double limitPrice;
-		synchronized (workingOrders) {
-			stopPrice = workingOrders.get(id).getStopPrice();
-			limitPrice = workingOrders.get(id).getLimitPrice();
-		}
-
-		OrderMoveParameters moveParams = new OrderMoveParameters(id,
-				stopPrice + finiteDifference, limitPrice + finiteDifference);
-		return moveParams;
-	}
-
-	private List<String> getOtherLinkedOrdersId(String realId) {
-		String ocoId;
-		synchronized (RealToLinkIdMap) {
-			ocoId = RealToLinkIdMap.get(realId);
-		}
-
-		List<String> otherIds;
-		synchronized (LinkIdToRealIdsMap) {
-			otherIds = LinkIdToRealIdsMap.get(ocoId);
-		}
-		return otherIds;
 	}
 
 	@Override
@@ -860,8 +741,6 @@ public class Provider extends ExternalLiveBaseProvider {
 				// 'NotTriggered' really means 'notTriggeredBracketChild'.
 				builder.setStatus(OrderStatus.SUSPENDED);
 			}
-
-			checkIfLinkedAndAddToMaps(exec);
 
 			//adding untriggered orders to TCP
             if (builder.getType() == OrderType.STP || builder.getType() == OrderType.STP_LMT) {
@@ -1181,8 +1060,6 @@ public class Provider extends ExternalLiveBaseProvider {
 		LogBitmex.info("Provider createBookmapOrder:  order created Type=" + type.toString());
 		boolean doNotIncrease = false;// this field is being left true so far
 
-		checkIfLinkedAndAddToMaps(order);
-
 		final OrderInfoBuilder builder = new OrderInfoBuilder(order.getSymbol(), order.getOrderID(), isBuy, type,
 		        order.getClOrdID(), doNotIncrease);
 		
@@ -1199,35 +1076,6 @@ public class Provider extends ExternalLiveBaseProvider {
 		synchronized (workingOrders) {
 			workingOrders.put(order.getOrderID(), builder);
 			LogBitmex.info("Provider createBookmapOrder:  put to workingOrders id=" + order.getOrderID());		}
-	}
-
-	private void checkIfLinkedAndAddToMaps(UnitOrder order) {
-		// if order is linked
-		if (!order.getClOrdLinkID().equals("")) {
-			// add to LinkIdToRealIdsMap
-			List<String> tempList;
-
-			synchronized (LinkIdToRealIdsMap) {
-				if (!LinkIdToRealIdsMap.containsKey(order.getClOrdLinkID())) {
-					LinkIdToRealIdsMap.put(order.getClOrdLinkID(), new LinkedList<String>());
-				}
-				tempList = LinkIdToRealIdsMap.get(order.getClOrdLinkID());
-			}
-
-			if (!order.getContingencyType().equals("OneTriggersTheOther")) {
-				tempList.add(0, order.getOrderID());
-			} else {
-				// add to Bracket parents
-				synchronized (bracketParents) {
-					bracketParents.add(order.getOrderID());
-				}
-				tempList.add(order.getOrderID());
-			}
-			// add to RealToLinkIdMap
-			synchronized (RealToLinkIdMap) {
-				RealToLinkIdMap.put(order.getOrderID(), order.getClOrdLinkID());
-			}
-		}
 	}
 
 	@Override
