@@ -4,7 +4,6 @@ public class UnitOrder extends UnitRaw{
 	
 	private String execID;
 	private String orderID;
-	private String clientId;//for Bookmap
 	
 	private String clOrdID;
 	private String clOrdLinkID;
@@ -256,15 +255,4 @@ public class UnitOrder extends UnitRaw{
 	public void setExecID(String execID) {
 		this.execID = execID;
 	}
-
-
-	public String getClientId() {
-		return clientId;
-	}
-	public void setClientId(String clientId) {
-		this.clientId = clientId;
-	}
-
-	
-	
 }

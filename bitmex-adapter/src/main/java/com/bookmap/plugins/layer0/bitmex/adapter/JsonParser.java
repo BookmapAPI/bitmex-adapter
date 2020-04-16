@@ -46,7 +46,7 @@ public class JsonParser {
 		this.activeInstrumentsMap = activeInstrumentsMap;
 	}
 
-	public void parse(String str) {;
+	public void parse(String str) {
 		try {
 			// first let's find out what kind of object we have here
 			ResponseByWebSocket responseWs = (ResponseByWebSocket) gson.fromJson(str, ResponseByWebSocket.class);
