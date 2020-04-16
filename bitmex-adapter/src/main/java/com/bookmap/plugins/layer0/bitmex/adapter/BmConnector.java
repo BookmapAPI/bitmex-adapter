@@ -228,6 +228,7 @@ public class BmConnector implements Runnable {
 	public void fillActiveBmInstrumentsMap() {
 		synchronized (activeBmInstrumentsMap) {
             String str = clientHolder.makeRequest(GeneralType.ACTIVE_INSTRUMENTS, Method.GET, null);
+
             if (str != null) {
                 try {
                     BmInstrument[] instrs = JsonParser.getArrayFromJson(str, BmInstrument[].class);
@@ -237,7 +238,12 @@ public class BmConnector implements Runnable {
                         provider.maxLeverages.put(instr.getSymbol(), (int) Math.round(1 / instr.getInitMargin()));
                     }
                 } catch (Exception e) {
-                    LogBitmex.info("", e);
+                    LogBitmex.info(str, e);
+                    String message = str + "\n Please check your credentials. If they are correct"
+                            + "\n this error might be also caused by BitMEX server being down"
+                            + "\n or your account (temporary) ban for some reason";
+                    provider.reportWrongCredentials(message);
+                    LogBitmex.info(str, e);
                 }
 				activeBmInstrumentsMap.notify();
 			}
