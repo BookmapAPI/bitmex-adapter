@@ -123,7 +123,7 @@ public class PanelServerHelper {
                 }
                 String address = "?filter=" + filter;
                 String result = connector.require(GeneralType.POSITION, Method.GET, null, false, address);
-                UnitPosition[] positions = JsonParser.getArrayFromJson(result, UnitPosition[].class);
+                UnitPosition[] positions = provider.getConnector().getParser().getArrayFromJson(result, UnitPosition[].class);
 
                 if (positions.length == 0) {
                     mp.put("leverage", 0);

@@ -1,5 +1,6 @@
 package com.bookmap.plugins.layer0.bitmex.adapter;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -13,16 +14,14 @@ import com.bookmap.plugins.layer0.bitmex.Provider;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Topic;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonSyntaxException;
 import com.google.gson.reflect.TypeToken;
 
+import velox.api.layer1.common.Log;
 import velox.api.layer1.data.SystemTextMessageType;
 import velox.api.layer1.layers.utils.OrderBook;
 
 public class JsonParser {
-
-	public static <T> T[] getArrayFromJson(String input, Class<T[]> cls) {
-		return (T[]) new Gson().fromJson(input, cls);
-	}
 
 	public static <T> ArrayList<T> getGenericFromMessage(String input, Class<T> cls) {
 		Type type = new TypeToken<MessageGeneric<T>>() {
@@ -37,14 +36,46 @@ public class JsonParser {
     private Provider provider;
 	private Map<String, BmInstrument> activeInstrumentsMap = new HashMap<>();
 	private Set<String> nonInstrumentPartialsParsed = new HashSet<>();
+	
+	public JsonParser() {
+        super();
+    }
 
-	public void setProvider(Provider provider) {
+    public void setProvider(Provider provider) {
 		this.provider = provider;
 	}
 
 	public void setActiveInstrumentsMap(Map<String, BmInstrument> activeInstrumentsMap) {
 		this.activeInstrumentsMap = activeInstrumentsMap;
 	}
+
+    public <T> T[] getArrayFromJson(String input, Class<T[]> cls) {
+        try {
+            return (T[]) new Gson().fromJson(input, cls);
+        } catch (JsonSyntaxException e) {
+            // An empty array will be returned if unable to parse.
+            // If an input contains a warning message from BitMEX
+            // (which happens to be pretty often) the message will
+            // be shown to a user.
+            Log.info("Cannot parse: ", input);
+            Log.info("", e);
+            
+            StringBuilder sb = new StringBuilder();
+            sb.append("Unable to parse the input")
+            .append(System.lineSeparator());
+            
+            if (input.contains("<html><body><h1>")) {
+                sb.append(input);
+            }
+            String message = sb.toString();
+            provider.adminListeners.forEach(l -> l.onSystemTextMessage(message, SystemTextMessageType.UNCLASSIFIED));
+            
+            Class<?> componentType = cls.getComponentType();
+            @SuppressWarnings("unchecked")
+            T[] t = (T[]) Array.newInstance(componentType, 0);
+            return t;
+        }
+    }
 
 	public void parse(String str) {
 		try {

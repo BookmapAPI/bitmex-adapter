@@ -30,7 +30,7 @@ import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Method;
 import com.bookmap.plugins.layer0.bitmex.messages.ModuleTargetedHttpRequestFeedbackMessage;
 import com.google.gson.JsonSyntaxException;
 
-import velox.api.layer1.messages.Layer1ApiUserInterModuleMessage;
+import velox.api.layer1.data.SystemTextMessageType;
 
 public class HttpClientHolder implements Closeable {
     

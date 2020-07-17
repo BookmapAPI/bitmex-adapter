@@ -231,7 +231,7 @@ public class BmConnector implements Runnable {
 
             if (str != null) {
                 try {
-                    BmInstrument[] instrs = JsonParser.getArrayFromJson(str, BmInstrument[].class);
+                    BmInstrument[] instrs = parser.getArrayFromJson(str, BmInstrument[].class);
 
                     for (BmInstrument instr : instrs) {
                         activeBmInstrumentsMap.put(instr.getSymbol(), instr);
@@ -392,7 +392,7 @@ public class BmConnector implements Runnable {
         String result = tradeConnector.require(GeneralType.EXECUTION, Method.GET, null, false, addr);
         
         try {
-            UnitOrder[] orders = JsonParser.getArrayFromJson(result, UnitOrder[].class);
+            UnitOrder[] orders = parser.getArrayFromJson(result, UnitOrder[].class);
             int sum = 0;
 
             if (orders != null && orders.length > 0) {
@@ -428,7 +428,7 @@ public class BmConnector implements Runnable {
 	        String address = sb.toString();
 	        String response = tradeConnector.require(GeneralType.EXECUTION, Method.GET, null, false, address);
 
-			UnitExecution[] executions = JsonParser.getArrayFromJson(response,
+			UnitExecution[] executions = parser.getArrayFromJson(response,
 					UnitExecution[].class);
 
 			if (executions == null || executions.length == 0) {
@@ -524,4 +524,9 @@ public class BmConnector implements Runnable {
 	    double initMarginReq = getActiveInstrumentsMap().get(alias).getInitMargin();
         return (int) Math.round(1/initMarginReq);
 	}
+
+    public JsonParser getParser() {
+        return parser;
+    }
+
 }
