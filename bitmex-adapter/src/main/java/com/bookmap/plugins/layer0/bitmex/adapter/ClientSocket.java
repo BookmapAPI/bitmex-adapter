@@ -61,7 +61,8 @@ public class ClientSocket {
 
 	private void launchPingTimer() {
 		class CustomThreadFactory implements ThreadFactory {
-			public Thread newThread(Runnable r) {
+			@Override
+            public Thread newThread(Runnable r) {
 				return new Thread(r, "-> BmConnector: pingTimer");
 			}
 		}
