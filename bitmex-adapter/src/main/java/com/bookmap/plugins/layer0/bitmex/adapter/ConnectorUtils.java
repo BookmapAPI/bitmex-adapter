@@ -211,7 +211,7 @@ public class ConnectorUtils {
 
     public static Header getHeader(Header[] headers, String name) {
         Header rateLimitHeader = Arrays.stream(headers)
-                .filter(header -> header.getName().equals(name))
+                .filter(header -> header.getName().toLowerCase().equals(name.toLowerCase()))
                 .findAny()
                 .orElse(null);
         return rateLimitHeader;
