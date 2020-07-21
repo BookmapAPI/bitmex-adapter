@@ -14,10 +14,12 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
@@ -32,13 +34,12 @@ import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Method;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.WebSocketOperation;
 
 import velox.api.layer1.data.DisconnectionReason;
-import velox.api.layer1.data.LoginFailedReason;
 import velox.api.layer1.data.SubscribeInfo;
 import velox.api.layer1.data.SystemTextMessageType;
 
 public class BmConnector implements Runnable {
 
-	private boolean interruptionNeeded = false;
+	private AtomicBoolean interruptionNeeded = new AtomicBoolean(false);
 	private HttpClientHolder clientHolder;
 	private String wssUrl;
 	private String restApi;
@@ -48,7 +49,7 @@ public class BmConnector implements Runnable {
 	private ClientSocket socket;
 
 	private JsonParser parser = new JsonParser();
-	private boolean isReconnecting = false;
+	private AtomicBoolean isReconnecting = new AtomicBoolean(false);
 	private Provider provider;
 	private TradeConnector tradeConnector;
 
@@ -56,6 +57,7 @@ public class BmConnector implements Runnable {
 	private ScheduledExecutorService positionRequestTimer;
 	private int executionDay = 0;
 	private boolean isExecutionReset;
+	private ExecutorService lowPriorityTasksExecutor = Executors.newSingleThreadExecutor();
 	
 	private Object socketLock = new Object();
 	private int timerCount = 0;
@@ -79,7 +81,7 @@ public class BmConnector implements Runnable {
 	}
 
 	public void setInterruptionNeeded(boolean interruptionNeeded) {
-		this.interruptionNeeded = interruptionNeeded;
+		this.interruptionNeeded.set(interruptionNeeded);
 	}
 
 	public String getRestApi() {
@@ -166,16 +168,14 @@ public class BmConnector implements Runnable {
 				String res = JsonParser.gson.toJson(wsData);
 				socket.sendMessage(res);
 
-				reportHistoricalExecutions("Filled");
-				reportHistoricalExecutions("Canceled");
-				
-                
+				lowPriorityTasksExecutor.execute(() -> reportHistoricalExecutions("Filled"));
+				lowPriorityTasksExecutor.execute(() -> reportHistoricalExecutions("Canceled"));
 			}
 
 			webSocketStartingLatch.countDown();
 			LogBitmex.info("BmConnector wsConnect websocket webSocketStartingLatch is down");
 
-			if (isReconnecting) {
+			if (isReconnecting.get()) {
 				provider.reportRestoredCoonection();
 
 				for (BmInstrument instr : activeBmInstrumentsMap.values()) {
@@ -183,14 +183,14 @@ public class BmConnector implements Runnable {
 						subscribe(instr);
 					}
 				}
-				isReconnecting = false;
+				isReconnecting.set(false);
 			}
 
 			// WAITING FOR THE SOCKET TO CLOSE
 			
 			CountDownLatch closingLatch = socket.getClosingLatch();
 			closingLatch.await();
-			isReconnecting = true;
+			isReconnecting.set(true);
 
 		} catch (UpgradeException e) {
 			LogBitmex.info("BmConnector wsConnect client cannot connect 0 ");
@@ -262,7 +262,7 @@ public class BmConnector implements Runnable {
 			public void run() {
 				Thread.currentThread().setName("-> BmConnector: snapshotTimer " + localTimerCount + " for" + instr.getSymbol() );
 			
-				if (socket == null || isReconnecting){
+				if (socket == null || isReconnecting.get()){
 					LogBitmex.info("SnapshotTimer waiting for the socket, timer " + localTimerCount + " shutdown");
 					return;
 				}
@@ -409,7 +409,7 @@ public class BmConnector implements Runnable {
         
     }
 
-	private void reportHistoricalExecutions(String ordStatus) {
+    private void reportHistoricalExecutions(String ordStatus) {
 		// private void reportHistoricalExecutions(String symbol, String
 		// ordStatus) {
 		ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
@@ -421,6 +421,20 @@ public class BmConnector implements Runnable {
 
 		List<UnitExecution> historicalExecutions = new LinkedList<>();
 		for (int i = 0;; i += 500) {
+		    while (!interruptionNeeded.get() && clientHolder.getAllowedRequestsPerMinuteLeft() < 5) {
+		        try {
+		            System.out.println("sleeping in reportHistoricalExecutions " + ordStatus);
+                    TimeUnit.SECONDS.sleep(1);
+                } catch (InterruptedException e) {
+                    // do nothing but logging: expected behavior
+                    LogBitmex.infoClassOf(getClass(), "", e);
+                }
+		    }
+            if (interruptionNeeded.get() || isReconnecting.get()) {
+                break;
+            }
+            System.out.println("performing in reportHistoricalExecutions " + ordStatus);
+
 			StringBuilder sb = new StringBuilder();
 			sb.append("?filter=%7B%22ordStatus%22%3A%20%22")
             .append(ordStatus).append("%22%7D&count=500&reverse=true&startTime=")
@@ -450,7 +464,7 @@ public class BmConnector implements Runnable {
 		}
 		LogBitmex.info("BmConnector report " + ordStatus + ": listSize =  " + historicalExecutions.size());
 
-		if (historicalExecutions != null && historicalExecutions.size() > 0) {
+		if (!interruptionNeeded.get() && !isReconnecting.get() && historicalExecutions != null && historicalExecutions.size() > 0) {
 			provider.updateExecutionsHistory(
 					historicalExecutions.toArray(new UnitExecution[historicalExecutions.size()]));
 		}
@@ -458,13 +472,13 @@ public class BmConnector implements Runnable {
 
 	@Override
 	public void run() {
-		while (!interruptionNeeded) {
+		while (!interruptionNeeded.get()) {
 
             if (!isConnectionEstablished()) {
                 if (!isInitiallyConnected) {
                     provider.adminListeners
                             .forEach(l -> l.onConnectionLost(DisconnectionReason.FATAL, "No connection with BitMEX"));
-                    interruptionNeeded = true;
+                    interruptionNeeded.set(true);
                 } else {
                     try {
                         Thread.sleep(5000);
@@ -494,10 +508,10 @@ public class BmConnector implements Runnable {
 					continue;
 				}
 			}
-			if (!interruptionNeeded) {
+			if (!interruptionNeeded.get()) {
 				wsConnect();
 			}
-			if (!interruptionNeeded) {
+			if (!interruptionNeeded.get()) {
 	            provider.panelHelper.stop();
 				provider.reportLostConnection();
 			}
@@ -516,6 +530,7 @@ public class BmConnector implements Runnable {
         if (positionRequestTimer != null) {
             positionRequestTimer.shutdownNow();
         }
+        lowPriorityTasksExecutor.shutdownNow();
 		LogBitmex.info("BmConnector run: closing");
 	}
 	
