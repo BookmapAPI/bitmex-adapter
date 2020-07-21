@@ -16,6 +16,8 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -231,5 +233,22 @@ public class ConnectorUtils {
 				ConnectorUtils.containers.get(ConnectorUtils.Topic.TRADE).name };
 		return array;
 	}
+	
+	public static Integer getTimeoutFromErrorMessage(String errorMessage) {
+        Pattern patcher = Pattern.compile("Rate limit exceeded, retry in \\d+ seconds.");
+        Matcher matcher = patcher.matcher(errorMessage);
+
+        if (matcher.find()) {
+            String exp = matcher.group();
+            patcher = Pattern.compile("\\d+");
+            matcher = patcher.matcher(exp);
+
+            if (matcher.find()) {
+                String s = matcher.group();
+                return Integer.valueOf(s);
+            }
+        }
+        return null;
+    }
 
 }

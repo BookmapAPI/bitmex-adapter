@@ -429,7 +429,7 @@ public class BitmexPanel implements Layer1ApiFinishable
                         if (feedbackMessage.response.contains("The system is currently overloaded")) {
                             this.rateLimit = 0;
                         } else {
-                            Integer timeOut = getTimeoutFromErrorMessage(feedbackMessage.response);
+                            Integer timeOut = ConnectorUtils.getTimeoutFromErrorMessage(feedbackMessage.response);
                             if (timeOut != null) {
                                 this.timeOut = timeOut;
                             }
@@ -723,23 +723,6 @@ public class BitmexPanel implements Layer1ApiFinishable
         if (painter != null) {
             painter.setNeedUpdate(true);
         }
-    }
-    
-    static Integer getTimeoutFromErrorMessage(String errorMessage) {
-        Pattern patcher = Pattern.compile("Rate limit exceeded, retry in \\d+ seconds.");
-        Matcher matcher = patcher.matcher(errorMessage);
-
-        if (matcher.find()) {
-            String exp = matcher.group();
-            patcher = Pattern.compile("\\d+");
-            matcher = patcher.matcher(exp);
-
-            if (matcher.find()) {
-                String s = matcher.group();
-                return Integer.valueOf(s);
-            }
-        }
-        return null;
     }
 
     @Override
