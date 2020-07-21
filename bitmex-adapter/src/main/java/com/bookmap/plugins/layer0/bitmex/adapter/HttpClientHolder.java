@@ -8,12 +8,10 @@ import java.net.NoRouteToHostException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.IntBinaryOperator;
 import java.util.function.IntUnaryOperator;
 
 import org.apache.commons.lang3.StringUtils;
@@ -75,22 +73,7 @@ public class HttpClientHolder implements Closeable {
         this.orderApiKey = orderApiKey;
         this.orderApiSecret = orderApiSecret;
         this.provider = provider;
-
-        final IntUnaryOperator unaryOperator = new IntUnaryOperator() {
-            @Override
-            public int applyAsInt(int operand) {
-                if (operand < allowedRequestsPerMinuteMaximum) {
-                    return operand + 1;
-                } else {
-                    return allowedRequestsPerMinuteMaximum;
-                }
-            }
-        };
-
-        Runnable runnable = () -> {
-            int rateLimitTimeOutValue = allowedRequestsPerMinuteLeft.getAndUpdate(unaryOperator);
-        };
-        scheduler.scheduleAtFixedRate(runnable, 1, 1, TimeUnit.SECONDS);
+        scheduleRateLimitIncrementing();
     }
     
     public Pair<Boolean, String> makeRequest(GeneralType genType, Method method, String data) {
@@ -176,7 +159,6 @@ public class HttpClientHolder implements Closeable {
                 if (rateLimitRemainingHeader != null) {
                     try {
                         int rateLimitRemainingValue = Integer.parseInt(rateLimitRemainingHeader.getValue());
-                        System.out.println("isSucessful == true, rateLimitLeft = " + rateLimitRemainingValue);
                         allowedRequestsPerMinuteLeft.set(rateLimitRemainingValue);
                     } catch (Exception e) {
                         LogBitmex.infoClassOf(ConnectorUtils.class, " no ratelimit data", e);
@@ -186,7 +168,6 @@ public class HttpClientHolder implements Closeable {
                 LogBitmex.info("Server response " + statusCode + " " + response);
                 Integer timeOut = ConnectorUtils.getTimeoutFromErrorMessage(response);
                 if (timeOut != null) {
-                    System.out.println("isSucessful == false, rateLimitLeft = " + timeOut);
                     allowedRequestsPerMinuteLeft.set(-timeOut);
                 }
             }
@@ -241,4 +222,21 @@ public class HttpClientHolder implements Closeable {
        client.close();
     }
     
+    private void scheduleRateLimitIncrementing() {
+        final IntUnaryOperator unaryOperator = new IntUnaryOperator() {
+            @Override
+            public int applyAsInt(int operand) {
+                if (operand < allowedRequestsPerMinuteMaximum) {
+                    return operand + 1;
+                } else {
+                    return allowedRequestsPerMinuteMaximum;
+                }
+            }
+        };
+
+        Runnable runnable = () -> {
+            allowedRequestsPerMinuteLeft.getAndUpdate(unaryOperator);
+        };
+        scheduler.scheduleAtFixedRate(runnable, 1, 1, TimeUnit.SECONDS);
+    }
 }
