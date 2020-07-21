@@ -2,6 +2,8 @@ package com.bookmap.plugins.layer0.bitmex.adapter;
 
 import java.util.List;
 
+import org.apache.commons.lang3.tuple.Pair;
+
 import com.bookmap.plugins.layer0.bitmex.Provider;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.GeneralType;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Method;
@@ -131,8 +133,8 @@ public class TradeConnector {
 		JsonObject json = new JsonObject();
 		json.addProperty("orderID", orderId);
 		String data = json.toString();
-		String res = require(GeneralType.ORDER, Method.DELETE, data);
-		LogBitmex.info("TradeConnector cancelOrder: " + res);
+		Pair<Boolean, String> response = require(GeneralType.ORDER, Method.DELETE, data);
+		LogBitmex.info("TradeConnector cancelOrder: " + response);
 	}
 
 	public void cancelOrder(List<String> orderIds) {
@@ -195,15 +197,15 @@ public class TradeConnector {
 		return json;
 	}
 
-	public String require(GeneralType genType, Method method, String data) {
+	public Pair<Boolean, String> require(GeneralType genType, Method method, String data) {
 	    return clientHolder.makeRequest(genType, method, data);
 	}
 
-	public String require(GeneralType genType, Method method, String data, boolean isOrderListBeingCanceled) {
+	public Pair<Boolean, String> require(GeneralType genType, Method method, String data, boolean isOrderListBeingCanceled) {
 	    return clientHolder.makeRequest(genType, method, data, isOrderListBeingCanceled);
 	}
 	
-	public String require(GeneralType genType, Method method, String data, boolean isOrderListBeingCanceled, String requestParameters) {
+	public Pair<Boolean, String> require(GeneralType genType, Method method, String data, boolean isOrderListBeingCanceled, String requestParameters) {
 	    return clientHolder.makeRequest(genType, method, data, isOrderListBeingCanceled, requestParameters);
 	}
 

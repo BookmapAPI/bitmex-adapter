@@ -19,7 +19,6 @@ public class LogBitmex {
         sb.append(clazz.getSimpleName())
         .append(" : ")
         .append(message);
-        
         Log.info(addPrefix(sb.toString()));
     }
     

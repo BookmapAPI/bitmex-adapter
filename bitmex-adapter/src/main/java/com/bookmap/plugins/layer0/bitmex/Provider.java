@@ -20,6 +20,7 @@ import org.apache.commons.collections4.bidimap.DualHashBidiMap;
 import org.apache.commons.io.input.ClassLoaderObjectInputStream;
 import org.apache.commons.lang3.SerializationUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 
 import com.bookmap.plugins.layer0.bitmex.adapter.BmConnector;
 import com.bookmap.plugins.layer0.bitmex.adapter.BmInstrument;
@@ -28,10 +29,8 @@ import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.GeneralType;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Method;
 import com.bookmap.plugins.layer0.bitmex.adapter.Constants;
 import com.bookmap.plugins.layer0.bitmex.adapter.HttpClientHolder;
-import com.bookmap.plugins.layer0.bitmex.adapter.JsonParser;
 import com.bookmap.plugins.layer0.bitmex.adapter.LogBitmex;
 import com.bookmap.plugins.layer0.bitmex.adapter.PanelServerHelper;
-import com.bookmap.plugins.layer0.bitmex.adapter.ResponseByRest;
 import com.bookmap.plugins.layer0.bitmex.adapter.TradeConnector;
 import com.bookmap.plugins.layer0.bitmex.adapter.UnitData;
 import com.bookmap.plugins.layer0.bitmex.adapter.UnitExecution;
@@ -43,7 +42,6 @@ import com.bookmap.plugins.layer0.bitmex.messages.ProviderTargetedLeverageMessag
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonSyntaxException;
 
 import velox.api.layer0.annotations.Layer0LiveModule;
 import velox.api.layer0.live.ExternalLiveBaseProvider;
@@ -164,15 +162,6 @@ public class Provider extends ExternalLiveBaseProvider {
 		return symbol;
 	}
 
-	public static String testReponseForError(String str) throws JsonSyntaxException {
-		ResponseByRest answ = (ResponseByRest) JsonParser.gson.fromJson(str, ResponseByRest.class);
-
-		if (answ.getError() != null) {
-			return str;
-		}
-		return null;
-	}
-
 	@Override
 	public void subscribe(SubscribeInfo subscribeInfo) {
 		final String symbol = subscribeInfo.symbol;
@@ -285,16 +274,16 @@ public class Provider extends ExternalLiveBaseProvider {
 			}
 		}
 
-		String response = tradeConnector.require(genType, Method.POST, data);
+		Pair<Boolean, String> response = tradeConnector.require(genType, Method.POST, data);
 		passCancelMessageIfNeededAndClearPendingList(response);
 		LogBitmex.info("Provider sendOrder: response = " + response);
 	}
 
-	private void passCancelMessageIfNeededAndClearPendingList(String response) {
+	private void passCancelMessageIfNeededAndClearPendingList(Pair<Boolean, String> response) {
 		synchronized (pendingOrdersBuilders) {
-			if (response != null  && response.toLowerCase().contains("error")) {// if bitmex responds with an error
+			if (!response.getLeft()) {// if bitmex responds with an error
 				for (OrderInfoBuilder builder : pendingOrdersBuilders) {
-					rejectOrder(builder, response);
+					rejectOrder(builder, response.getRight());
 				}
 			}
 			// should be cleared anyway
@@ -563,7 +552,7 @@ public class Provider extends ExternalLiveBaseProvider {
         data = tradeConnector.resizeOrder(builder.getOrderId(), newSize);
 
 		setPendingStatus(pendingClientIds, OrderStatus.PENDING_MODIFY);
-		String response = tradeConnector.require(type, Method.PUT, data);
+		Pair<Boolean, String> response = tradeConnector.require(type, Method.PUT, data);
 		passCancelMessageIfNeededAndClearPendingListForResize(pendingClientIds, response);
 	}
 
@@ -580,9 +569,9 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	// temporary solution
-	private void passCancelMessageIfNeededAndClearPendingListForResize(List<String> pendingClientIds, String response) {
-		if (response != null && response.contains("error")) {// if bitmex responds with an error
-			adminListeners.forEach(l -> l.onSystemTextMessage(response,
+	private void passCancelMessageIfNeededAndClearPendingListForResize(List<String> pendingClientIds, Pair<Boolean, String> response) {
+		if (!response.getLeft()) {// if bitmex responds with an error
+			adminListeners.forEach(l -> l.onSystemTextMessage(response.getRight(),
 					SystemTextMessageType.ORDER_FAILURE));
 
 			for (String clientId : pendingClientIds) {

@@ -19,7 +19,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
-
+import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.websocket.api.UpgradeException;
 import org.eclipse.jetty.websocket.api.WebSocketException;
@@ -32,7 +32,9 @@ import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Method;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.WebSocketOperation;
 
 import velox.api.layer1.data.DisconnectionReason;
+import velox.api.layer1.data.LoginFailedReason;
 import velox.api.layer1.data.SubscribeInfo;
+import velox.api.layer1.data.SystemTextMessageType;
 
 public class BmConnector implements Runnable {
 
@@ -227,26 +229,25 @@ public class BmConnector implements Runnable {
 
 	public void fillActiveBmInstrumentsMap() {
 		synchronized (activeBmInstrumentsMap) {
-            String str = clientHolder.makeRequest(GeneralType.ACTIVE_INSTRUMENTS, Method.GET, null);
+            Pair<Boolean, String> response = clientHolder.makeRequest(GeneralType.ACTIVE_INSTRUMENTS, Method.GET, null);
 
-            if (str != null) {
-                try {
-                    BmInstrument[] instrs = parser.getArrayFromJson(str, BmInstrument[].class);
+            if (response.getLeft()) {
+                    BmInstrument[] instrs = parser.getArrayFromJson(response.getRight(), BmInstrument[].class);
 
                     for (BmInstrument instr : instrs) {
                         activeBmInstrumentsMap.put(instr.getSymbol(), instr);
                         provider.maxLeverages.put(instr.getSymbol(), (int) Math.round(1 / instr.getInitMargin()));
                     }
-                } catch (Exception e) {
-                    LogBitmex.info(str, e);
-                    String message = str + "\n Please check your credentials. If they are correct"
-                            + "\n this error might be also caused by BitMEX server being down"
-                            + "\n or your account (temporary) ban for some reason";
-                    provider.reportWrongCredentials(message);
-                    LogBitmex.info(str, e);
-                }
-				activeBmInstrumentsMap.notify();
+			} else {
+			    LogBitmex.info(response.getRight());
+                String message = response.getRight() + "\n Please check your credentials. If they are correct"
+                        + "\n this error might be also caused by BitMEX server being down"
+                        + "\n or your account (temporary) ban for some reason";
+                provider.adminListeners.forEach(l -> l.onSystemTextMessage(message,
+                        SystemTextMessageType.UNCLASSIFIED));
 			}
+            activeBmInstrumentsMap.notify();
+
 		}
 	}
 
@@ -389,10 +390,10 @@ public class BmConnector implements Runnable {
                 .append(dataADayBefore);
 
         String addr = sb.toString();
-        String result = tradeConnector.require(GeneralType.EXECUTION, Method.GET, null, false, addr);
+        Pair<Boolean, String> response = tradeConnector.require(GeneralType.EXECUTION, Method.GET, null, false, addr);
         
-        try {
-            UnitOrder[] orders = parser.getArrayFromJson(result, UnitOrder[].class);
+        if (response.getLeft()) {
+            UnitOrder[] orders = parser.getArrayFromJson(response.getRight(), UnitOrder[].class);
             int sum = 0;
 
             if (orders != null && orders.length > 0) {
@@ -401,10 +402,11 @@ public class BmConnector implements Runnable {
                 }
             }
             return sum;
-        } catch (NullPointerException e) {
-            LogBitmex.info("", e);
+        } else {
+            LogBitmex.info("Unable to count executions: " + response.getRight());
             return 0;
         }
+        
     }
 
 	private void reportHistoricalExecutions(String ordStatus) {
@@ -426,20 +428,25 @@ public class BmConnector implements Runnable {
             .append("&start=").append(i);
 
 	        String address = sb.toString();
-	        String response = tradeConnector.require(GeneralType.EXECUTION, Method.GET, null, false, address);
+	        Pair<Boolean, String> response = tradeConnector.require(GeneralType.EXECUTION, Method.GET, null, false, address);
 
-			UnitExecution[] executions = parser.getArrayFromJson(response,
-					UnitExecution[].class);
+	        if (response.getLeft()) {
+	            UnitExecution[] executions = parser.getArrayFromJson(response.getRight(),
+	                    UnitExecution[].class);
 
-			if (executions == null || executions.length == 0) {
-				break;
-			} else {
-				for (int k = 0, n = executions.length; k < n; k++) {
-					if (!executions[k].getExecType().equals("Funding")) {
-						historicalExecutions.add(executions[k]);
-					}
-				}
-			}
+	            if (executions.length == 0) {
+	                break;
+	            } else {
+	                for (int k = 0, n = executions.length; k < n; k++) {
+	                    if (!executions[k].getExecType().equals("Funding")) {
+	                        historicalExecutions.add(executions[k]);
+	                    }
+	                }
+	            }
+	        } else {
+	            break;//if server responds with error it makes no point to continue
+	        }
+
 		}
 		LogBitmex.info("BmConnector report " + ordStatus + ": listSize =  " + historicalExecutions.size());
 

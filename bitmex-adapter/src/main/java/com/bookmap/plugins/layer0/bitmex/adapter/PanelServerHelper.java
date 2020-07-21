@@ -7,6 +7,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.apache.commons.lang3.tuple.Pair;
+
 import com.bookmap.plugins.layer0.bitmex.Provider;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.GeneralType;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Method;
@@ -86,15 +88,14 @@ public class PanelServerHelper {
             } else {
                 json.addProperty("leverage", leverage);
             }
-            String str = connector.require(GeneralType.POSITION, Method.POST, json.toString());
-            if (str != null) {
-                if (str.contains("error")) {
-                    provider.adminListeners
-                            .forEach(l -> l.onSystemTextMessage(str, SystemTextMessageType.UNCLASSIFIED));
-                } 
+            Pair<Boolean, String> response = connector.require(GeneralType.POSITION, Method.POST, json.toString());
+            if (!response.getLeft()) {
+                provider.adminListeners.forEach(l -> l.onSystemTextMessage(response.getRight(), SystemTextMessageType.UNCLASSIFIED));
+            } else {
+                UnitPosition position = JsonParser.gson.fromJson(response.getRight(), new TypeToken<UnitPosition>() {
+                }.getType());
+                provider.listenForPosition(position);
             }
-            UnitPosition position = JsonParser.gson.fromJson(str, new TypeToken<UnitPosition>() {}.getType());
-            provider.listenForPosition(position);
         } else if (map.get("ping") != null) {
             if (provider.isCredentialsEmpty()) {
                 mp.put("isCredentialsEmpty", true);
@@ -122,23 +123,29 @@ public class PanelServerHelper {
                     e.printStackTrace();
                 }
                 String address = "?filter=" + filter;
-                String result = connector.require(GeneralType.POSITION, Method.GET, null, false, address);
-                UnitPosition[] positions = provider.getConnector().getParser().getArrayFromJson(result, UnitPosition[].class);
+                Pair<Boolean, String> response = connector.require(GeneralType.POSITION, Method.GET, null, false, address);
+                
+                if (response.getLeft()) {
+                    UnitPosition[] positions = provider.getConnector().getParser().getArrayFromJson(response.getRight(),
+                            UnitPosition[].class);
 
-                if (positions.length == 0) {
-                    mp.put("leverage", 0);
-                    Integer maxLeverage = provider.maxLeverages.get(symbol);
-                    if (maxLeverage == null) {
-                        maxLeverage = 1;
+                    if (positions.length == 0) {
+                        mp.put("leverage", 0);
+                        Integer maxLeverage = provider.maxLeverages.get(symbol);
+                        if (maxLeverage == null) {
+                            maxLeverage = 1;
+                        }
+                        mp.put("maxLeverage", maxLeverage);
+                        JsonParser.gson.toJson(mp);
+                        String msg = JsonParser.gson.toJson(mp);
+                        LogBitmex.infoClassOf(this.getClass(), "pong " + msg);
+                        onUserMessage(msg);
+                    } else {
+                        UnitPosition position = positions[0];
+                        provider.listenForPosition(position);
                     }
-                    mp.put("maxLeverage", maxLeverage);
-                    JsonParser.gson.toJson(mp);
-                    String msg = JsonParser.gson.toJson(mp);
-                    LogBitmex.infoClassOf(this.getClass(), "pong " + msg);
-                    onUserMessage(msg);
                 } else {
-                    UnitPosition position = positions[0];
-                    provider.listenForPosition(position);
+                    LogBitmex.infoClassOf(this.getClass(), "Unable to parse positions in PanehServerHelper");
                 }
             }
         }

@@ -10,6 +10,7 @@ import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -28,9 +29,6 @@ import com.bookmap.plugins.layer0.bitmex.Provider;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.GeneralType;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Method;
 import com.bookmap.plugins.layer0.bitmex.messages.ModuleTargetedHttpRequestFeedbackMessage;
-import com.google.gson.JsonSyntaxException;
-
-import velox.api.layer1.data.SystemTextMessageType;
 
 public class HttpClientHolder implements Closeable {
     
@@ -69,15 +67,15 @@ public class HttpClientHolder implements Closeable {
         this.provider = provider;
     }
     
-    public String makeRequest(GeneralType genType, Method method, String data) {
+    public Pair<Boolean, String> makeRequest(GeneralType genType, Method method, String data) {
         return makeRequest(genType, method, data, false, null);
     }
     
-    public String makeRequest(GeneralType genType, Method method, String data, boolean isOrderListBeingCanceled) {
+    public Pair<Boolean, String> makeRequest(GeneralType genType, Method method, String data, boolean isOrderListBeingCanceled) {
         return makeRequest(genType, method, data, isOrderListBeingCanceled, null);
     }
 
-    public String makeRequest(GeneralType genType, Method method, String data, boolean isOrderListBeingCanceled, String requestParameters) {
+    public Pair<Boolean, String> makeRequest(GeneralType genType, Method method, String data, boolean isOrderListBeingCanceled, String requestParameters) {
         String subPath; 
         
         if (genType != null) {
@@ -96,6 +94,8 @@ public class HttpClientHolder implements Closeable {
         }
 
         String path = provider.getConnector().getRestApi() + subPath;
+        String response = "";
+        boolean isSuccessful = false;
 
         try {
             HttpRequestBase requestBase = getRequest(method, path);
@@ -107,13 +107,10 @@ public class HttpClientHolder implements Closeable {
             if (requestBase instanceof HttpEntityEnclosingRequestBase) {
                 ((HttpEntityEnclosingRequestBase) requestBase).setEntity(requestEntity);
             }
-            
-            
 
             String contentType = genType.equals(GeneralType.ORDERBULK) || isOrderListBeingCanceled
                     ? "application/x-www-form-urlencoded" : "application/json";
 
-            
             requestBase.addHeader("Accept", "application/json");
             requestBase.addHeader("User-Agent", Constants.user_agent);
             requestBase.addHeader("Content-Type", contentType);
@@ -131,59 +128,33 @@ public class HttpClientHolder implements Closeable {
             CloseableHttpResponse httpResponse = client.execute(requestBase);
             Header[] headers = httpResponse.getAllHeaders();
             int statusCode = httpResponse.getStatusLine().getStatusCode();
+            isSuccessful = statusCode == 200;
+            
             HttpEntity entity = httpResponse.getEntity();
 
+            BufferedReader br = new BufferedReader(new InputStreamReader((entity.getContent())));
+            StringBuilder sb = new StringBuilder("");
+            String output = null;
+
+            while ((output = br.readLine()) != null) {
+                sb.append(output);
+            }
+            response = sb.toString();
+            br.close();
+            httpResponse.close();
+            requestBase.releaseConnection();
+            
             if (statusCode != 200) {
-                BufferedReader br = new BufferedReader(new InputStreamReader((entity.getContent())));
-                StringBuilder sb = new StringBuilder("");
-                String output = null;
-
-                while ((output = br.readLine()) != null) {
-                    sb.append(output);
+                LogBitmex.info("Server response " + statusCode + " " + response);
+            }
+            
+            try {
+                if (Class.forName("velox.api.layer1.messages.Layer1ApiUserInterModuleMessage") != null) {
+                    provider.onUserMessage(new ModuleTargetedHttpRequestFeedbackMessage(genType, method, data,
+                            isOrderListBeingCanceled, requestParameters, headers, statusCode, response));
                 }
-                LogBitmex.info("TradeConnector require:  response =>" + sb.toString());
-                String response;
-                try {
-                    response = Provider.testReponseForError(sb.toString());
-                } catch (JsonSyntaxException e) {
-                    return sb.toString();
-                }
-                br.close();
-                httpResponse.close();
-                requestBase.releaseConnection();
-                
-                try {
-                    if (Class.forName("velox.api.layer1.messages.Layer1ApiUserInterModuleMessage") != null) {
-                        provider.onUserMessage(new ModuleTargetedHttpRequestFeedbackMessage(genType, method, data,
-                                isOrderListBeingCanceled, requestParameters, headers, statusCode, response));
-                    }
-                } catch (ClassNotFoundException e) {
-                    //this is the desired behavior for 7.0 so no warnings needed
-                }
-                return response;
-            } else {
-                BufferedReader br = new BufferedReader(new InputStreamReader((entity.getContent())));
-                StringBuilder sb = new StringBuilder();
-                String output = null;
-
-                while ((output = br.readLine()) != null) {
-                    sb.append(output);
-                }
-                String response = sb.toString();
-
-                br.close();
-                httpResponse.close();
-                requestBase.releaseConnection();
-                
-                try {
-                    if (Class.forName("velox.api.layer1.messages.Layer1ApiUserInterModuleMessage") != null) {
-                        provider.onUserMessage(new ModuleTargetedHttpRequestFeedbackMessage(genType, method, data,
-                                isOrderListBeingCanceled, requestParameters, headers, statusCode, response));
-                    }
-                } catch (ClassNotFoundException e) {
-                    // this is the desired behavior for 7.0 so no warnings needed
-                }
-                return response;
+            } catch (ClassNotFoundException e) {
+                //this is the desired behavior for 7.0 so no warnings needed
             }
         } catch (UnknownHostException | NoRouteToHostException e) {
             LogBitmex.info("TradeConnector require: no response from server");
@@ -194,7 +165,7 @@ public class HttpClientHolder implements Closeable {
         } catch (URISyntaxException e) {
             LogBitmex.info("Wrong uri", e);
         }
-        return null;
+        return Pair.of(isSuccessful, response);
     }
     
     private HttpRequestBase getRequest (Method method, String path) throws URISyntaxException {
