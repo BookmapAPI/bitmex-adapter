@@ -532,6 +532,7 @@ public class BitmexPanel implements Layer1ApiFinishable
                }
 
                boolean isShowRateLimit = getShowRateLimit(currentAlias);
+               int rectangle1Length = 0;
 
                if (isShowRateLimit) {
                     AttributedString rateLimitText = null;
@@ -554,9 +555,8 @@ public class BitmexPanel implements Layer1ApiFinishable
                         
                         endIndex = beginIndex + String.valueOf(rateLimit).length();
                     }
-                    int rectangle1Length = (rateLimitPattern.length() + rateLimitJoinPattern.length() + 4) * 9;
+                    rectangle1Length = (rateLimitPattern.length() + rateLimitJoinPattern.length() + 4) * 9;
                     g2d.fillRoundRect(1, 38, rectangle1Length, 36, 10, 10);
-                    g2d.fillRoundRect(1, 1, Math.max(rectangleLength, rectangle1Length), 36, 10, 10);
 
                     rateLimitText.addAttribute(TextAttribute.FOREGROUND, Color.WHITE, 0, rateLimitTarget.length());
                     rateLimitText.addAttribute(TextAttribute.FOREGROUND, rateLimitColor, beginIndex, endIndex);
@@ -564,6 +564,7 @@ public class BitmexPanel implements Layer1ApiFinishable
                     rateLimitText.addAttribute(TextAttribute.FONT, new Font("Arial", Font.BOLD, 14), 0, textLength);
                     g2d.drawString(rateLimitText.getIterator(), 24, 24 + 38);
                 }
+               g2d.fillRoundRect(1, 1, Math.max(rectangleLength, rectangle1Length), 36, 10, 10);
                g2d.drawString(text.getIterator(), 24, 24);
                g2d.dispose();
 
