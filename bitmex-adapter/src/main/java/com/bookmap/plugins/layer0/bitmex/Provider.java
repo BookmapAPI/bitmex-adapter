@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.IntStream;
 
 import org.apache.commons.collections4.BidiMap;
 import org.apache.commons.collections4.bidimap.DualHashBidiMap;
@@ -98,9 +99,6 @@ public class Provider extends ExternalLiveBaseProvider {
 	private Map<String, BalanceInfo.BalanceInCurrency> balanceMap = new HashMap<>();
 	private Map<String, Integer> leverages = new ConcurrentHashMap<>();
 	public Map<String, Integer> maxLeverages = new HashMap<>();
-	
-	private int untriggeredBuysQty;
-	private int untriggeredSellsQty;
 
 	private CopyOnWriteArrayList<SubscribeInfo> knownInstruments = new CopyOnWriteArrayList<>();
 	public final PanelServerHelper panelHelper = new PanelServerHelper();
@@ -444,6 +442,12 @@ public class Provider extends ExternalLiveBaseProvider {
 		// Provider can complain to user here explaining what was done wrong
 		adminListeners.forEach(l -> l.onSystemTextMessage(reason,
 				SystemTextMessageType.ORDER_FAILURE));
+		
+		// The best option would be to remove it from workingOrders map.
+		// But if bitmex decides to send a 'rejected' execution (which might happen someday)
+		// the order will be missing and it will cause a crash.
+		// So unfilled volume is set to 0 to keep the workingOrders volume updated.
+		builder.setUnfilled(0);
 	}
 
 	@Override
@@ -729,12 +733,6 @@ public class Provider extends ExternalLiveBaseProvider {
                 String symbol = exec.getSymbol();
                 UnitPosition blankPosition = new UnitPosition();
                 blankPosition.setSymbol(symbol);
-                
-                if (exec.getSide().equals("Buy")) {
-                    untriggeredBuysQty += exec.getOrderQty();
-                } else {
-                    untriggeredSellsQty += exec.getOrderQty();
-                }
                 listenForPosition(blankPosition);
             }
 		} else if (exec.getExecType().equals("Replaced")
@@ -773,16 +771,11 @@ public class Provider extends ExternalLiveBaseProvider {
 			}
 		} else if (exec.getExecType().equals("Canceled")) {
 			LogBitmex.info("Provider listenForExecution: canceled");
-			
-            if (!exec.getTriggered().equals("StopOrderTriggered")) {
-                subtractUntriggeredStops(exec);
-            }
 			builder.setStatus(OrderStatus.CANCELLED);
 		} else if (exec.getExecType().equals("TriggeredOrActivatedBySystem")) {
 			if (exec.getTriggered().equals("StopOrderTriggered")) {
 				LogBitmex.info("Provider listenForExecution: StopOrderTriggered");
 				builder.setStopTriggered(true);
-				subtractUntriggeredStops(exec);
 			} else if (exec.getTriggered().equals("Triggered")) {
 				LogBitmex.info("Provider listenForExecution: TriggeredOrActivatedBySystem + Triggered");
 				builder.setStatus(OrderStatus.WORKING);
@@ -830,21 +823,7 @@ public class Provider extends ExternalLiveBaseProvider {
 				workingOrders.remove(exec.getClOrdID());
 			}
 		}
-	}
-	
-	private void subtractUntriggeredStops(UnitExecution exec) {
-        if ((exec.getOrdType().equals("Stop") || exec.getOrdType().equals("StopLimit"))) {
-            String symbol = exec.getSymbol();
-            UnitPosition blankPosition = new UnitPosition();
-            blankPosition.setSymbol(symbol);
-
-            if (exec.getSide().equals("Buy")) {
-                untriggeredBuysQty -= exec.getOrderQty();
-            } else {
-                untriggeredSellsQty -= exec.getOrderQty();
-            }
-            listenForPosition(blankPosition);
-        }
+        updatePosition(exec.getSymbol());
 	}
 
 	public void listenForPosition(UnitPosition pos) {
@@ -857,18 +836,32 @@ public class Provider extends ExternalLiveBaseProvider {
 		if (pos.getLeverage() != null) {
 		    updateLeverage(pos.getSymbol(), pos.getCommonLeverage());
 		}
-
-		StatusInfo info = new StatusInfo(validPosition.getSymbol(),
-				(double) validPosition.getUnrealisedPnl() / (double) instr.getMultiplier(),
-				(double) validPosition.getRealisedPnl() / (double) instr.getMultiplier(),
-				"",
-				(int) pos.getCurrentQty(),
-				validPosition.getAvgEntryPrice(), instr.getExecutionsVolume(),
-				validPosition.getOpenOrderBuyQty().intValue() + untriggeredBuysQty,
-				validPosition.getOpenOrderSellQty().intValue() + untriggeredSellsQty);
-
-		tradingListeners.forEach(l -> l.onStatus(info));
+		reportPosition(instr, validPosition);
 	}
+	
+    private void reportPosition(BmInstrument instr, UnitPosition validPosition) {
+
+        long openBuys = workingOrders.values().stream()
+                .filter(infoBuilder -> infoBuilder.isBuy())
+                .flatMapToInt(infoBuilder -> IntStream.of(infoBuilder.getUnfilled()))
+                .sum();
+        long openSells = workingOrders.values().stream()
+                .filter(infoBuilder -> !infoBuilder.isBuy())
+                .flatMapToInt(infoBuilder -> IntStream.of(infoBuilder.getUnfilled()))
+                .sum();
+        
+        StatusInfo info = new StatusInfo(validPosition.getSymbol(),
+                (double) validPosition.getUnrealisedPnl() / (double) instr.getMultiplier(),
+                (double) validPosition.getRealisedPnl() / (double) instr.getMultiplier(),
+                "",
+                (int) validPosition.getCurrentQty(),
+                validPosition.getAvgEntryPrice(),
+                instr.getExecutionsVolume(),
+                (int) openBuys,
+                (int) openSells);
+
+        tradingListeners.forEach(l -> l.onStatus(info));
+    }
 
 	public void listenForWallet(UnitWallet wallet) {
 		BalanceInfo.BalanceInCurrency currentBic = balanceMap.get(wallet.getCurrency());
@@ -1005,6 +998,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		if (pos.getOpenOrderSellQty() != null) {
 			validPosition.setOpenOrderSellQty(pos.getOpenOrderSellQty());
 		}
+		validPosition.setCurrentQty(pos.getCurrentQty());
 	}
 
 	/**
@@ -1179,5 +1173,12 @@ public class Provider extends ExternalLiveBaseProvider {
         synchronized (orderIdsMapsLock) {
             return clientIdsToOrderIds.inverseBidiMap().get(orderId);
         }
+    }
+    
+    private void updatePosition (String symbol) {
+        BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
+        UnitPosition validPosition = instr.getValidPosition();
+        updateValidPosition(validPosition, validPosition);
+        reportPosition(instr, validPosition);
     }
 }
