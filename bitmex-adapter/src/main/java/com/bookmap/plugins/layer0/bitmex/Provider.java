@@ -24,6 +24,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 import com.bookmap.plugins.layer0.bitmex.adapter.BmConnector;
+import com.bookmap.plugins.layer0.bitmex.adapter.BmErrorMessage;
 import com.bookmap.plugins.layer0.bitmex.adapter.BmInstrument;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.GeneralType;
@@ -50,6 +51,7 @@ import velox.api.layer1.Layer1ApiAdminListener;
 import velox.api.layer1.Layer1ApiDataListener;
 import velox.api.layer1.annotations.Layer1ApiVersion;
 import velox.api.layer1.annotations.Layer1ApiVersionValue;
+import velox.api.layer1.common.Log;
 import velox.api.layer1.data.BalanceInfo;
 import velox.api.layer1.data.BmSimpleHistoricalDataInfo;
 import velox.api.layer1.data.DisconnectionReason;
@@ -391,8 +393,6 @@ public class Provider extends ExternalLiveBaseProvider {
 				.setUnfilled(simpleParameters.size)
 				.setDuration(simpleParameters.duration)
 				.setStatus(OrderStatus.PENDING_SUBMIT);
-
-//		tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
 		builder.build();
 		// Marking all fields as unchanged, since they were just reported and
 		// fields will be marked as changed automatically when modified.
@@ -416,8 +416,8 @@ public class Provider extends ExternalLiveBaseProvider {
 		return json;
 	}
 
-	public void rejectOrder(OrderInfoBuilder builder, String reas) {
-		String reason = "The order was rejected: \n" + reas;
+	public void rejectOrder(OrderInfoBuilder builder, String reason) {
+		String purifiedReason = "The order has been rejected: \n" + getPurifiedErrorMessage(reason);
 		LogBitmex.info("Provider rejectOrder");
 		/*
 		 * Necessary fields are already populated, so just change status to
@@ -438,9 +438,9 @@ public class Provider extends ExternalLiveBaseProvider {
         builder.setStatus(OrderStatus.REJECTED);
 		tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
 		builder.markAllUnchanged();
-
+		
 		// Provider can complain to user here explaining what was done wrong
-		adminListeners.forEach(l -> l.onSystemTextMessage(reason,
+		adminListeners.forEach(l -> l.onSystemTextMessage(purifiedReason,
 				SystemTextMessageType.ORDER_FAILURE));
 		
 		// The best option would be to remove it from workingOrders map.
@@ -469,7 +469,6 @@ public class Provider extends ExternalLiveBaseProvider {
                 synchronized (trailingStops) {
                     isTrailingStop = trailingStops.containsKey(orderMoveParameters.orderId);
                 }
-
 
                 if (isTrailingStop) {
                     // trailing stop
@@ -575,7 +574,8 @@ public class Provider extends ExternalLiveBaseProvider {
 	// temporary solution
 	private void passCancelMessageIfNeededAndClearPendingListForResize(List<String> pendingClientIds, Pair<Boolean, String> response) {
 		if (!response.getLeft()) {// if bitmex responds with an error
-			adminListeners.forEach(l -> l.onSystemTextMessage(response.getRight(),
+		    String purifiedResponse = getPurifiedErrorMessage(response.getRight());
+			adminListeners.forEach(l -> l.onSystemTextMessage(purifiedResponse,
 					SystemTextMessageType.ORDER_FAILURE));
 
 			for (String clientId : pendingClientIds) {
@@ -832,7 +832,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		UnitPosition validPosition = instr.getValidPosition();
 
 		updateValidPosition(validPosition, pos);
-		
+
 		if (pos.getLeverage() != null) {
 		    updateLeverage(pos.getSymbol(), pos.getCommonLeverage());
 		}
@@ -985,7 +985,6 @@ public class Provider extends ExternalLiveBaseProvider {
 		if (pos.getRealisedPnl() != null) {
 			validPosition.setRealisedPnl(pos.getRealisedPnl());
 		}
-
 		if (pos.getUnrealisedPnl() != null) {
 			validPosition.setUnrealisedPnl(pos.getUnrealisedPnl());
 		}
@@ -1173,6 +1172,22 @@ public class Provider extends ExternalLiveBaseProvider {
         synchronized (orderIdsMapsLock) {
             return clientIdsToOrderIds.inverseBidiMap().get(orderId);
         }
+    }
+    
+    public String getPurifiedErrorMessage(String errorMessage) {
+        String purifiedErrorMessage = errorMessage;
+        if (errorMessage.contains("error")) {
+            try {
+                BmErrorMessage errorMessageObject = gson.fromJson(errorMessage, BmErrorMessage.class);
+                String purifiedMessage = errorMessageObject.getMessage();
+                if (!StringUtils.isEmpty(purifiedMessage)) {
+                    purifiedErrorMessage = purifiedMessage;
+                }
+            } catch (Exception e) {
+                Log.warn(errorMessage, e);
+            }
+        }
+        return purifiedErrorMessage;
     }
     
     private void updatePosition (String symbol) {

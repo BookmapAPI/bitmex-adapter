@@ -90,7 +90,8 @@ public class PanelServerHelper {
             }
             Pair<Boolean, String> response = connector.require(GeneralType.POSITION, Method.POST, json.toString());
             if (!response.getLeft()) {
-                provider.adminListeners.forEach(l -> l.onSystemTextMessage(response.getRight(), SystemTextMessageType.UNCLASSIFIED));
+                String purifiedResponse = provider.getPurifiedErrorMessage(response.getRight());
+                provider.adminListeners.forEach(l -> l.onSystemTextMessage(purifiedResponse, SystemTextMessageType.UNCLASSIFIED));
             } else {
                 UnitPosition position = JsonParser.gson.fromJson(response.getRight(), new TypeToken<UnitPosition>() {
                 }.getType());

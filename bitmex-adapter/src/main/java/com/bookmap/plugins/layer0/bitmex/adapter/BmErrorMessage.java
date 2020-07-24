@@ -2,14 +2,14 @@ package com.bookmap.plugins.layer0.bitmex.adapter;
 
 public class BmErrorMessage {
 
-	private String message;
+    public static class errorMessage {
+        public String message;
+        public String name;
+    }
+    
+	public errorMessage error;
 
 	public String getMessage() {
-		return message;
+	    return error.message;	    
 	}
-
-	public void setMessage(String message) {
-		this.message = message;
-	}
-	
 }
