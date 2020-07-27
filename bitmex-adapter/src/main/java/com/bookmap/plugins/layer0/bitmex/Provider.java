@@ -682,8 +682,8 @@ public class Provider extends ExternalLiveBaseProvider {
         
 		OrderInfoBuilder builder = workingOrders.get(exec.getClOrdID());
 
-		if (builder == null && exec.getExecType().equals("Canceled")) {
-		    // a workaround for a misplaced GTC_PO order
+		if (exec.getText().contains("Canceled: Order had execInst of ParticipateDoNotInitiate") && exec.getExecType().equals("Canceled")) {
+		    // a not-so-good workaround for a misplaced GTC_PO order
 		    exec.setExecType("Rejected");
         }
 
