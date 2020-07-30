@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.stream.IntStream;
 
 import org.apache.commons.collections4.BidiMap;
@@ -105,6 +106,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	private CopyOnWriteArrayList<SubscribeInfo> knownInstruments = new CopyOnWriteArrayList<>();
 	public final PanelServerHelper panelHelper = new PanelServerHelper();
 	private Gson gson = new Gson();
+	private CountDownLatch webSocketStartingLatch;
 
 	protected class Instrument {
 		protected final String alias;
@@ -646,6 +648,7 @@ public class Provider extends ExternalLiveBaseProvider {
 			connectorThread = new Thread(connector);
 			connectorThread.setName("->com.bookmap.plugins.layer0.bitmex.adapter: connector");
 			connectorThread.start();
+			webSocketStartingLatch = connector.getWebSocketStartingLatch();
 		} else if (isOneCredentialEmpty) {
 			LogBitmex.info("Provider handleLogin: empty credentials");
 			// Report failed login
@@ -1050,6 +1053,16 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	@Override
 	public Layer1ApiProviderSupportedFeatures getSupportedFeatures() {
+        if (webSocketStartingLatch != null) {
+            LogBitmex.infoClassOf(getClass(), " getting connector ws starting latch");
+            try {
+                webSocketStartingLatch.await();
+            } catch (InterruptedException e) {
+                Log.info("", e);
+            }
+            LogBitmex.infoClassOf(getClass(), " passing connector ws starting latch");
+        }
+        LogBitmex.infoClassOf(getClass(), " getSupportedFeatures");
 		// Expanding parent supported features, reporting basic trading support
 		Layer1ApiProviderSupportedFeaturesBuilder a = super.getSupportedFeatures().toBuilder();
 
