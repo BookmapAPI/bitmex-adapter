@@ -408,7 +408,7 @@ public class Provider extends ExternalLiveBaseProvider {
 			pendingOrdersBuilders.add(builder);
 		}
 
-		LogBitmex.info("Provider prepareSimpleOrder: getting sent to bitmex");
+		LogBitmex.info("Provider prepareSimpleOrder: getting sent to bitmex, clientId " + simpleParameters.clientId);
 		synchronized (orderIdsMapsLock) {
 			workingOrders.put(simpleParameters.clientId, builder);
 		}
