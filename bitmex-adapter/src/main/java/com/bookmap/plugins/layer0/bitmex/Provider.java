@@ -1054,15 +1054,12 @@ public class Provider extends ExternalLiveBaseProvider {
 	@Override
 	public Layer1ApiProviderSupportedFeatures getSupportedFeatures() {
         if (webSocketStartingLatch != null) {
-            LogBitmex.infoClassOf(getClass(), " getting connector ws starting latch");
             try {
                 webSocketStartingLatch.await();
             } catch (InterruptedException e) {
                 Log.info("", e);
             }
-            LogBitmex.infoClassOf(getClass(), " passing connector ws starting latch");
         }
-        LogBitmex.infoClassOf(getClass(), " getSupportedFeatures");
 		// Expanding parent supported features, reporting basic trading support
 		Layer1ApiProviderSupportedFeaturesBuilder a = super.getSupportedFeatures().toBuilder();
 
