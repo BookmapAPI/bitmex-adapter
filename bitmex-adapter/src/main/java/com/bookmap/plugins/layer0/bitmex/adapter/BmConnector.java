@@ -496,7 +496,7 @@ public class BmConnector implements Runnable {
 
 				CopyOnWriteArrayList<SubscribeInfo> knownInstruments = new CopyOnWriteArrayList<>();
 				for (BmInstrument instrument : activeBmInstrumentsMap.values()) {
-						knownInstruments.add(new SubscribeInfo(instrument.getSymbol(), null, null));
+						knownInstruments.add(new SubscribeInfo(instrument.getSymbol(), "", ""));
 				}
 				provider.setKnownInstruments(knownInstruments);
 
