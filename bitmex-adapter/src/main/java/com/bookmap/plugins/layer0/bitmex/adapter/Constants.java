@@ -11,6 +11,9 @@ public class Constants {
 
 	public static final String activeInstrSubpath = "/api/v1/instrument/active";
 	
+	public static final String realHistoricalServerUrl = "http://bitmex-real.hist.bookmap.com/";
+	public static final String demoHistoricalServerUrl = "http://bitmex-demo.hist.bookmap.com/";
+	
 	public static final String user_agent = "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36";
 
 	/**

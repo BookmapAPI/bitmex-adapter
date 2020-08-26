@@ -107,6 +107,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	public final PanelServerHelper panelHelper = new PanelServerHelper();
 	private Gson gson = new Gson();
 	private CountDownLatch webSocketStartingLatch;
+	private boolean isDemo;
 
 	protected class Instrument {
 		protected final String alias;
@@ -629,11 +630,10 @@ public class Provider extends ExternalLiveBaseProvider {
 			tradeConnector.setOrderApiSecret(userPasswordDemoLoginData.password);
 			panelHelper.setConnector(tradeConnector);
 			panelHelper.setProvider(this);
-			// if (isValid) {
-			// Report succesful login
-			adminListeners.forEach(Layer1ApiAdminListener::onLoginSuccessful);
+			
+			this.isDemo = userPasswordDemoLoginData.isDemo;
 
-			if (userPasswordDemoLoginData.isDemo == true) {
+			if (isDemo) {
 				adminListeners.forEach(l -> l.onSystemTextMessage(ConnectorUtils.testnet_Note,
 						SystemTextMessageType.UNCLASSIFIED));
 				connector.setWssUrl(Constants.testnet_Wss);
@@ -642,7 +642,7 @@ public class Provider extends ExternalLiveBaseProvider {
 				connector.setWssUrl(Constants.bitmex_Wss);
 				connector.setRestApi(Constants.bitmex_restApi);
 			}
-
+            adminListeners.forEach(Layer1ApiAdminListener::onLoginSuccessful);
 			connector.setProvider(this);
 			connector.setTradeConnector(tradeConnector);
 			connectorThread = new Thread(connector);
@@ -1088,7 +1088,7 @@ public class Provider extends ExternalLiveBaseProvider {
 				.setExchangeUsedForSubscription(false)
 				.setTypeUsedForSubscription(false)
 				.setHistoricalDataInfo(new BmSimpleHistoricalDataInfo(
-						"http://bitmex.historicaldata.bookmap.com:38080/historical-data-server-1.0/"))
+				        isDemo ? Constants.demoHistoricalServerUrl : Constants.realHistoricalServerUrl))
 				.setKnownInstruments(knownInstruments);
 
 		return a.build();
