@@ -679,11 +679,22 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	public void listenForExecution(UnitExecution exec) {
-        synchronized (orderIdsMapsLock) {
-            clientIdsToOrderIds.put(exec.getClOrdID(), exec.getOrderID());
+	    // An order placed from terminal has no ClOrdId.
+	    // Orders like these need to be distinguished.
+	    // So their ClOrdId is set to their orderId.
+        if (StringUtils.isBlank(exec.getClOrdID())) {
+            exec.setClOrdID(exec.getOrderID());
         }
         
-		OrderInfoBuilder builder = workingOrders.get(exec.getClOrdID());
+	    Log.info("listenForExecution " + exec.toString());
+	    OrderInfoBuilder builder;
+	    
+        synchronized (orderIdsMapsLock) {
+            clientIdsToOrderIds.put(exec.getClOrdID(), exec.getOrderID());
+            builder = workingOrders.get(exec.getClOrdID());
+        }
+        
+		
 
 		if (exec.getText().contains("Canceled: Order had execInst of ParticipateDoNotInitiate") && exec.getExecType().equals("Canceled")) {
 		    // a not-so-good workaround for a misplaced GTC_PO order
@@ -691,13 +702,13 @@ public class Provider extends ExternalLiveBaseProvider {
         }
 
 		if (exec.getExecType().equals("New")) {
-			synchronized (workingOrders) {
+			synchronized (orderIdsMapsLock) {
 				builder = workingOrders.get(exec.getClOrdID());
 			}
 
 			if (builder == null) {
 				createBookmapOrder((UnitOrder) exec);
-				synchronized (workingOrders) {
+				synchronized (orderIdsMapsLock) {
 					builder = workingOrders.get(exec.getClOrdID());
 				}
 			}
@@ -817,7 +828,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		tradingListeners.forEach(l -> l.onOrderUpdated(finalBuilder.build()));
 		builder.markAllUnchanged();
 
-		synchronized (workingOrders) {
+		synchronized (orderIdsMapsLock) {
 			// we no longer need filled or canceled orders in the working orders
 			// map
 			if (exec.getExecType().equals("Filled")
@@ -1009,7 +1020,17 @@ public class Provider extends ExternalLiveBaseProvider {
 	 */
 
 	public void createBookmapOrder(UnitOrder order) {
-		LogBitmex.info("Provider createBookmapOrder:  order created id=" + order.getOrderID());
+	    // TODO: erase later
+        // This peace is duplicated from listenForExecution.
+        // createBookmap order is called from JsonParser
+        // dispatchRawUnits(ArrayList<T>, Class<?>)
+        //
+        // An order placed from terminal has no ClOrdId.
+        // Orders like these need to be distinguished.
+        // So their ClOrdId is set to their orderId.
+        if (StringUtils.isBlank(order.getClOrdID())) {
+            order.setClOrdID(order.getOrderID());
+        }
 		boolean isBuy = order.getSide().equals("Buy") ? true : false;
 		String sType = order.getOrdType();
 		

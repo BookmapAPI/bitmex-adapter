@@ -369,7 +369,12 @@ public class JsonParser {
 			if (clazz == UnitWallet.class) {
 				provider.listenForWallet((UnitWallet) unit);
 			} else if (clazz == UnitExecution.class) {
-				provider.listenForExecution((UnitExecution) unit);
+                try {
+                    provider.listenForExecution((UnitExecution) unit);
+                } catch (Exception e) {
+                    Log.info("Exception thrown in listenForExecution " + unit.toString() + "\n", e);
+                    throw e;
+                }
 			} else if (clazz == UnitMargin.class) {
 				provider.listenForMargin((UnitMargin) unit);
 			} else if (clazz == UnitPosition.class) {

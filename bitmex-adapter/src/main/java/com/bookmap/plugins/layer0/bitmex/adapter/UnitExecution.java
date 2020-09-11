@@ -38,7 +38,8 @@ public class UnitExecution extends UnitOrder{
 	@Override
 	public String toString() {
 		return "UnitExecution [execType=" + execType + ", ordStatus=" + getOrdStatus() + ", transactTime=" + getTransactTime() + ", lastPx=" + lastPx + ", lastQty=" + lastQty
-				+ ", execTransactTime=" + execTransactTime + ", getOrderID()=" + getOrderID() + ", getSymbol()="
+				+ ", execTransactTime=" + execTransactTime + ", getOrderID()=" + getOrderID()
+				 + ", getClOrdID()=" + getClOrdID() + ", getSymbol()="
 				+ getSymbol() + ", getSide()=" + getSide() + ", getOrdType()=" + getOrdType() + ", timeInForce"
 				+ getTimeInForce() + ", execInst" + getExecInst() + "]";
 	}
