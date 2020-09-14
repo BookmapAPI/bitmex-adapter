@@ -33,8 +33,9 @@ public class ClientSocket {
 	private JsonParser parser;
 	private AtomicBoolean isConnectionPossiblyLost = new AtomicBoolean(false);
 	private AtomicLong lastMessageTime = new AtomicLong(System.currentTimeMillis());
-	long maxDelay = 5_000;
-	ScheduledExecutorService pingTimer;
+	private boolean isConnectionLost = false;
+	private long maxDelay = 5_000;
+	private ScheduledExecutorService pingTimer;
 
 	@OnWebSocketClose
 	public void OnClose(int i, String str) {
@@ -104,7 +105,9 @@ public class ClientSocket {
 	}
 
 	public void sendMessage(String str) {
-		LogBitmex.info("ClientSocket sendMessage: " + str);
+        if (str.contains("authKey")) {
+            LogBitmex.info("ClientSocket sendMessage: " + str);
+        }
 		try {
 			if (session != null ) {
 				session.getRemote().sendString(str);
@@ -128,6 +131,8 @@ public class ClientSocket {
 	public void onError(Session session, Throwable error) throws Exception {
 		LogBitmex.info("ClientSockeT onError: " + error.toString());
 		error.printStackTrace();
+		isConnectionLost = true;
+		openingLatch.countDown();
 		close();
 	}
 
@@ -177,5 +182,9 @@ public class ClientSocket {
 			LogBitmex.info("ClientSocket onFrame: PONG");
 		}
 	}
+
+    public boolean isConnectionLost() {
+        return isConnectionLost;
+    }
 
 }

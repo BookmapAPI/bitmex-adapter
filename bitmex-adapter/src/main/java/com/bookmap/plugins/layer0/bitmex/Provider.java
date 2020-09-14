@@ -106,8 +106,9 @@ public class Provider extends ExternalLiveBaseProvider {
 	private CopyOnWriteArrayList<SubscribeInfo> knownInstruments = new CopyOnWriteArrayList<>();
 	public final PanelServerHelper panelHelper = new PanelServerHelper();
 	private Gson gson = new Gson();
-	private CountDownLatch webSocketStartingLatch;
 	private boolean isDemo;
+	private volatile boolean isLoginSuccessful = true;
+	private String authFailedReason;
 
 	protected class Instrument {
 		protected final String alias;
@@ -606,6 +607,8 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	private void handleLogin(UserPasswordDemoLoginData userPasswordDemoLoginData) {
+	    isLoginSuccessful = true;
+	    authFailedReason = "";
 		LogBitmex.info("Provider handleLogin");
 		// With real connection provider would attempt establishing connection
 		// here.
@@ -634,24 +637,38 @@ public class Provider extends ExternalLiveBaseProvider {
 			this.isDemo = userPasswordDemoLoginData.isDemo;
 
 			if (isDemo) {
-				adminListeners.forEach(l -> l.onSystemTextMessage(ConnectorUtils.testnet_Note,
-						SystemTextMessageType.UNCLASSIFIED));
 				connector.setWssUrl(Constants.testnet_Wss);
 				connector.setRestApi(Constants.testnet_restApi);
 			} else {
 				connector.setWssUrl(Constants.bitmex_Wss);
 				connector.setRestApi(Constants.bitmex_restApi);
 			}
-            adminListeners.forEach(Layer1ApiAdminListener::onLoginSuccessful);
 			connector.setProvider(this);
 			connector.setTradeConnector(tradeConnector);
 			connectorThread = new Thread(connector);
 			connectorThread.setName("->com.bookmap.plugins.layer0.bitmex.adapter: connector");
 			connectorThread.start();
-			webSocketStartingLatch = connector.getWebSocketStartingLatch();
-		} else if (isOneCredentialEmpty) {
-			LogBitmex.info("Provider handleLogin: empty credentials");
-			// Report failed login
+
+            if (isValid) {
+                try {
+                    connector.getWebSocketAuthLatch().await();
+                } catch (InterruptedException e) {
+                    Log.info("", e);
+                }
+            }
+	        
+	        if (isLoginSuccessful) {
+	            adminListeners.forEach(Layer1ApiAdminListener::onLoginSuccessful);
+	            if (isDemo) {
+	                adminListeners.forEach(l -> l.onSystemTextMessage(ConnectorUtils.testnet_Note,
+	                        SystemTextMessageType.UNCLASSIFIED));
+	            }    
+            } else {
+                reportWrongCredentials(authFailedReason);
+            }
+        } else if (isOneCredentialEmpty) {
+            LogBitmex.info("Provider handleLogin: empty credentials");
+        	// Report failed login
 			adminListeners.forEach(l -> l.onLoginFailed(LoginFailedReason.WRONG_CREDENTIALS,
 					"Either login or password is empty"));
 		}
@@ -1074,9 +1091,9 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	@Override
 	public Layer1ApiProviderSupportedFeatures getSupportedFeatures() {
-        if (webSocketStartingLatch != null) {
+        if (connector != null) {
             try {
-                webSocketStartingLatch.await();
+                connector.getWebSocketStartingLatch().await();
             } catch (InterruptedException e) {
                 Log.info("", e);
             }
@@ -1135,7 +1152,6 @@ public class Provider extends ExternalLiveBaseProvider {
         } catch (IOException e) {
             e.printStackTrace();
         }
-		
 		providerThread.interrupt();
 	}
 	
@@ -1227,4 +1243,17 @@ public class Provider extends ExternalLiveBaseProvider {
         updateValidPosition(validPosition, validPosition);
         reportPosition(instr, validPosition);
     }
+
+    public boolean isLoginSuccessful() {
+        return isLoginSuccessful;
+    }
+
+    public void setLoginSuccessful(boolean isLoginSuccessful) {
+        this.isLoginSuccessful = isLoginSuccessful;
+    }
+
+    public void setAuthFailedReason(String lostConnectionReason) {
+        this.authFailedReason = lostConnectionReason;
+    }
+    
 }

@@ -97,7 +97,9 @@ public class JsonParser {
 					if (errorMessage.toUpperCase().contains("Signature not valid".toUpperCase()) ||
 					        errorMessage.toUpperCase().contains("Invalid API Key".toUpperCase()) ||
                             errorMessage.toUpperCase().contains("Account does not exist".toUpperCase())) {
-                        provider.reportWrongCredentials(errorMessage);
+                        provider.setLoginSuccessful(false);
+                        provider.setAuthFailedReason(errorMessage);
+                        provider.getConnector().getWebSocketAuthLatch().countDown();
                     } else {
                         final String messageToShow = errorMessage == null ? str : errorMessage;
                       
@@ -108,6 +110,7 @@ public class JsonParser {
 				}
 
 				if (responseWs.getSuccess() == true && responseWs.getRequest().getOp().equals("authKey")) {
+				    provider.setLoginSuccessful(true);
 					provider.getConnector().getWebSocketAuthLatch().countDown();
 				}
 

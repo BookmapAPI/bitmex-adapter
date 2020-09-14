@@ -156,6 +156,11 @@ public class BmConnector implements Runnable {
 			LogBitmex.info("BmConnector wsConnect websocket connecting..."); 
 			client.connect(socket, echoUri, request);
 			socket.getOpeningLatch().await();
+			
+			if (socket.isConnectionLost()) {
+			    isReconnecting.set(true);
+			    return;
+			}
 
 			if (!provider.isCredentialsEmpty()) {// authentication needed
 				LogBitmex.info("BmConnector wsConnect websocket auth...");
@@ -163,6 +168,9 @@ public class BmConnector implements Runnable {
 				LogBitmex.info("BmConnector wsConnect websocket auth message passed");
 				socket.sendMessage(mes);
 				webSocketAuthLatch.await();
+				if (!provider.isLoginSuccessful()) {
+				    return;
+				}
 				WsData wsData = new WsData(WebSocketOperation.SUBSCRIBE,
 						(Object[]) ConnectorUtils.getAuthenticatedTopicsList());
 				String res = JsonParser.gson.toJson(wsData);
