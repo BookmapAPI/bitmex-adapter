@@ -882,8 +882,8 @@ public class Provider extends ExternalLiveBaseProvider {
                 .sum();
         
         StatusInfo info = new StatusInfo(validPosition.getSymbol(),
-                (double) validPosition.getUnrealisedPnl() / (double) instr.getMultiplier(),
-                (double) validPosition.getRealisedPnl() / (double) instr.getMultiplier(),
+                (double) validPosition.getUnrealisedPnl() / (double) Math.abs(instr.getMultiplier()),
+                (double) validPosition.getRealisedPnl() / (double) Math.abs(instr.getMultiplier()),
                 "",
                 (int) validPosition.getCurrentQty(),
                 validPosition.getAvgEntryPrice(),
