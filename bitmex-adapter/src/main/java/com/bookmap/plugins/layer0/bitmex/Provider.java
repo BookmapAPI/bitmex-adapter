@@ -14,7 +14,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
 import java.util.stream.IntStream;
 
 import org.apache.commons.collections4.BidiMap;
@@ -730,21 +729,6 @@ public class Provider extends ExternalLiveBaseProvider {
 				}
 			}
 			
-			if (exec.getTimeInForce() != null){
-				builder.setDuration(ConnectorUtils.bitmexOrderDurationsValues
-						.inverseBidiMap()
-						.get(exec.getTimeInForce()));
-				
-				if (exec.getExecInst() != null && exec.getExecInst().length() > 0) {
-					String[] instr = exec.getExecInst().split(",");
-					Set<String> executionInstructions = new HashSet<>(Arrays.asList(instr));
-					
-					if (executionInstructions.contains(ConnectorUtils.GtcPoExecutionalInstruction)) {
-						builder.setDuration(OrderDuration.GTC_PO);
-					}
-				}
-			}
-
 			if (exec.getPegPriceType().equals("TrailingStopPeg")) {
 				synchronized (trailingStops) {
 					trailingStops.put(exec.getOrderID(), exec.getPegOffsetValue());
@@ -1081,6 +1065,22 @@ public class Provider extends ExternalLiveBaseProvider {
 		.setUnfilled((int) order.getLeavesQty())		
 		.setFilled((int) order.getCumQty())
 		.setStatus(OrderStatus.WORKING);
+
+        if (order.getTimeInForce() != null){
+            builder.setDuration(ConnectorUtils.bitmexOrderDurationsValues
+                    .inverseBidiMap()
+                    .get(order.getTimeInForce()));
+            
+            if (order.getExecInst() != null && order.getExecInst().length() > 0) {
+                String[] instr = order.getExecInst().split(",");
+                Set<String> executionInstructions = new HashSet<>(Arrays.asList(instr));
+                
+                if (executionInstructions.contains(ConnectorUtils.GtcPoExecutionalInstruction)) {
+                    builder.setDuration(OrderDuration.GTC_PO);
+                }
+            }
+        }
+
 		tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
 		builder.markAllUnchanged();
 
