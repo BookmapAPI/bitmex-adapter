@@ -54,7 +54,6 @@ import velox.api.layer1.annotations.Layer1ApiVersion;
 import velox.api.layer1.annotations.Layer1ApiVersionValue;
 import velox.api.layer1.annotations.Layer1Attachable;
 import velox.api.layer1.annotations.Layer1StrategyName;
-import velox.api.layer1.annotations.Layer1TradingStrategy;
 import velox.api.layer1.common.ListenableHelper;
 import velox.api.layer1.data.InstrumentInfo;
 import velox.api.layer1.layers.strategies.interfaces.ScreenSpaceCanvas;
@@ -78,7 +77,6 @@ import velox.api.layer1.settings.StrategySettingsVersion;
 import velox.gui.StrategyPanel;
 
 @Layer1Attachable
-@Layer1TradingStrategy
 @Layer1StrategyName("BitMEX Panel")
 @Layer1ApiVersion(Layer1ApiVersionValue.VERSION2)
 public class BitmexPanel implements Layer1ApiFinishable
