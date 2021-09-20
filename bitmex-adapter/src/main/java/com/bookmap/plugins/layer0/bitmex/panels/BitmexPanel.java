@@ -34,6 +34,7 @@ import javax.swing.event.ChangeListener;
 
 import org.apache.commons.io.input.ClassLoaderObjectInputStream;
 import org.apache.commons.lang3.SerializationUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.Header;
 
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils;
@@ -710,10 +711,13 @@ public class BitmexPanel implements Layer1ApiFinishable
         return symbol;
     }
     
-    private static boolean isBitmex(String alias) {
-        String[] aliasSplitted = alias.split("@");
-        return aliasSplitted != null && aliasSplitted.length != 0 && aliasSplitted[1].equals("MEX");
-    }
+	private static boolean isBitmex(String alias) {
+		if (!StringUtils.isBlank(alias)) {
+			String[] aliasSplitted = alias.split("@");
+			return aliasSplitted.length == 2 && aliasSplitted[1].equals("MEX");
+		}
+		return false;
+	}
     
     private void requestUpdateForSymbol(String symbol) {
         ScreenSpacePainterAdapterExternal painter = painters.get(symbol);
