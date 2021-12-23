@@ -682,14 +682,14 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	public void listenForOrderBookL2(UnitData unit) {
 		for (Layer1ApiDataListener listener : dataListeners) {
-			listener.onDepth(unit.getSymbol(), unit.isBid(), unit.getIntPrice(), (int) unit.getSize());
+			listener.onDepth(unit.getSymbol(), unit.isBid(), unit.getIntPrice(), toIntOrMax(unit.getSize(), Constants.maxSize));
 		}
 	}
 
 	public void listenForTrade(UnitData unit) {
 		for (Layer1ApiDataListener listener : dataListeners) {
 			final boolean isOtc = false;
-			listener.onTrade(unit.getSymbol(), unit.getIntPrice(), (int) unit.getSize(),
+			listener.onTrade(unit.getSymbol(), unit.getIntPrice(), toIntOrMax(unit.getSize(), Constants.maxSize),
 					new TradeInfo(isOtc, unit.isBid()));
 		}
 	}
@@ -753,7 +753,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		} else if (exec.getExecType().equals("Replaced")
 				|| exec.getExecType().equals("Restated")) {
 			LogBitmex.info("Provider listenForExecution: " + exec.getExecType());
-			builder.setUnfilled((int) exec.getLeavesQty());
+			builder.setUnfilled(toIntOrMax(exec.getLeavesQty(), Constants.maxSize));
 			builder.setLimitPrice(exec.getPrice());
 			builder.setStopPrice(exec.getStopPx());
 			
@@ -763,7 +763,7 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		} else if (exec.getExecType().equals("Trade")) {
 			LogBitmex.info("Provider listenForExecution: trade " + exec.getOrderID());
-			ExecutionInfo executionInfo = new ExecutionInfo(exec.getOrderID(), (int) exec.getLastQty(),
+			ExecutionInfo executionInfo = new ExecutionInfo(exec.getOrderID(), toIntOrMax(exec.getLastQty(), Constants.maxSize),
 					exec.getLastPx(),
 					exec.getExecID(), System.currentTimeMillis());
 			tradingListeners.forEach(l -> l.onOrderExecuted(executionInfo));
@@ -771,14 +771,13 @@ public class Provider extends ExternalLiveBaseProvider {
 			// updating filled orders volume
 			String symbol = exec.getSymbol();
 			BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
-			// instr.setExecutionsVolume(instr.getExecutionsVolume() + (int)
-			// exec.getCumQty());
-			instr.setExecutionsVolume(instr.getExecutionsVolume() + (int) exec.getLastQty());
+			// instr.setExecutionsVolume(instr.getExecutionsVolume() + toIntOrMax(exec.getCumQty(), Constants.maxSize)
+			instr.setExecutionsVolume(instr.getExecutionsVolume() + toIntOrMax(exec.getLastQty(), Constants.maxSize));
 
 			// Changing the order itself
 			builder.setAverageFillPrice(exec.getAvgPx());
-			builder.setUnfilled((int) exec.getLeavesQty());
-			builder.setFilled((int) exec.getCumQty());
+			builder.setUnfilled(toIntOrMax(exec.getLeavesQty(), Constants.maxSize));
+			builder.setFilled(toIntOrMax(exec.getCumQty(), Constants.maxSize));
 
 			if (exec.getOrdStatus().equals("Filled")) {
 			    LogBitmex.info("Provider listenForExecution: orderId filled " + exec.getOrderID()); 
@@ -869,11 +868,11 @@ public class Provider extends ExternalLiveBaseProvider {
                 (double) validPosition.getUnrealisedPnl() / (double) Math.abs(instr.getMultiplier()),
                 (double) validPosition.getRealisedPnl() / (double) Math.abs(instr.getMultiplier()),
                 "",
-                (int) validPosition.getCurrentQty(),
+                toIntOrMax(validPosition.getCurrentQty(), Constants.maxSize),
                 validPosition.getAvgEntryPrice(),
                 instr.getExecutionsVolume(),
-                (int) openBuys,
-                (int) openSells);
+                toIntOrMax(openBuys, Constants.maxSize),
+                toIntOrMax(openSells, Constants.maxSize));
 
         tradingListeners.forEach(l -> l.onStatus(info));
     }
@@ -966,15 +965,15 @@ public class Provider extends ExternalLiveBaseProvider {
 
 			builder.setStopPrice(exec.getStopPx())
 					.setLimitPrice(exec.getPrice())
-					.setUnfilled((int) unfilled)
-					.setFilled((int) exec.getCumQty())
+					.setUnfilled(toIntOrMax(unfilled, Constants.maxSize))
+					.setFilled(toIntOrMax(exec.getCumQty(), Constants.maxSize))
 					.setDuration(OrderDuration.GTC)
 					.setStatus(status)
 					.setAverageFillPrice(exec.getAvgPx())
 					.setModificationUtcTime(exec.getExecTransactTime());
 			tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
 			if (status.equals(OrderStatus.FILLED)) {
-				ExecutionInfo executionInfo = new ExecutionInfo(exec.getOrderID(), (int) exec.getCumQty(),
+				ExecutionInfo executionInfo = new ExecutionInfo(exec.getOrderID(), toIntOrMax(exec.getCumQty(), Constants.maxSize),
 						exec.getAvgPx(),
 						exec.getExecID(), exec.getExecTransactTime());
 				tradingListeners.forEach(l -> l.onOrderExecuted(executionInfo));
@@ -1062,8 +1061,8 @@ public class Provider extends ExternalLiveBaseProvider {
 		
 		builder.setStopPrice(order.getStopPx())
 		.setLimitPrice(order.getPrice())
-		.setUnfilled((int) order.getLeavesQty())		
-		.setFilled((int) order.getCumQty())
+		.setUnfilled(toIntOrMax(order.getLeavesQty(), Constants.maxSize))		
+		.setFilled(toIntOrMax(order.getCumQty(), Constants.maxSize))
 		.setStatus(OrderStatus.WORKING);
 
         if (order.getTimeInForce() != null){
@@ -1255,5 +1254,8 @@ public class Provider extends ExternalLiveBaseProvider {
     public void setAuthFailedReason(String lostConnectionReason) {
         this.authFailedReason = lostConnectionReason;
     }
-    
+
+    private int toIntOrMax(long value, int max) {
+        return (int) Math.min(value, max);
+    }
 }

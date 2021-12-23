@@ -23,5 +23,5 @@ public class Constants {
 	public static final String programmaticName = "EXT:" + "com.bookmap.plugins.layer0.bitmex.Provider";
 	public static final String rateLimitHeaderName = "X-RateLimit-Limit";
 	public static final String rateLimitRemainingHeaderName = "X-RateLimit-Remaining";
-	
+	public static final int maxSize = 1_000_000_000;
 }
