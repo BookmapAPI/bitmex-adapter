@@ -246,11 +246,20 @@ public class Provider extends ExternalLiveBaseProvider {
 		// Use default Bookmap price formatting logic for simplicity.
 		// Values returned by this method will be used on price axis and in few
 		// other places.
-		double pips;
-		synchronized (instruments) {
-			pips = instruments.get(alias).pips;
-		}
-		return formatPriceDefault(pips, price);
+        Instrument instrument = null;
+        synchronized (instruments) {
+            instrument = instruments.get(alias);
+        }
+        /**
+         * This is a workaround rather than a permanent solution.
+         * 
+         * Sometimes when switching between two workspaces (for example HitBTC, HitBTC demo),
+         * Bookmap calls formatPrice method without previous calls to login and subscribe methods.
+         * At this moment, info for pair isn't fetched yet and crash occurs NullPointerException.
+         * So we just return constant value to avoid crashes.
+         */
+        double pips = instrument == null ? 100 : instrument.pips;
+        return formatPriceDefault(pips, price);
 	}
 
 	@Override
