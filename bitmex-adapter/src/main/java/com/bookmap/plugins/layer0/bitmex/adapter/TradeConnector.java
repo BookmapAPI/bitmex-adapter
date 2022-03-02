@@ -68,6 +68,7 @@ public class TradeConnector {
 		json.addProperty("side", side);
 		json.addProperty("orderQty", orderQty);
 		json.addProperty("clOrdID", clOrdId);
+		json.addProperty("text", "bookmap");
 		
 		JsonArray execInst = new JsonArray();
 		
