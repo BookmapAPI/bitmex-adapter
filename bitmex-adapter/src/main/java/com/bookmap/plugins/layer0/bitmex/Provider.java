@@ -1152,9 +1152,10 @@ public class Provider extends ExternalLiveBaseProvider {
 		// Stop events generation
 		LogBitmex.info("Provider close(): ");
 		panelHelper.stop();
-		connector.closeSocket();
-		connector.setInterruptionNeeded(true);
-
+        if (connector != null) {
+            connector.closeSocket();
+            connector.setInterruptionNeeded(true);
+        }
 		try {
             httpClientHolder.close();
         } catch (IOException e) {
