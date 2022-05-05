@@ -1159,7 +1159,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		try {
             httpClientHolder.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.error("", e);
         }
 		providerThread.interrupt();
 	}
