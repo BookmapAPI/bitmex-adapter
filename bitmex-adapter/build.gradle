@@ -28,3 +28,7 @@ dependencies {
     compileOnly group: 'javax.xml.bind', name: 'jaxb-api', version: '2.2.4'
     compileOnly group: 'commons-io', name: 'commons-io', version: '2.6'
 }
+
+jar {
+    baseName = '7.0.0.0---7.4.1.9999---0---bitmex-adapter--'
+}
