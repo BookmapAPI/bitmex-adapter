@@ -520,7 +520,6 @@ public class BmConnector implements Runnable {
 				wsConnect();
 			}
 			if (!interruptionNeeded.get()) {
-	            provider.panelHelper.stop();
 				provider.reportLostConnection();
 			}
 

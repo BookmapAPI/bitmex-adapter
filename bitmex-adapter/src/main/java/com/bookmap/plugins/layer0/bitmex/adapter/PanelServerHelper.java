@@ -48,9 +48,6 @@ public class PanelServerHelper {
         }
     }
 
-    public void stop() {
-    }
-
     public void acceptMessage(String message) {
         try {
             if (Class.forName("velox.api.layer1.messages.Layer1ApiUserInterModuleMessage") != null) {
