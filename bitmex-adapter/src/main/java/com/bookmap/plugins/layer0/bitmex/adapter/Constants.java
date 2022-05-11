@@ -24,4 +24,13 @@ public class Constants {
 	public static final String rateLimitHeaderName = "X-RateLimit-Limit";
 	public static final String rateLimitRemainingHeaderName = "X-RateLimit-Remaining";
 	public static final int maxSize = 1_000_000_000;
+
+    public static final String API_KEY_FIELD_NAME = "key";
+    public static final String API_KEY_FIELD_LABEL = "API key";
+    public static final String API_SECRET_FIELD_NAME = "secret";
+    public static final String API_SECRET_FIELD_LABEL = "API secret";
+    public static final String ENABLE_TRADING_CHECKBOX_NAME = "enableTrading";
+    public static final String ENABLE_TRADING_CHECKBOX_LABEL = "Enable trading";
+    public static final String IS_DEMO_CHECKBOX_NAME = "isDemo";
+    public static final String IS_DEMO_CHECKBOX_LABEL = "This is a demo account";
 }
