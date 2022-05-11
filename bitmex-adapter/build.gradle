@@ -18,7 +18,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly group: 'com.bookmap.api', name: 'api-core', version: '7.1.0.30'
+    compileOnly group: 'com.bookmap.api', name: 'api-core', version: '7.2.0.12'
     compileOnly group: 'commons-codec', name: 'commons-codec', version: '1.10'
     compileOnly group: 'org.apache.commons', name: 'commons-collections4', version: '4.1'
     compileOnly group: 'org.apache.commons', name: 'commons-lang3', version: '3.7'
@@ -30,5 +30,5 @@ dependencies {
 }
 
 jar {
-    baseName = '7.0.0.0---7.4.1.9999---0---bitmex-adapter--'
+    baseName = '7.2.0.12---7.4.1.9999---0---bitmex-adapter--'
 }
