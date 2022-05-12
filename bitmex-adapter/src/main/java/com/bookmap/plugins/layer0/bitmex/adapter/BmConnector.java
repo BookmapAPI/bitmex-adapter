@@ -163,7 +163,7 @@ public class BmConnector implements Runnable {
 			    return;
 			}
 
-			if (!provider.isCredentialsEmpty()) {// authentication needed
+			if (provider.isTradingEnabled()) {// authentication needed
 			    Log.info("BmConnector wsConnect websocket auth...");
 				String mes = wssAuthTwo();
 				Log.info("BmConnector wsConnect websocket auth message passed");
@@ -370,7 +370,7 @@ public class BmConnector implements Runnable {
 		sendWebsocketMessage(instr.getSubscribeReq());
 		launchSnapshotTimer(instr);
 
-		if (!provider.isCredentialsEmpty()) {// if authenticated
+		if (provider.isTradingEnabled()) {// if authenticated
 			instr.setExecutionsVolume(countExecutionsVolume(instr.getSymbol()));
 		}
 	}
@@ -510,7 +510,7 @@ public class BmConnector implements Runnable {
 				provider.setKnownInstruments(knownInstruments);
 
 				launchExecutionsResetTimer();
-				if (!provider.isCredentialsEmpty()) {
+				if (provider.isTradingEnabled()) {
 				    startPositionRequestTimer();
 				}
 				if (activeBmInstrumentsMap.isEmpty()) {

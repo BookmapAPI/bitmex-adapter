@@ -96,8 +96,7 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	private List<OrderInfoBuilder> pendingOrdersBuilders = new ArrayList<>();
 	private long orderOcoCount;
-	private boolean isCredentialsEmpty;
-
+	private BitmexUserPasswordDemoLoginData bitmexLoginData;
 	// <id, trailingStep>
 	private Map<String, Double> trailingStops = new HashMap<>();
 	private List<String> batchCancels = new LinkedList<>();
@@ -128,8 +127,8 @@ public class Provider extends ExternalLiveBaseProvider {
 	private Thread providerThread;
 	private Thread connectorThread;
 	
-	public boolean isCredentialsEmpty() {
-		return isCredentialsEmpty;
+	public boolean isTradingEnabled() {
+		return bitmexLoginData.isTradingEnabled;
 	}
 
     public String getAlias(String clientId) {
@@ -609,91 +608,81 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	@Override
 	public void login(LoginData loginData) {
-		UserPasswordDemoLoginData userPasswordDemoLoginData;
-
         if (loginData instanceof ExtendedLoginData) {
             Map<String, CredentialsSerializationField> extendedData = ((ExtendedLoginData)loginData).extendedData;
             String key = extendedData.get(Constants.API_KEY_FIELD_NAME).getStringValue();
             String secret = extendedData.get(Constants.API_SECRET_FIELD_NAME).getStringValue();
             boolean isDemo = Boolean.valueOf(extendedData.get(Constants.IS_DEMO_CHECKBOX_NAME).getStringValue());
-            userPasswordDemoLoginData = new UserPasswordDemoLoginData(key, secret, isDemo);
+            boolean isTradingEnabled = Boolean.valueOf(extendedData.get(Constants.ENABLE_TRADING_CHECKBOX_NAME).getStringValue());
+            bitmexLoginData = new BitmexUserPasswordDemoLoginData(key, secret, isDemo, isTradingEnabled);
         } else {
-            userPasswordDemoLoginData = (UserPasswordDemoLoginData) loginData;
+            boolean isTradingEnabled = StringUtils.isNoneBlank(
+                    ((UserPasswordDemoLoginData) loginData).user,
+                    ((UserPasswordDemoLoginData) loginData).password
+                    );
+            bitmexLoginData = new BitmexUserPasswordDemoLoginData((UserPasswordDemoLoginData) loginData, isTradingEnabled);
         }
 		// If connection process takes a while then it's better to do it in
 		// separate thread
-		providerThread = new Thread(() -> handleLogin(userPasswordDemoLoginData));
+		providerThread = new Thread(() -> handleLogin(bitmexLoginData));
 		providerThread.setName("-> INSTRUMENT");
 		providerThread.start();
 	}
 
-	private void handleLogin(UserPasswordDemoLoginData userPasswordDemoLoginData) {
-	    isLoginSuccessful = true;
-	    authFailedReason = "";
-	    Log.info("Provider handleLogin");
-		// With real connection provider would attempt establishing connection
-		// here.
+	private void handleLogin(BitmexUserPasswordDemoLoginData bitmexLoginData) {
+        if (bitmexLoginData.isTradingEnabled
+                && StringUtils.isAnyBlank(bitmexLoginData.user, bitmexLoginData.password)) {
+            reportWrongCredentials("Either login or password is empty");
+            return;
+        }
 
-		// there is no need in password check for demo purposes
-		boolean isValid = !userPasswordDemoLoginData.password.equals("")
-				&& !userPasswordDemoLoginData.user.equals("");
+        isLoginSuccessful = true;
+        authFailedReason = "";
+        Log.info("Provider handleLogin");
+        // With real connection provider would attempt establishing connection
+        // here.
+        Log.info("Provider handleLogin: credentials valid or empty");
+        httpClientHolder = new HttpClientHolder(bitmexLoginData.user, bitmexLoginData.password, this);
+        connector = new BmConnector(httpClientHolder);
+        tradeConnector = new TradeConnector(httpClientHolder);
+        tradeConnector.setProvider(this);
+        tradeConnector.setOrderApiKey(bitmexLoginData.user);
+        tradeConnector.setOrderApiSecret(bitmexLoginData.password);
+        panelHelper.setConnector(tradeConnector);
+        panelHelper.setProvider(this);
 
-		isCredentialsEmpty = userPasswordDemoLoginData.password.equals("")
-				&& userPasswordDemoLoginData.user.equals("");
+        this.isDemo = bitmexLoginData.isDemo;
 
-		boolean isOneCredentialEmpty = !isCredentialsEmpty && !isValid;
+        if (isDemo) {
+            connector.setWssUrl(Constants.testnet_Wss);
+            connector.setRestApi(Constants.testnet_restApi);
+        } else {
+            connector.setWssUrl(Constants.bitmex_Wss);
+            connector.setRestApi(Constants.bitmex_restApi);
+        }
+        connector.setProvider(this);
+        connector.setTradeConnector(tradeConnector);
+        connectorThread = new Thread(connector);
+        connectorThread.setName("->com.bookmap.plugins.layer0.bitmex.adapter: connector");
+        connectorThread.start();
 
-		if (isValid || isCredentialsEmpty) {
-
-		    Log.info("Provider handleLogin: credentials valid or empty");
-            httpClientHolder = new HttpClientHolder(userPasswordDemoLoginData.user, userPasswordDemoLoginData.password, this);
-            connector = new BmConnector(httpClientHolder);
-			tradeConnector = new TradeConnector(httpClientHolder);
-			tradeConnector.setProvider(this);
-			tradeConnector.setOrderApiKey(userPasswordDemoLoginData.user);
-			tradeConnector.setOrderApiSecret(userPasswordDemoLoginData.password);
-			panelHelper.setConnector(tradeConnector);
-			panelHelper.setProvider(this);
-			
-			this.isDemo = userPasswordDemoLoginData.isDemo;
-
-			if (isDemo) {
-				connector.setWssUrl(Constants.testnet_Wss);
-				connector.setRestApi(Constants.testnet_restApi);
-			} else {
-				connector.setWssUrl(Constants.bitmex_Wss);
-				connector.setRestApi(Constants.bitmex_restApi);
-			}
-			connector.setProvider(this);
-			connector.setTradeConnector(tradeConnector);
-			connectorThread = new Thread(connector);
-			connectorThread.setName("->com.bookmap.plugins.layer0.bitmex.adapter: connector");
-			connectorThread.start();
-
-            if (isValid) {
-                try {
-                    connector.getWebSocketAuthLatch().await();
-                } catch (InterruptedException e) {
-                    Log.info("", e);
-                }
+        if (bitmexLoginData.isTradingEnabled) {
+            try {
+                connector.getWebSocketAuthLatch().await();
+            } catch (InterruptedException e) {
+                Log.info("", e);
             }
-	        
-	        if (isLoginSuccessful) {
-	            adminListeners.forEach(Layer1ApiAdminListener::onLoginSuccessful);
-	            if (isDemo) {
-	                adminListeners.forEach(l -> l.onSystemTextMessage(ConnectorUtils.testnet_Note,
-	                        SystemTextMessageType.UNCLASSIFIED));
-	            }    
-            } else {
-                reportWrongCredentials(authFailedReason);
-            }
-        } else if (isOneCredentialEmpty) {
-            Log.info("Provider handleLogin: empty credentials");
-        	// Report failed login
-			adminListeners.forEach(l -> l.onLoginFailed(LoginFailedReason.WRONG_CREDENTIALS,
-					"Either login or password is empty"));
-		}
+        }
 
+        if (isLoginSuccessful) {
+            adminListeners.forEach(Layer1ApiAdminListener::onLoginSuccessful);
+            if (isDemo) {
+                adminListeners.forEach(
+                        l -> l.onSystemTextMessage(ConnectorUtils.testnet_Note, SystemTextMessageType.UNCLASSIFIED));
+            }
+        } else {
+            reportWrongCredentials(authFailedReason);
+        }
 	}
 
 	public void reportWrongCredentials(String reason) {
@@ -1121,10 +1110,7 @@ public class Provider extends ExternalLiveBaseProvider {
         }
 		// Expanding parent supported features, reporting basic trading support
 		Layer1ApiProviderSupportedFeaturesBuilder a = super.getSupportedFeatures().toBuilder();
-
-		if (!isCredentialsEmpty) {
-			a.setTrading(true);
-		}
+		a.setTrading(bitmexLoginData != null && bitmexLoginData.isTradingEnabled);
 
 		/*
 		 * OCO and brackets are set to false because BitMEX announced contingent
@@ -1168,10 +1154,12 @@ public class Provider extends ExternalLiveBaseProvider {
             connector.closeSocket();
             connector.setInterruptionNeeded(true);
         }
-		try {
-            httpClientHolder.close();
-        } catch (IOException e) {
-            Log.error("", e);
+        if (httpClientHolder != null) {
+            try {
+                httpClientHolder.close();
+            } catch (IOException e) {
+                Log.error("", e);
+            }
         }
 		providerThread.interrupt();
 	}

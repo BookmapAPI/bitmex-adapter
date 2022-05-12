@@ -69,7 +69,7 @@ public class PanelServerHelper {
         mp.put("symbol", symbol);
         
         if (map.get("leverage") != null) {
-            if (provider.isCredentialsEmpty()) {
+            if (!provider.isTradingEnabled()) {
                 mp.put("isCredentialsEmpty", true);
                 String msg = JsonParser.gson.toJson(mp);
                 printIfChanged(" CredentialsEmpty " + msg);
@@ -96,7 +96,7 @@ public class PanelServerHelper {
                 provider.listenForPosition(position);
             }
         } else if (map.get("ping") != null) {
-            if (provider.isCredentialsEmpty()) {
+            if (!provider.isTradingEnabled()) {
                 mp.put("isCredentialsEmpty", true);
                 String msg = JsonParser.gson.toJson(mp);
                 Log.info("PanelServerHelper, CredentialsEmpty");
