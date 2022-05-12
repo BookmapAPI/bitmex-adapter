@@ -44,7 +44,9 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
+import velox.api.layer0.annotations.Layer0CredentialsFieldsManager;
 import velox.api.layer0.annotations.Layer0LiveModule;
+import velox.api.layer0.credentialscomponents.CredentialsSerializationField;
 import velox.api.layer0.live.ExternalLiveBaseProvider;
 import velox.api.layer1.Layer1ApiAdminListener;
 import velox.api.layer1.Layer1ApiDataListener;
@@ -55,6 +57,7 @@ import velox.api.layer1.data.BalanceInfo;
 import velox.api.layer1.data.BmSimpleHistoricalDataInfo;
 import velox.api.layer1.data.DisconnectionReason;
 import velox.api.layer1.data.ExecutionInfo;
+import velox.api.layer1.data.ExtendedLoginData;
 import velox.api.layer1.data.InstrumentInfo;
 import velox.api.layer1.data.Layer1ApiProviderSupportedFeatures;
 import velox.api.layer1.data.Layer1ApiProviderSupportedFeaturesBuilder;
@@ -81,6 +84,7 @@ import velox.api.layer1.messages.UserProviderTargetedMessage;
 
 @Layer1ApiVersion(Layer1ApiVersionValue.VERSION1)
 @Layer0LiveModule(shortName = "MEX", fullName = "BitMEX")
+@Layer0CredentialsFieldsManager(BitmexFieldManager.class)
 public class Provider extends ExternalLiveBaseProvider {
 
 	private BmConnector connector;
