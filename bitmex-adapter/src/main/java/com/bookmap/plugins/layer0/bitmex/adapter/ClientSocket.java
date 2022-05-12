@@ -23,6 +23,8 @@ import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 import org.eclipse.jetty.websocket.api.extensions.Frame;
 import org.eclipse.jetty.websocket.api.extensions.Frame.Type;
 
+import velox.api.layer1.common.Log;
+
 
 @WebSocket(maxTextMessageSize = Integer.MAX_VALUE, maxBinaryMessageSize = Integer.MAX_VALUE)
 public class ClientSocket {
@@ -39,7 +41,7 @@ public class ClientSocket {
 
 	@OnWebSocketClose
 	public void OnClose(int i, String str) {
-		LogBitmex.info("ClientSocket: CLOSED WITH STATUS " + i + " FOR " + str + " REASON");
+	    Log.info("ClientSocket: CLOSED WITH STATUS " + i + " FOR " + str + " REASON");
 		closingLatch.countDown();
 	}
 
@@ -80,17 +82,17 @@ public class ClientSocket {
 				long l = lastMessageTime.get();
 				
 				if (System.currentTimeMillis() - l > maxDelay + 500) {
-					LogBitmex.info("ClientSocket launchPingTimer: last message UTC=" + Instant.ofEpochMilli(l));
+				    Log.info("ClientSocket launchPingTimer: last message UTC=" + Instant.ofEpochMilli(l));
 					// and if this happened before
 					if (isConnectionPossiblyLost.get()) {
-						LogBitmex.info("ClientSocket launchPingTimer: connection lost UTC="
+						Log.info("ClientSocket launchPingTimer: connection lost UTC="
 								+ Instant.ofEpochMilli(System.currentTimeMillis()));
-						LogBitmex.info("ClientSocket launchPingTimer: pingTimer closes connection");
+						Log.info("ClientSocket launchPingTimer: pingTimer closes connection");
 						close();
 					} else {// but this did not happen before
 						isConnectionPossiblyLost.set(true);
 						sendPing();
-						LogBitmex.info("ClientSocket launchPingTimer: connection possibly lost UTC="
+						Log.info("ClientSocket launchPingTimer: connection possibly lost UTC="
 								+ Instant.ofEpochMilli(System.currentTimeMillis()));
 					}
 				} else {
@@ -106,16 +108,16 @@ public class ClientSocket {
 
 	public void sendMessage(String str) {
         if (str.contains("authKey")) {
-            LogBitmex.info("ClientSocket sendMessage: " + str);
+            Log.info("ClientSocket sendMessage: " + str);
         }
 		try {
 			if (session != null ) {
 				session.getRemote().sendString(str);
 			} else {
-				LogBitmex.info("ClientSocket sendMessage: session is null");
+			    Log.info("ClientSocket sendMessage: session is null");
 			}
 		} catch (WebSocketException | IOException e) {
-		    LogBitmex.info("", e);
+		    Log.info("", e);
 		}
 	}
 
@@ -129,7 +131,7 @@ public class ClientSocket {
 
 	@OnWebSocketError
 	public void onError(Session session, Throwable error) throws Exception {
-		LogBitmex.info("ClientSockeT onError: " + error.toString());
+	    Log.info("ClientSockeT onError: " + error.toString());
 		error.printStackTrace();
 		isConnectionLost = true;
 		openingLatch.countDown();
@@ -146,10 +148,10 @@ public class ClientSocket {
 				session.disconnect();
 			} catch (IOException e) {
 				// Connection may be lost suddenly
-				LogBitmex.info("", e);
+			    Log.error("", e);
 			}
 		}
-		LogBitmex.info("ClientSockeT close(): socket interrupted");
+		Log.info("ClientSockeT close(): socket interrupted");
 		closingLatch.countDown();
 	}
 
@@ -163,14 +165,10 @@ public class ClientSocket {
 			String data = "ping";
 			ByteBuffer payload = ByteBuffer.wrap(data.getBytes());
 			remote.sendPing(payload);
-			// LogBitmex.info("ClientSocket sendPing: PING");
 		} catch (WebSocketException e) {
-			// e.printStackTrace(System.err);
-			 LogBitmex.info("RemoteEndpoint unavailable", e);
-			// e.printStackTrace();
+		    Log.error("RemoteEndpoint unavailable", e);
 		} catch (IOException e) {
-			// e.printStackTrace(System.err);
-	          LogBitmex.info("RemoteEndpoint unavailable", e);
+            Log.error("RemoteEndpoint unavailable", e);
 		}
 	}
 
@@ -179,7 +177,7 @@ public class ClientSocket {
 		if (frame.getType() == Type.PONG) {
 			isConnectionPossiblyLost.set(false);
 			lastMessageTime.set(System.currentTimeMillis());
-			LogBitmex.info("ClientSocket onFrame: PONG");
+			Log.info("ClientSocket onFrame: PONG");
 		}
 	}
 

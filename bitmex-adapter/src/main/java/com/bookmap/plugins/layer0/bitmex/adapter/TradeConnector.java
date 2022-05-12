@@ -10,6 +10,7 @@ import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Method;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
+import velox.api.layer1.common.Log;
 import velox.api.layer1.data.OrderDuration;
 import velox.api.layer1.data.OrderMoveParameters;
 import velox.api.layer1.data.OrderType;
@@ -110,7 +111,7 @@ public class TradeConnector {
 			if (orderType == OrderType.STP) {// StopMarket
 				json.addProperty("ordType", "Stop");
 			} else if (orderType == OrderType.STP_LMT) {
-				LogBitmex.info("TradeConnector createSendData: STP_LMT trailing step == " + params.trailingStep);
+				Log.info("TradeConnector createSendData: STP_LMT trailing step == " + params.trailingStep);
 				json.addProperty("ordType", "StopLimit");
 				json.addProperty("price", params.limitPrice);
 			}
@@ -118,7 +119,7 @@ public class TradeConnector {
 			// used by stops to determine triggering price
 			execInst.add("LastPrice");
 			if (params.trailingStep > 0) {
-				LogBitmex.info("TradeConnector createSendData: STP trailing step == " + params.trailingStep);
+			    Log.info("TradeConnector createSendData: STP trailing step == " + params.trailingStep);
 				json.addProperty("pegPriceType", "TrailingStopPeg");
 				json.addProperty("pegOffsetValue", getPegOffset(symbol, params.stopPrice));
 			}
@@ -135,7 +136,7 @@ public class TradeConnector {
 		json.addProperty("orderID", orderId);
 		String data = json.toString();
 		Pair<Boolean, String> response = require(GeneralType.ORDER, Method.DELETE, data);
-		LogBitmex.info("TradeConnector cancelOrder: " + response);
+		Log.info("TradeConnector cancelOrder: " + response);
 	}
 
 	public void cancelOrder(List<String> orderIds) {
@@ -146,7 +147,7 @@ public class TradeConnector {
 		}
 		sb.setLength(sb.length() - 1);
 		String data1 = sb.toString();
-		LogBitmex.info("TradeConnector cancelOrder (bulk): " + data1);
+		Log.info("TradeConnector cancelOrder (bulk): " + data1);
 		require(GeneralType.ORDER, Method.DELETE, data1, true);
 	}
 
@@ -167,7 +168,7 @@ public class TradeConnector {
 			array.add(json);
 		}
 		String data = "orders=" + array.toString();
-		LogBitmex.info("TradeConnector resizeOrder (bulk): " + data);
+		Log.info("TradeConnector resizeOrder (bulk): " + data);
 		return data;
 	}
 

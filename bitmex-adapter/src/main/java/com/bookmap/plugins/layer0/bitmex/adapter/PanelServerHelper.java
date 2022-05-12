@@ -16,6 +16,7 @@ import com.bookmap.plugins.layer0.bitmex.messages.ModuleTargetedLeverageMessage;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 
+import velox.api.layer1.common.Log;
 import velox.api.layer1.data.SystemTextMessageType;
 
 
@@ -98,7 +99,7 @@ public class PanelServerHelper {
             if (provider.isCredentialsEmpty()) {
                 mp.put("isCredentialsEmpty", true);
                 String msg = JsonParser.gson.toJson(mp);
-                LogBitmex.infoClassOf(this.getClass(), "CredentialsEmpty " + msg);
+                Log.info("PanelServerHelper, CredentialsEmpty");
                 onUserMessage(msg);
                 return;
             }
@@ -109,7 +110,7 @@ public class PanelServerHelper {
                 int maxLeverage = provider.getConnector().getMaximumLeverage(symbol);
                 mp.put("maxLeverage", maxLeverage);
                 String msg = JsonParser.gson.toJson(mp);
-                LogBitmex.infoClassOf(this.getClass(), "pong " + msg);
+                Log.info("pong " + msg);
                 onUserMessage(msg);
             } else {
                 StringBuilder sb = new StringBuilder();
@@ -136,14 +137,14 @@ public class PanelServerHelper {
                         mp.put("maxLeverage", maxLeverage);
                         JsonParser.gson.toJson(mp);
                         String msg = JsonParser.gson.toJson(mp);
-                        LogBitmex.infoClassOf(this.getClass(), "pong " + msg);
+                        Log.info("pong " + msg);
                         onUserMessage(msg);
                     } else {
                         UnitPosition position = positions[0];
                         provider.listenForPosition(position);
                     }
                 } else {
-                    LogBitmex.infoClassOf(this.getClass(), "Unable to parse positions in PanehServerHelper");
+                    Log.info("Unable to parse positions in PanehServerHelper");
                 }
             }
         }
@@ -152,7 +153,7 @@ public class PanelServerHelper {
     private void printIfChanged(String text) {
         if (!text.equals(latestMessage)) {
             latestMessage = text;
-            LogBitmex.infoClassOf(this.getClass(), latestMessage); 
+            Log.info("latestMessage " + latestMessage); 
         }
     }
 

@@ -39,7 +39,6 @@ import org.apache.http.Header;
 
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils;
 import com.bookmap.plugins.layer0.bitmex.adapter.Constants;
-import com.bookmap.plugins.layer0.bitmex.adapter.LogBitmex;
 import com.bookmap.plugins.layer0.bitmex.messages.ModuleTargetedHttpRequestFeedbackMessage;
 import com.bookmap.plugins.layer0.bitmex.messages.ModuleTargetedLeverageMessage;
 import com.bookmap.plugins.layer0.bitmex.messages.ProviderTargetedLeverageMessage;
@@ -56,6 +55,7 @@ import velox.api.layer1.annotations.Layer1ApiVersionValue;
 import velox.api.layer1.annotations.Layer1Attachable;
 import velox.api.layer1.annotations.Layer1StrategyName;
 import velox.api.layer1.common.ListenableHelper;
+import velox.api.layer1.common.Log;
 import velox.api.layer1.data.InstrumentInfo;
 import velox.api.layer1.layers.strategies.interfaces.ScreenSpaceCanvas;
 import velox.api.layer1.layers.strategies.interfaces.ScreenSpaceCanvas.CanvasIcon;
@@ -418,7 +418,7 @@ public class BitmexPanel implements Layer1ApiFinishable
                            String symbol = currentAlias.split("@")[0];
                            requestUpdateForSymbol(symbol);
                        } catch (Exception e) {
-                           LogBitmex.infoClassOf(ConnectorUtils.class, " no ratelimit data", e);
+                           Log.error("no ratelimit data", e);
                        }
                    }
 
@@ -434,7 +434,7 @@ public class BitmexPanel implements Layer1ApiFinishable
                    }
                }
             } catch (Exception e) {
-                LogBitmex.info("", e);
+                Log.error("", e);
             }
         }
    }
@@ -596,7 +596,7 @@ public class BitmexPanel implements Layer1ApiFinishable
     private void printIfChanged(String text) {
         if (!text.equals(latestMessage)) {
             latestMessage = text;
-            LogBitmex.infoClassOf(this.getClass(), text);
+            Log.info("BitmexPanel latestMessage " + latestMessage);
         }
     }
     

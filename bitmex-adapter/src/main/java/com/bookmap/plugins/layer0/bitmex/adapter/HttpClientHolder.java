@@ -35,6 +35,8 @@ import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.GeneralType;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Method;
 import com.bookmap.plugins.layer0.bitmex.messages.ModuleTargetedHttpRequestFeedbackMessage;
 
+import velox.api.layer1.common.Log;
+
 public class HttpClientHolder implements Closeable {
     
     public static class HttpDeleteWithBody extends HttpEntityEnclosingRequestBase {
@@ -161,11 +163,11 @@ public class HttpClientHolder implements Closeable {
                         int rateLimitRemainingValue = Integer.parseInt(rateLimitRemainingHeader.getValue());
                         allowedRequestsPerMinuteLeft.set(rateLimitRemainingValue);
                     } catch (Exception e) {
-                        LogBitmex.infoClassOf(ConnectorUtils.class, " no ratelimit data", e);
+                        Log.error("no ratelimit data", e);
                     }
                 }
             } else {
-                LogBitmex.info("Server response " + statusCode + " " + response);
+                Log.info("Server response " + statusCode + " " + response);
                 Integer timeOut = ConnectorUtils.getTimeoutFromErrorMessage(response);
                 if (timeOut != null) {
                     allowedRequestsPerMinuteLeft.set(-timeOut);
@@ -181,13 +183,13 @@ public class HttpClientHolder implements Closeable {
                 //this is the desired behavior for 7.0 so no warnings needed
             }
         } catch (UnknownHostException | NoRouteToHostException e) {
-            LogBitmex.info("TradeConnector require: no response from server");
+            Log.info("TradeConnector require: no response from server");
         } catch (java.net.SocketException e) {
-            LogBitmex.info("TradeConnector require: network is unreachable");
+            Log.info("TradeConnector require: network is unreachable");
         } catch (IOException e) {
-            LogBitmex.info("TradeConnector require: buffer reading error", e);
+            Log.info("TradeConnector require: buffer reading error", e);
         } catch (URISyntaxException e) {
-            LogBitmex.info("Wrong uri", e);
+            Log.info("Wrong uri", e);
         }
         return Pair.of(isSuccessful, response);
     }

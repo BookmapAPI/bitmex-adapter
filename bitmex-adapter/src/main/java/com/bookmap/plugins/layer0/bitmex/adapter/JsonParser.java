@@ -91,7 +91,7 @@ public class JsonParser {
 				}
 
 				if (responseWs.getStatus() != null && responseWs.getStatus() != 200) {
-					LogBitmex.info("JsonParser parser: websocket response status = " + responseWs.getError());
+				    Log.info("JsonParser parser: websocket response status = " + responseWs.getError());
 					String errorMessage = responseWs.getError();
 					
 					if (errorMessage.toUpperCase().contains("Signature not valid".toUpperCase()) ||
@@ -117,7 +117,7 @@ public class JsonParser {
 				if (responseWs.getSuccess() == true && responseWs.getRequest().getOp().equals("unsubscribe")) {
 					String symbol = responseWs.getUnsubscribeSymbol();
 					if (symbol != null) {
-						LogBitmex.info(
+					    Log.info(
 								"JsonParser parser: getting unsbscribed from orderBookL2, symbol = " + symbol);
 						BmInstrument instr = activeInstrumentsMap.get(symbol);
 						instr.clearOrderBook();
@@ -126,19 +126,19 @@ public class JsonParser {
 
 				if (responseWs.getSuccess() == null && responseWs.getError() == null && responseWs.getTable() == null
 						&& responseWs.getInfo() == null) {
-					LogBitmex.info("JsonParser parser: parser fails to parse " + str);
+				    Log.info("JsonParser parser: parser fails to parse " + str);
 					throw new RuntimeException();
 				}
 
 				if (responseWs.getSuccess() != null || responseWs.getInfo() != null) {
-					LogBitmex.info("JsonParser parser: service message " + str);
+				    Log.info("JsonParser parser: service message " + str);
 					return;
 				}
 
 				if (responseWs.getError() != null) {
-					LogBitmex.info("JsonParser parser: error message " + str);
+				    Log.info("JsonParser parser: error message " + str);
 					BmErrorMessage error = new Gson().fromJson(str, BmErrorMessage.class);
-					LogBitmex.info(error.getMessage());
+					Log.info(error.getMessage());
 					return;
 				}
 				return;
@@ -151,7 +151,7 @@ public class JsonParser {
 
 			// skip a messages if it contains empty data
 			if (msg.getData() == null) {
-				LogBitmex.info("JsonParser parser: data == null =>" + str);
+			    Log.info("JsonParser parser: data == null =>" + str);
 			}
 
 			if (ConnectorUtils.stringToTopic.keySet().contains(msg.getTable())) {
@@ -159,7 +159,7 @@ public class JsonParser {
 				preprocessMessage(str, Topic);
 			}
 		} catch (Exception e) {
-			LogBitmex.info("Exception thrown from parser. String is: " + str, e);
+		    Log.error("Exception thrown from parser. String is: " + str, e);
 			throw new RuntimeException(e);
 		}
 	}
@@ -296,17 +296,16 @@ public class JsonParser {
 
 		if (msg0.getAction().equals("partial")) {
 			nonInstrumentPartialsParsed.add(container.name);
-			LogBitmex.info("JsonParser preprocessMessage: partial acquired for  " + container.name);
+			Log.info("JsonParser preprocessMessage: partial acquired for  " + container.name);
 
 			if (topic.equals(Topic.ORDERBOOKL2)) {
-//			    LogBitmex.info("JsonParser 255  " + str);
 			    ArrayList<UnitData> data = ((MessageGeneric<UnitData>) msg0).getData();
 			    if (data.isEmpty()) return;
 			    String symbol = data.get(0).getSymbol();
 				BmInstrument instr = activeInstrumentsMap.get(symbol);
 				nonInstrumentPartialsParsed.add(container.name);
 				instr.setOrderBookSnapshotParsed(true);
-				LogBitmex.info("JsonParser preprocessMessage setOrderBookSnapshotParsed set true for "
+				Log.info("JsonParser preprocessMessage setOrderBookSnapshotParsed set true for "
 						+ instr.getSymbol());
 				performOrderBookL2SpecificOpSetOne((MessageGeneric<UnitData>) msg0);
 			}
@@ -315,11 +314,11 @@ public class JsonParser {
 		if (nonInstrumentPartialsParsed.contains(container.name)) {
 			if (topic.equals(Topic.ORDER)) {
 				performOrderSpecificOp();
-				LogBitmex.info("JsonParser preprocessMessage: (order)" + str);
+				Log.info("JsonParser preprocessMessage: (order)" + str);
 			}
 
 			if (msg0.getData().isEmpty()) {
-				LogBitmex.info("JsonParser preprocessMessage: skips data == [] => " + str);
+			    Log.info("JsonParser preprocessMessage: skips data == [] => " + str);
 				return;
 			}
 
@@ -334,7 +333,7 @@ public class JsonParser {
 			}
 
 			if (topic.equals(Topic.EXECUTION)) {
-				LogBitmex.info("JsonParser parser: execution => " + str);
+			    Log.info("JsonParser parser: execution => " + str);
 			}
 		}
 		return;
@@ -342,7 +341,7 @@ public class JsonParser {
 
 	private void performOrderSpecificOp() {
 		nonInstrumentPartialsParsed.remove("order");
-		LogBitmex.info("JsonParser performOrderSpecificOp: 'order' removed from partialsParsed");
+		Log.info("JsonParser performOrderSpecificOp: 'order' removed from partialsParsed");
 		// we need only the snapshot.
 		// the rest of info comes from execution Topic.
 		// it will be a good idea to get unsubscribed from orders
@@ -384,7 +383,7 @@ public class JsonParser {
 				provider.listenForPosition((UnitPosition) unit);
 			} else if (clazz == UnitOrder.class) {
 				UnitOrder ord = (UnitOrder) unit;
-				LogBitmex.info("JsonParser dispatchRawUnits: orderId" + ord.getOrderID());
+				Log.info("JsonParser dispatchRawUnits: orderId" + ord.getOrderID());
 				provider.createBookmapOrder((UnitOrder) unit);
 			} else if (clazz == UnitTrade.class) {
 				// specific
