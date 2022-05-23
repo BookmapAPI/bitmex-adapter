@@ -664,6 +664,12 @@ public class Provider extends ExternalLiveBaseProvider {
         connector.setTradeConnector(tradeConnector);
         connectorThread = new Thread(connector);
         connectorThread.setName("->com.bookmap.plugins.layer0.bitmex.adapter: connector");
+        
+        if (!connector.isConnectionEstablished()) {
+            adminListeners.forEach(l -> l.onLoginFailed(LoginFailedReason.NO_INTERNET_CONNECTION, "no Internet connection"));
+            close();
+            return;
+        }
         connectorThread.start();
 
         if (bitmexLoginData.isTradingEnabled) {

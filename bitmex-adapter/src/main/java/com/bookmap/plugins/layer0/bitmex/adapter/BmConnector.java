@@ -105,8 +105,9 @@ public class BmConnector implements Runnable {
 		return webSocketStartingLatch;
 	}
 
-	private boolean isConnectionEstablished() {
-		return clientHolder.makeRequest(GeneralType.BLANK, Method.GET, null) != null;
+	public boolean isConnectionEstablished() {
+	    Pair<Boolean, String> response = clientHolder.makeRequest(GeneralType.BLANK, Method.GET, null);
+		return response != null && response.getKey();
 	}
 
 	public void setWssUrl(String wssUrl) {
@@ -488,6 +489,7 @@ public class BmConnector implements Runnable {
                     provider.adminListeners
                             .forEach(l -> l.onConnectionLost(DisconnectionReason.FATAL, "No connection with BitMEX"));
                     interruptionNeeded.set(true);
+                    provider.getConnector().getWebSocketAuthLatch().countDown();
                 } else {
                     try {
                         Thread.sleep(5000);
