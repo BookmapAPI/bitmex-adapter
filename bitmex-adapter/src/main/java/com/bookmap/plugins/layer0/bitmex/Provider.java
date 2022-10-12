@@ -1,49 +1,18 @@
 package com.bookmap.plugins.layer0.bitmex;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.stream.IntStream;
-
+import com.bookmap.plugins.layer0.bitmex.adapter.*;
+import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.GeneralType;
+import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Method;
+import com.bookmap.plugins.layer0.bitmex.messages.ProviderTargetedLeverageMessage;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import org.apache.commons.collections4.BidiMap;
 import org.apache.commons.collections4.bidimap.DualHashBidiMap;
 import org.apache.commons.io.input.ClassLoaderObjectInputStream;
 import org.apache.commons.lang3.SerializationUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
-
-import com.bookmap.plugins.layer0.bitmex.adapter.BmConnector;
-import com.bookmap.plugins.layer0.bitmex.adapter.BmErrorMessage;
-import com.bookmap.plugins.layer0.bitmex.adapter.BmInstrument;
-import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils;
-import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.GeneralType;
-import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Method;
-import com.bookmap.plugins.layer0.bitmex.adapter.Constants;
-import com.bookmap.plugins.layer0.bitmex.adapter.HttpClientHolder;
-import com.bookmap.plugins.layer0.bitmex.adapter.PanelServerHelper;
-import com.bookmap.plugins.layer0.bitmex.adapter.TradeConnector;
-import com.bookmap.plugins.layer0.bitmex.adapter.UnitData;
-import com.bookmap.plugins.layer0.bitmex.adapter.UnitExecution;
-import com.bookmap.plugins.layer0.bitmex.adapter.UnitMargin;
-import com.bookmap.plugins.layer0.bitmex.adapter.UnitOrder;
-import com.bookmap.plugins.layer0.bitmex.adapter.UnitPosition;
-import com.bookmap.plugins.layer0.bitmex.adapter.UnitWallet;
-import com.bookmap.plugins.layer0.bitmex.messages.ProviderTargetedLeverageMessage;
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-
 import velox.api.layer0.annotations.Layer0CredentialsFieldsManager;
 import velox.api.layer0.annotations.Layer0LiveModule;
 import velox.api.layer0.credentialscomponents.CredentialsSerializationField;
@@ -53,34 +22,20 @@ import velox.api.layer1.Layer1ApiDataListener;
 import velox.api.layer1.annotations.Layer1ApiVersion;
 import velox.api.layer1.annotations.Layer1ApiVersionValue;
 import velox.api.layer1.common.Log;
-import velox.api.layer1.data.BalanceInfo;
-import velox.api.layer1.data.BmSimpleHistoricalDataInfo;
-import velox.api.layer1.data.DisconnectionReason;
-import velox.api.layer1.data.ExecutionInfo;
-import velox.api.layer1.data.ExtendedLoginData;
-import velox.api.layer1.data.InstrumentInfo;
-import velox.api.layer1.data.Layer1ApiProviderSupportedFeatures;
-import velox.api.layer1.data.Layer1ApiProviderSupportedFeaturesBuilder;
-import velox.api.layer1.data.LoginData;
-import velox.api.layer1.data.LoginFailedReason;
-import velox.api.layer1.data.OcoOrderSendParameters;
-import velox.api.layer1.data.OrderCancelParameters;
-import velox.api.layer1.data.OrderDuration;
-import velox.api.layer1.data.OrderInfoBuilder;
-import velox.api.layer1.data.OrderMoveParameters;
-import velox.api.layer1.data.OrderResizeParameters;
-import velox.api.layer1.data.OrderSendParameters;
-import velox.api.layer1.data.OrderStatus;
-import velox.api.layer1.data.OrderType;
-import velox.api.layer1.data.OrderUpdateParameters;
-import velox.api.layer1.data.SimpleOrderSendParameters;
-import velox.api.layer1.data.StatusInfo;
-import velox.api.layer1.data.SubscribeInfo;
-import velox.api.layer1.data.SystemTextMessageType;
-import velox.api.layer1.data.TradeInfo;
-import velox.api.layer1.data.UserPasswordDemoLoginData;
+import velox.api.layer1.data.*;
 import velox.api.layer1.layers.utils.OrderBook;
 import velox.api.layer1.messages.UserProviderTargetedMessage;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.IntStream;
 
 @Layer1ApiVersion(Layer1ApiVersionValue.VERSION1)
 @Layer0LiveModule(shortName = "MEX", fullName = "BitMEX")
@@ -147,6 +102,8 @@ public class Provider extends ExternalLiveBaseProvider {
 	public List<SubscribeInfo> getKnownInstruments() {
 		return knownInstruments;
 	}
+
+	ExecutorService orderExecutor = Executors.newSingleThreadExecutor();
 
 	public void setKnownInstruments(CopyOnWriteArrayList<SubscribeInfo> knownInstruments) {
 		this.knownInstruments = knownInstruments;
@@ -215,11 +172,12 @@ public class Provider extends ExternalLiveBaseProvider {
 					    Log.error("", e);
 					}
 					BmInstrument instr = activeBmInstruments.get(symbol);
-					double pips = instr.getTickSize();
+					double pips = ((SubscribeInfoCrypto)subscribeInfo).pips;
+					instr.setActiveTickSize(pips);
 
-					final Instrument newInstrument = new Instrument(alias, pips);
+					Instrument newInstrument = new Instrument(alias, pips);
 					instruments.put(alias, newInstrument);
-					final InstrumentInfo instrumentInfo = new InstrumentInfo(symbol, exchange, type, newInstrument.pips,
+					InstrumentInfo instrumentInfo = new InstrumentInfo(symbol, exchange, type, newInstrument.pips,
 							1, "", false);
 
 					instrumentListeners.forEach(l -> l.onInstrumentAdded(alias, instrumentInfo));
@@ -266,6 +224,7 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	@Override
 	public void sendOrder(OrderSendParameters orderSendParameters) {
+		orderExecutor.execute(() -> {
 		String data;
 		GeneralType genType;
 
@@ -291,6 +250,7 @@ public class Provider extends ExternalLiveBaseProvider {
 		Pair<Boolean, String> response = tradeConnector.require(genType, Method.POST, data);
 		passCancelMessageIfNeededAndClearPendingList(response);
 		Log.info("Provider sendOrder: response = " + response);
+		});
 	}
 
 	private void passCancelMessageIfNeededAndClearPendingList(Pair<Boolean, String> response) {
@@ -320,7 +280,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	private SimpleOrderSendParameters createStopLossFromParameters(SimpleOrderSendParameters simpleParams) {
 		String symbol = ConnectorUtils.isolateSymbol(simpleParams.alias);
 		BmInstrument bmInstrument = connector.getActiveInstrumentsMap().get(symbol);
-		double ticksize = bmInstrument.getTickSize();
+		double tickSize = bmInstrument.getActiveTickSize();
 		int offsetMultiplier = simpleParams.isBuy ? 1 : -1;
 
 		double limitPriceChecked = checkLImitPriceForBracket(simpleParams, bmInstrument);
@@ -332,7 +292,7 @@ public class Provider extends ExternalLiveBaseProvider {
 				simpleParams.size,
 				simpleParams.duration,
 				Double.NaN, // limitPrice
-				limitPriceChecked - offsetMultiplier * simpleParams.stopLossOffset * ticksize, // stopPrice
+				limitPriceChecked - offsetMultiplier * simpleParams.stopLossOffset * tickSize, // stopPrice
 				simpleParams.sizeMultiplier);
 		return stopLoss;
 	}
@@ -340,7 +300,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	private SimpleOrderSendParameters createTakeProfitFromParameters(SimpleOrderSendParameters simpleParams) {
 		String symbol = ConnectorUtils.isolateSymbol(simpleParams.alias);
 		BmInstrument bmInstrument = connector.getActiveInstrumentsMap().get(symbol);
-		double ticksize = bmInstrument.getTickSize();
+		double tickSize = bmInstrument.getActiveTickSize();
 		int offsetMultiplier = simpleParams.isBuy ? 1 : -1;
 		double limitPriceChecked = checkLImitPriceForBracket(simpleParams, bmInstrument);
 
@@ -350,7 +310,7 @@ public class Provider extends ExternalLiveBaseProvider {
 				!simpleParams.isBuy, // !
 				simpleParams.size,
 				simpleParams.duration,
-				limitPriceChecked + offsetMultiplier * simpleParams.takeProfitOffset * ticksize, // limitPrice
+				limitPriceChecked + offsetMultiplier * simpleParams.takeProfitOffset * tickSize, // limitPrice
 				Double.NaN, // stopPrice
 				simpleParams.sizeMultiplier);
 		return takeProfit;
@@ -359,9 +319,9 @@ public class Provider extends ExternalLiveBaseProvider {
 	private double checkLImitPriceForBracket(SimpleOrderSendParameters simpleParams, BmInstrument bmInstrument) {
 		double limitPriceChecked = simpleParams.limitPrice;
 		if (Double.isNaN(simpleParams.limitPrice)) {
-			OrderBook orderBook = bmInstrument.getOrderBook();
-			limitPriceChecked = simpleParams.isBuy ? orderBook.getBestAskPriceOrNone() * bmInstrument.getTickSize()
-					: orderBook.getBestBidPriceOrNone() * bmInstrument.getTickSize();
+			OrderBook orderBook = bmInstrument.getOrderBook().getOrderBook();
+			limitPriceChecked = simpleParams.isBuy ? orderBook.getBestAskPriceOrNone() * bmInstrument.getActiveTickSize()
+					: orderBook.getBestBidPriceOrNone() * bmInstrument.getActiveTickSize();
 		}
 		return limitPriceChecked;
 	}
@@ -466,6 +426,7 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	@Override
     public void updateOrder(OrderUpdateParameters orderUpdateParameters) {
+		orderExecutor.execute(() -> {
         try {
             if (orderUpdateParameters.getClass() == OrderCancelParameters.class) {
                 OrderCancelParameters orderCancelParameters = (OrderCancelParameters) orderUpdateParameters;
@@ -522,6 +483,7 @@ public class Provider extends ExternalLiveBaseProvider {
             }
             throw new RuntimeException();
         }
+		});
     }
 
 	private void passCancelParameters(OrderCancelParameters orderCancelParameters) {
@@ -1140,9 +1102,38 @@ public class Provider extends ExternalLiveBaseProvider {
 				.setTypeUsedForSubscription(false)
 				.setHistoricalDataInfo(new BmSimpleHistoricalDataInfo(
 				        isDemo ? Constants.demoHistoricalServerUrl : Constants.realHistoricalServerUrl))
-				.setKnownInstruments(knownInstruments);
+				.setKnownInstruments(knownInstruments)
+				.setPipsFunction(subscribeInfo -> {
+					double minSelectablePip = getMinSelectablePip(subscribeInfo);
+					return new DefaultAndList<>(minSelectablePip, getSelectablePips(minSelectablePip));
+				});
 
 		return a.build();
+	}
+
+	private double getMinSelectablePip(SubscribeInfo subscribeInfo){
+		return connector.getActiveInstrumentsMap().get(subscribeInfo.symbol).getTickSize();
+	}
+
+	private List<Double> getSelectablePips(double minSelectablePip) {
+		int lastDigit = BigDecimal.valueOf(minSelectablePip).unscaledValue().intValue() % 10;
+		List<Double> list = new ArrayList<>();
+		double currentValue = minSelectablePip;
+
+		for (int i = 0; minSelectablePip * 10_000 > currentValue; i++) {
+			switch (lastDigit) {
+				case 1:
+					currentValue = minSelectablePip * Math.pow(10, i / 2) * (i % 2 == 0 ? 1 : 5);
+					break;
+				case 5:
+					currentValue = minSelectablePip * Math.pow(10, i / 2) * (i % 2 == 0 ? 1 : 2);
+					break;
+				default:
+					currentValue = minSelectablePip * Math.pow(10, i);
+			}
+			list.add(currentValue);
+		}
+		return list;
 	}
 
 	@Override

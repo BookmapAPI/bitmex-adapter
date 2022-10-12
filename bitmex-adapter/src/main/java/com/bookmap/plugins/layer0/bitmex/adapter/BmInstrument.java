@@ -9,12 +9,16 @@ import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.WebSocketOperati
 
 import velox.api.layer1.common.Log;
 import velox.api.layer1.layers.utils.OrderBook;
+import velox.api.layer1.layers.utils.OrderByOrderBook;
 
 /*BmInstrument is the short for BitMEX Instrument
 Cannot be named simply "Instrument" 
 because the Bookmap Layer0Api has a class named "Instrument"*/
 public class BmInstrument {
 	private String symbol;
+	/**
+	 * The native min tick size of an instrument
+	 */
 	private double tickSize;
 	private long multiplier;
 	private long underlyingToSettleMultiplier;
@@ -22,9 +26,9 @@ public class BmInstrument {
 	private boolean isSubscribed;
 	private double initMargin;
 
-	private OrderBook orderBook = new OrderBook();
+	private OrderByOrderBook orderBook = new OrderByOrderBook();
 	private BlockingQueue<Message> queue = new LinkedBlockingQueue<>();
-	private HashMap<Long, Integer> pricesMap = new HashMap<>();
+	private HashMap<Long, Double> pricesMap = new HashMap<>();
 	private UnitPosition validPosition = new UnitPosition(0L, "", "", 0L, 0L, 0L, 0D);
 	private boolean orderBookSnapshotParsed = false;
 	private double lastBuy = Double.NaN;
@@ -32,6 +36,11 @@ public class BmInstrument {
 	private int executionsVolume = 0;
 	private int sellOrdersCount = 0;
 	private int buyOrdersCount = 0;
+
+	/**
+	 * The tick size a user has been subscribed to.
+	 */
+	private double activeTickSize;
 	
     {//temp workaround
         this.validPosition.setOpenOrderBuyQty(0);
@@ -109,6 +118,10 @@ public class BmInstrument {
 		return symbol;
 	}
 
+	/**
+	 * @return the native min tick size of an instrument<br>
+	 * use {@link #getActiveTickSize()} for the current tick size
+	 */
 	public double getTickSize() {
 		return tickSize;
 	}
@@ -121,12 +134,17 @@ public class BmInstrument {
 		this.tickSize = tickSize;
 	}
 
-	public OrderBook getOrderBook() {
+	public OrderByOrderBook getOrderBook() {
 		return orderBook;
 	}
 
+	public void resetOrderBook(){
+		orderBook = new OrderByOrderBook();
+		pricesMap = new HashMap<>();
+	}
+
 	public void clearOrderBook() {
-		this.orderBook = new OrderBook();
+		this.orderBook = new OrderByOrderBook();
 	}
 
 	public boolean isSubscribed() {
@@ -137,12 +155,8 @@ public class BmInstrument {
 		this.isSubscribed = isSubscribed;
 	}
 
-	public HashMap<Long, Integer> getPricesMap() {
+	public HashMap<Long, Double> getPricesMap() {
 		return pricesMap;
-	}
-
-	public Integer getPriceFromMap(long id) {
-		return pricesMap.get(id);
 	}
 
 	public UnitPosition getValidPosition() {
@@ -210,6 +224,14 @@ public class BmInstrument {
     public void setInitMargin(double initMargin) {
         this.initMargin = initMargin;
     }
+
+	public double getActiveTickSize() {
+		return activeTickSize;
+	}
+
+	public void setActiveTickSize(double activeTickSize) {
+		this.activeTickSize = activeTickSize;
+	}
 
 	
 }

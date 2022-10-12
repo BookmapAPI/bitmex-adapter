@@ -1,26 +1,19 @@
 package com.bookmap.plugins.layer0.bitmex.adapter;
 
-import java.lang.reflect.Array;
-import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-
 import com.bookmap.plugins.layer0.bitmex.Provider;
 import com.bookmap.plugins.layer0.bitmex.adapter.ConnectorUtils.Topic;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.reflect.TypeToken;
-
 import velox.api.layer1.common.Log;
 import velox.api.layer1.data.SystemTextMessageType;
-import velox.api.layer1.layers.utils.OrderBook;
+import velox.api.layer1.layers.utils.OrderByOrderBook;
 import velox.api.layer1.providers.helper.RawDataHelper;
+
+import java.lang.reflect.Array;
+import java.lang.reflect.Type;
+import java.util.*;
 
 public class JsonParser {
 
@@ -164,69 +157,68 @@ public class JsonParser {
 		}
 	}
 
-	/**
-	 * data units in the snapshot are sorted from highest price to lowest This
-	 * may result in a huge red bestAsk peak on the screen because for a couple
-	 * of milliseconds the bestAsk is actually the most expensive ask What is
-	 * even worse, to fit this peak to the screen the picture gets zoomed out
-	 * which looks pretty weird To avoid this bestAsk is moved to the beginning
-	 * of the list
-	 **/
-	private ArrayList<UnitData> putBestAskToTheHeadOfList(ArrayList<UnitData> units) {
-		if (units.size() < 2)
-			return units;
-
-		int firstAskIndex = 0;
-
-		for (int i = 0; i < units.size(); i++) {
-			if (units.get(i + 1).isBid()) {
-				firstAskIndex = i;
-				break;
-			}
-		}
-		if (firstAskIndex != 0) {
-			Collections.swap(units, 0, firstAskIndex);
-		}
-		return units;
-	}
-
 	/*
 	 * setting missing values for dataunits' fields adding missing prices to
 	 * <id,intPrice> map updating the orderBook This refers to order book
 	 * updates only UnitTrade orders are processed in processTradeMsg method
 	 */
 	private void processOrderMessage(MessageGeneric<UnitData> msg) {
-		BmInstrument instr = activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
-		OrderBook book = instr.getOrderBook();
-
 		for (UnitData unit : msg.getData()) {
 			unit.setBid(unit.getSide().equals("Buy"));
-			HashMap<Long, Integer> pricesMap = instr.getPricesMap();
-			int intPrice;
+			BmInstrument instr = activeInstrumentsMap.get(unit.getSymbol());
+			HashMap<Long, Double> pricesMap = instr.getPricesMap();
+			String action = msg.getAction();
 
-			if (msg.getAction().equals("delete")) {
-				intPrice = pricesMap.get(unit.getId());
-				unit.setSize(0);
-			} else {
-				if (msg.getAction().equals("update")) {
-					intPrice = pricesMap.get(unit.getId());
-				} else {// action is partial or insert
-					// intPrice = createIntPrice(unit.getPrice(),
-					// instr.getTickSize());
-					intPrice = (int) Math.round(unit.getPrice() / instr.getTickSize());
-					pricesMap.put(unit.getId(), intPrice);
-				}
+			//update and delete units contain no price so we need to restore it
+			switch (action) {
+				case "delete":
+				case "update":
+					double price = pricesMap.get(unit.getId());
+					unit.setPrice(price);
+					break;
+				default://partial or insert
+					pricesMap.put(unit.getId(), unit.getPrice());
 			}
+			double activeTickSize = instr.getActiveTickSize();
+			double defaultTickSize = instr.getTickSize();
+			long id = (long) Math.round(unit.getPrice() / defaultTickSize);
+			int intPrice = getIntPrice(unit.isBid(), unit.getPrice() / activeTickSize);
+			OrderByOrderBook orderBook = instr.getOrderBook();
+			long newSize;
+
+			if (orderBook.hasOrder(id)) {
+				if (action.equals("delete")) {
+					newSize = orderBook.removeOrder(id);
+				} else {
+					OrderByOrderBook.OrderUpdateResult updateOrder = orderBook.updateOrder(id, intPrice, unit.getSize());
+					newSize = updateOrder.toSize;
+				}
+			} else {
+				newSize = orderBook.addOrder(id, unit.isBid(), intPrice, unit.getSize());
+			}
+			int absoluteSize = (int) (newSize);
+			unit.setSize(absoluteSize);
 			unit.setIntPrice(intPrice);
-			book.onUpdate(unit.isBid(), intPrice, unit.getSize());
 		}
 	}
 
+	private int getIntPrice(boolean isBid, double price){
+		double result = isBid
+				? Math.floor(price)
+				: Math.ceil(price);
+		return Math.min(Integer.MAX_VALUE, (int)result);
+	}
+
 	private void processTradeUnit(UnitTrade unit) {
-		unit.setBid(unit.getSide().equals("Buy"));
 		BmInstrument instr = activeInstrumentsMap.get(unit.getSymbol());
-		// int intPrice = createIntPrice(unit.getPrice(), instr.getTickSize());
-		int intPrice = (int) Math.round(unit.getPrice() / instr.getTickSize());
+		/*
+		 * Please note #getIntPrice takes an inverted isBid value as an arg for trades.
+		 * We assume a trade is performed by an aggressor so buys must be placed around
+		 * the best ask line (rounding up) ad sells around the best bid line (rounding
+		 * down) respectively.
+		 */
+		unit.setBid(unit.getSide().equals("Buy"));
+		int intPrice = getIntPrice(!unit.isBid(), unit.getPrice()/instr.getActiveTickSize());
 		unit.setIntPrice(intPrice);
 	}
 
@@ -238,53 +230,28 @@ public class JsonParser {
 	 * putBestAskToTheHeadOfList method)
 	 **/
 	private void resetBookMapOrderBook(BmInstrument instr) {
-		// Extracting lists of levels from ask and Bid maps
 		String symbol = instr.getSymbol();
 		ArrayList<UnitData> units = new ArrayList<>();
-
-		TreeMap<Integer, Long> askMap = instr.getOrderBook().getAskMap();
+		TreeMap<Integer, Long> askMap = instr.getOrderBook().getOrderBook().getAskMap();
 		ArrayList<Integer> askList = new ArrayList<>(askMap.keySet());
-		Collections.sort(askList, Collections.reverseOrder());
-		int i = askList.size() - 1;
-		int bestAsk = askList.get(i);
-		askList.remove(i);
 
 		for (Integer intPrice : askList) {
-			units.add(new UnitData(symbol, intPrice, false));
-		}
+			UnitData unit = new UnitData(symbol, 0, "Sell");
+			unit.setBid(false);
+			unit.setIntPrice(intPrice);
+			units.add(unit);		}
 
-		TreeMap<Integer, Long> bidMap = instr.getOrderBook().getBidMap();
+		TreeMap<Integer, Long> bidMap = instr.getOrderBook().getOrderBook().getBidMap();
 		ArrayList<Integer> bidList = new ArrayList<>(bidMap.keySet());
-		Collections.sort(bidList);
-		i = bidList.size() - 1;
-		int bestBid = bidList.get(i);
-		bidList.remove(bidList.get(i));
-
 		for (Integer intPrice : bidList) {
-			units.add(new UnitData(symbol, intPrice, true));
+			UnitData unit = new UnitData(symbol, 0, "Buy");
+			unit.setBid(true);
+			unit.setIntPrice(intPrice);
+			units.add(unit);
 		}
-
-		units.add(new UnitData(symbol, bestAsk, false));
-		units.add(new UnitData(symbol, bestBid, true));
-
 		MessageGeneric<UnitData> mess = new MessageGeneric<>("orderBookL2", "delete", UnitData.class, units);
 		for (UnitData unit : mess.getData()) {
 			provider.listenForOrderBookL2(unit);
-		}
-	}
-
-	private void resetBmInstrumentOrderBook(BmInstrument instr) {
-		OrderBook book = instr.getOrderBook();
-		TreeMap<Integer, Long> askMap = instr.getOrderBook().getAskMap();
-		Set<Integer> askSet = new HashSet<>(askMap.keySet());
-		for (Integer intPrice : askSet) {
-			book.onUpdate(false, intPrice, 0);
-		}
-
-		TreeMap<Integer, Long> bidMap = instr.getOrderBook().getAskMap();
-		Set<Integer> bidSet = new HashSet<>(bidMap.keySet());
-		for (Integer intPrice : bidSet) {
-			book.onUpdate(true, intPrice, 0);
 		}
 	}
 
@@ -325,7 +292,7 @@ public class JsonParser {
 			ArrayList<T> units = (ArrayList<T>) msg0.getData();
 
 			if (topic.equals(Topic.ORDERBOOKL2) && !units.isEmpty()) {
-				performOrderBookL2SpecificOpSetTwo((MessageGeneric<UnitData>) msg0);
+				processOrderMessage((MessageGeneric<UnitData>) msg0);
 			}
 
 			if (!units.isEmpty()) {
@@ -350,19 +317,11 @@ public class JsonParser {
 
 	private void performOrderBookL2SpecificOpSetOne(MessageGeneric<UnitData> msg) {
 		BmInstrument instr = activeInstrumentsMap.get(msg.getData().get(0).getSymbol());
-		if (!instr.getOrderBook().getAskMap().isEmpty()) {
+		if (!instr.getOrderBook().getOrderBook().getAskMap().isEmpty()) {
 			// orderbook is filled already (after reconnect).
 			// reset the book after reconnect
 			resetBookMapOrderBook(instr);
-			resetBmInstrumentOrderBook(instr);
-		}
-	}
-
-	private void performOrderBookL2SpecificOpSetTwo(MessageGeneric<UnitData> msg) {
-		processOrderMessage(msg);
-
-		if (msg.getAction().equals("partial")) {
-			msg.setData(putBestAskToTheHeadOfList(msg.getData()));
+			instr.resetOrderBook();
 		}
 	}
 
@@ -393,7 +352,6 @@ public class JsonParser {
 				provider.listenForOrderBookL2((UnitData) unit);
 			}
 		}
-
 	}
 
 }

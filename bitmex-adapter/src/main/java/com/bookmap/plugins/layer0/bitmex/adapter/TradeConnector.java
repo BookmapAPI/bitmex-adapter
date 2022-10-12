@@ -51,10 +51,10 @@ public class TradeConnector {
 
 	private double getPegOffset(String symbol, double stopPrice) {
 		BmInstrument instr = provider.getConnector().getActiveInstrumentsMap().get(symbol);
-		OrderBook orderBook = instr.getOrderBook();
+		OrderBook orderBook = instr.getOrderBook().getOrderBook();
 		double pegOffset;
 		pegOffset = stopPrice
-				- (double) orderBook.getBestAskPriceOrNone() * instr.getTickSize();
+				- (double) orderBook.getBestAskPriceOrNone() * instr.getActiveTickSize();
 		return pegOffset;
 	}
 

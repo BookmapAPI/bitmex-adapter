@@ -10,23 +10,28 @@ public class UnitData extends UnitRaw {
 	private boolean isBid;
 	
 	//this constructor is only used to create dataunits for the delete message
-	public UnitData(String symbol, int intPrice, boolean isBid) {
+	public UnitData(String symbol, int intPrice, String side) {
 		super();
 		this.symbol = symbol;
 		this.intPrice = intPrice;
-		this.isBid = isBid;
+		this.side = side;
 	}
 	
 	public UnitData() {
 		super();
 	}
 
-	public boolean isBid() {
-		return isBid;
-	}
 
 	public void setBid(boolean isBid) {
 		this.isBid = isBid;
+	}
+
+	public String getSide() {
+		return side;
+	}
+
+	public boolean isBid() {
+		return isBid;
 	}
 
 	public int getIntPrice() {
@@ -39,10 +44,6 @@ public class UnitData extends UnitRaw {
 
 	public long getId() {
 		return id;
-	}
-
-	public String getSide() {
-		return side;
 	}
 
 	public long getSize() {
