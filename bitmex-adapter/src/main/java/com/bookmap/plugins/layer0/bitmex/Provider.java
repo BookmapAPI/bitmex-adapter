@@ -1104,6 +1104,9 @@ public class Provider extends ExternalLiveBaseProvider {
 				        isDemo ? Constants.demoHistoricalServerUrl : Constants.realHistoricalServerUrl))
 				.setKnownInstruments(knownInstruments)
 				.setPipsFunction(subscribeInfo -> {
+					if (connector.getActiveInstrumentsMap().get(subscribeInfo.symbol) == null) {
+						return null;
+					}
 					double minSelectablePip = getMinSelectablePip(subscribeInfo);
 					return new DefaultAndList<>(minSelectablePip, getSelectablePips(minSelectablePip));
 				});
