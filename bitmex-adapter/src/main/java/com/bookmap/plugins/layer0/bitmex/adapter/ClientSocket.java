@@ -131,7 +131,7 @@ public class ClientSocket {
 
 	@OnWebSocketError
 	public void onError(Session session, Throwable error) throws Exception {
-	    Log.info("ClientSockeT onError: " + error.toString());
+	    Log.info("ClientSocket onError: " + error.toString());
 		isConnectionLost = true;
 		openingLatch.countDown();
 		close();
