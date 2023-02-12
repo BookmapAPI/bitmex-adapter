@@ -4,7 +4,7 @@ plugins {
 }
 
 group 'com.bookmap.api.adapter'
-version = '0.8.0.3'
+version = '0.8.0.4'
 
 targetCompatibility = 1.8
 sourceCompatibility = 1.8
