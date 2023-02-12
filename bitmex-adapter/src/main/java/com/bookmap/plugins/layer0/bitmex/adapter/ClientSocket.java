@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.UpgradeException;
 import org.eclipse.jetty.websocket.api.WebSocketException;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
@@ -28,6 +29,10 @@ import velox.api.layer1.common.Log;
 
 @WebSocket(maxTextMessageSize = Integer.MAX_VALUE, maxBinaryMessageSize = Integer.MAX_VALUE)
 public class ClientSocket {
+	private static final long MIN_CONNECTION_TIMEOUT = 4_000;
+	private static final long MAX_CONNECTION_TIMEOUT = 64_000;
+
+	private long connectionTimeout = MIN_CONNECTION_TIMEOUT;
 
 	private Session session;
 	private CountDownLatch openingLatch = new CountDownLatch(1);
@@ -60,6 +65,7 @@ public class ClientSocket {
 		this.session = session;
 		openingLatch.countDown();
 		launchPingTimer();
+		connectionTimeout = MIN_CONNECTION_TIMEOUT;
 	}
 
 	private void launchPingTimer() {
@@ -132,6 +138,17 @@ public class ClientSocket {
 	@OnWebSocketError
 	public void onError(Session session, Throwable error) throws Exception {
 	    Log.info("ClientSocket onError: " + error.toString());
+
+		if (error instanceof UpgradeException){
+			switch(((UpgradeException)error).getResponseStatusCode()){
+				case 429 :
+					connectionTimeout = Math.max(connectionTimeout, MAX_CONNECTION_TIMEOUT);
+					Log.info(String.format("ClientSocket: HTTP status 429, reconnecting in %d seconds", connectionTimeout/1_000));
+					Thread.sleep(connectionTimeout);
+					connectionTimeout *= 2;
+					break;
+			}
+		}
 		isConnectionLost = true;
 		openingLatch.countDown();
 		close();
