@@ -4,14 +4,7 @@ import java.net.URI;
 import java.nio.channels.UnresolvedAddressException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -20,6 +13,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
@@ -245,11 +239,21 @@ public class BmConnector implements Runnable {
             Pair<Boolean, String> response = clientHolder.makeRequest(GeneralType.ACTIVE_INSTRUMENTS, Method.GET, null);
 
             if (response.getLeft()) {
-                    BmInstrument[] instrs = parser.getArrayFromJson(response.getRight(), BmInstrument[].class);
-
-                    for (BmInstrument instr : instrs) {
-                        activeBmInstrumentsMap.put(instr.getSymbol(), instr);
-                        provider.maxLeverages.put(instr.getSymbol(), (int) Math.round(1 / instr.getInitMargin()));
+                    Set<BmInstrument> instruments = Arrays.stream(parser.getArrayFromJson(response.getRight(), BmInstrument[].class))
+							.collect(Collectors.toSet());
+				    String recordingSymbolsEnv = System.getenv("BOOKMAP_LIMIT_SYMBOLS");
+					Set<String> recordingSymbols;
+				    if(recordingSymbolsEnv != null){
+					    recordingSymbols = Arrays.stream(recordingSymbolsEnv.split(",")).collect(Collectors.toSet());
+				    } else {
+						recordingSymbols = Collections.emptySet();
+					}
+					
+				    for (BmInstrument instrument : instruments) {
+						if (recordingSymbols.isEmpty() || recordingSymbols.contains(instrument.getSymbol())) {
+							activeBmInstrumentsMap.put(instrument.getSymbol(), instrument);
+							provider.maxLeverages.put(instrument.getSymbol(), (int) Math.round(1 / instrument.getInitMargin()));
+						}
                     }
 			} else {
 			    Log.info(response.getRight());
