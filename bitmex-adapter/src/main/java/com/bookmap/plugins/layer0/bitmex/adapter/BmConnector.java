@@ -40,6 +40,8 @@ import velox.api.layer1.data.SystemTextMessageType;
 
 public class BmConnector implements Runnable {
 
+	private static final long SUBSCRIPTION_TIMEOUT = 2_000;
+
 	private AtomicBoolean interruptionNeeded = new AtomicBoolean(false);
 	private HttpClientHolder clientHolder;
 	private String wssUrl;
@@ -58,8 +60,9 @@ public class BmConnector implements Runnable {
 	private ScheduledExecutorService positionRequestTimer;
 	private int executionDay = 0;
 	private boolean isExecutionReset;
-	private ExecutorService lowPriorityTasksExecutor = Executors.newSingleThreadExecutor();
-	
+	private final ExecutorService lowPriorityTasksExecutor = Executors.newSingleThreadExecutor();
+	private final ExecutorService subscriptionExecutor = Executors.newSingleThreadExecutor();
+
 	private Object socketLock = new Object();
 	private int timerCount = 0;
 	private boolean isInitiallyConnected;
@@ -364,32 +367,47 @@ public class BmConnector implements Runnable {
 	}
 
 	public void subscribe(BmInstrument instr) {
-	    Log.info("BmConnector subscribe: " + instr.getSymbol());
-		instr.setSubscribed(true);
-		Log.info("BmConnector subscribe: set true");
+		subscriptionExecutor.execute(() -> {
+			Log.info("BmConnector subscribe: " + instr.getSymbol());
+			instr.setSubscribed(true);
+			Log.info("BmConnector subscribe: set true");
 
-		sendWebsocketMessage(instr.getSubscribeReq());
-		launchSnapshotTimer(instr);
+			sendWebsocketMessage(instr.getSubscribeReq());
+			launchSnapshotTimer(instr);
 
-		if (provider.isTradingEnabled()) {// if authenticated
-			instr.setExecutionsVolume(countExecutionsVolume(instr.getSymbol()));
-		}
+			if (provider.isTradingEnabled()) {// if authenticated
+				instr.setExecutionsVolume(countExecutionsVolume(instr.getSymbol()));
+			}
+
+			try {
+				Thread.sleep(SUBSCRIPTION_TIMEOUT);
+			} catch (InterruptedException e) {
+				Log.info(e.getMessage());
+			}
+		});
 	}
 
 	public void unSubscribe(BmInstrument instr) {
-        try {
-            sendWebsocketMessage(instr.getUnSubscribeReq());
-        } catch (Exception e) {
-            Log.error("", e);
-        }
-		
-		Timer timer = instr.getSnapshotTimer();
-		if (timer != null) {
-			timer.cancel();
-			Log.info("BmConnector unSubscribe: timer gets cancelled");
+		subscriptionExecutor.execute(() -> {
+			try {
+				sendWebsocketMessage(instr.getUnSubscribeReq());
+			} catch (Exception e) {
+				Log.error("", e);
 			}
-		instr.setSubscribed(false);
-		
+
+			Timer timer = instr.getSnapshotTimer();
+			if (timer != null) {
+				timer.cancel();
+				Log.info("BmConnector unSubscribe: timer gets cancelled");
+			}
+			instr.setSubscribed(false);
+
+			try {
+				Thread.sleep(SUBSCRIPTION_TIMEOUT);
+			} catch (InterruptedException e) {
+				Log.info(e.getMessage());
+			}
+		});
 	}
 
     private int countExecutionsVolume(String symbol) {
