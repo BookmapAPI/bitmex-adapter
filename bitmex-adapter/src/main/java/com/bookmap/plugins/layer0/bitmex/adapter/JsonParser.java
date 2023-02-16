@@ -196,7 +196,7 @@ public class JsonParser {
 			} else {
 				newSize = orderBook.addOrder(id, unit.isBid(), intPrice, unit.getSize());
 			}
-			int absoluteSize = (int) (newSize);
+			int absoluteSize = (int) Math.min(Integer.MAX_VALUE, newSize);
 			unit.setSize(absoluteSize);
 			unit.setIntPrice(intPrice);
 		}
