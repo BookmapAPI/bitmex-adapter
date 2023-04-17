@@ -178,7 +178,6 @@ public class BmConnector implements Runnable {
 				lowPriorityTasksExecutor.execute(() -> reportHistoricalExecutions("Filled"));
 				lowPriorityTasksExecutor.execute(() -> reportHistoricalExecutions("Canceled"));
 			}
-
 			webSocketStartingLatch.countDown();
 			Log.info("BmConnector wsConnect websocket webSocketStartingLatch is down");
 
@@ -194,7 +193,6 @@ public class BmConnector implements Runnable {
 			}
 
 			// WAITING FOR THE SOCKET TO CLOSE
-			
 			CountDownLatch closingLatch = socket.getClosingLatch();
 			closingLatch.await();
 			isReconnecting.set(true);
@@ -214,6 +212,11 @@ public class BmConnector implements Runnable {
 			} catch (Exception e) {
 			    Log.error("BmConnector unable to stop client", e);
 				throw new RuntimeException(e);
+			}
+			try {
+				socket.close();
+			} catch (Exception e) {
+				Log.info("", e);
 			}
 		}
 	}
