@@ -212,7 +212,7 @@ public class BmConnector implements Runnable {
 			try {
 				client.stop();
 			} catch (Exception e) {
-			    Log.error("BmConnector wsConnect Got trouble stoppping client", e);
+			    Log.error("BmConnector unable to stop client", e);
 				throw new RuntimeException(e);
 			}
 		}
