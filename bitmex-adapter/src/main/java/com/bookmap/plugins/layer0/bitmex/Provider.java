@@ -1069,13 +1069,6 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	@Override
 	public Layer1ApiProviderSupportedFeatures getSupportedFeatures() {
-        if (connector != null) {
-            try {
-                connector.getWebSocketStartingLatch().await();
-            } catch (InterruptedException e) {
-                Log.info("", e);
-            }
-        }
 		// Expanding parent supported features, reporting basic trading support
 		Layer1ApiProviderSupportedFeaturesBuilder a = super.getSupportedFeatures().toBuilder();
 		a.setTrading(bitmexLoginData != null && bitmexLoginData.isTradingEnabled);
