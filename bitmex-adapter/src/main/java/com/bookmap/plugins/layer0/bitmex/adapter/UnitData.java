@@ -2,6 +2,9 @@ package com.bookmap.plugins.layer0.bitmex.adapter;
 
 public class UnitData extends UnitRaw {
 	private String symbol;
+	/**
+	 * An arbitrary value. Is not translatable to a price level. Don't use for orderbook sorting.
+	 */
 	private long id;
 	private String side;
 	private long size;
