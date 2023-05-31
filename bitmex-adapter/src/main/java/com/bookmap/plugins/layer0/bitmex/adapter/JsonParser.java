@@ -180,21 +180,19 @@ public class JsonParser {
 					pricesMap.put(unit.getId(), unit.getPrice());
 			}
 			double activeTickSize = instr.getActiveTickSize();
-			double defaultTickSize = instr.getTickSize();
-			long id = (long) Math.round(unit.getPrice() / defaultTickSize);
 			int intPrice = getIntPrice(unit.isBid(), unit.getPrice() / activeTickSize);
 			OrderByOrderBook orderBook = instr.getOrderBook();
 			long newSize;
 
-			if (orderBook.hasOrder(id)) {
+			if (orderBook.hasOrder(unit.getId())) {
 				if (action.equals("delete")) {
-					newSize = orderBook.removeOrder(id);
+					newSize = orderBook.removeOrder(unit.getId());
 				} else {
-					OrderByOrderBook.OrderUpdateResult updateOrder = orderBook.updateOrder(id, intPrice, unit.getSize());
+					OrderByOrderBook.OrderUpdateResult updateOrder = orderBook.updateOrder(unit.getId(), intPrice, unit.getSize());
 					newSize = updateOrder.toSize;
 				}
 			} else {
-				newSize = orderBook.addOrder(id, unit.isBid(), intPrice, unit.getSize());
+				newSize = orderBook.addOrder(unit.getId(), unit.isBid(), intPrice, unit.getSize());
 			}
 			int absoluteSize = (int) Math.min(Integer.MAX_VALUE, newSize);
 			unit.setSize(absoluteSize);
