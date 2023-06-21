@@ -708,7 +708,7 @@ public class Provider extends ExternalLiveBaseProvider {
 				}
 			}
 			
-			if (exec.getPegPriceType().equals("TrailingStopPeg")) {
+			if ("TrailingStopPeg".equals(exec.getPegPriceType())) {
 				synchronized (trailingStops) {
 					trailingStops.put(exec.getOrderID(), exec.getPegOffsetValue());
 				}
