@@ -24,6 +24,7 @@ import velox.api.layer1.annotations.Layer1ApiVersionValue;
 import velox.api.layer1.common.Log;
 import velox.api.layer1.data.*;
 import velox.api.layer1.layers.utils.OrderBook;
+import velox.api.layer1.messages.Layer1ApiIsRealTradingMessage;
 import velox.api.layer1.messages.UserProviderTargetedMessage;
 
 import java.io.ByteArrayInputStream;
@@ -614,6 +615,9 @@ public class Provider extends ExternalLiveBaseProvider {
         panelHelper.setProvider(this);
 
         this.isDemo = bitmexLoginData.isDemo;
+        if (isTradingEnabled()) {
+            adminListeners.forEach(l -> l.onUserMessage(new Layer1ApiIsRealTradingMessage(!isDemo)));
+        }
 
         if (isDemo) {
             connector.setWssUrl(Constants.testnet_Wss);
