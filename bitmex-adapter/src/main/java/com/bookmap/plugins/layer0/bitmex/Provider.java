@@ -615,9 +615,9 @@ public class Provider extends ExternalLiveBaseProvider {
         panelHelper.setProvider(this);
 
         this.isDemo = bitmexLoginData.isDemo;
-		if (isTradingEnabled()) {
-			adminListeners.forEach(l -> l.onUserMessage(new Layer1ApiIsRealTradingMessage(!isDemo)));
-		}
+        if (isTradingEnabled()) {
+            adminListeners.forEach(l -> l.onUserMessage(new Layer1ApiIsRealTradingMessage(!isDemo)));
+        }
 
         if (isDemo) {
             connector.setWssUrl(Constants.testnet_Wss);
