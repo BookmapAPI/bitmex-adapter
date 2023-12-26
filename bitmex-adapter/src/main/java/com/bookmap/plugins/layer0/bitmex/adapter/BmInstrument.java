@@ -16,6 +16,8 @@ Cannot be named simply "Instrument"
 because the Bookmap Layer0Api has a class named "Instrument"*/
 public class BmInstrument {
 	private String symbol;
+	//Bitmex representation of type
+	private String typ;
 	/**
 	 * The native min tick size of an instrument
 	 */
@@ -233,5 +235,11 @@ public class BmInstrument {
 		this.activeTickSize = activeTickSize;
 	}
 
-	
+	public String getTyp() {
+		return typ;
+	}
+
+	public void setTyp(String typ) {
+		this.typ = typ;
+	}
 }
