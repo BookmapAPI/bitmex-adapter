@@ -532,7 +532,10 @@ public class BmConnector implements Runnable {
 
 				CopyOnWriteArrayList<SubscribeInfo> knownInstruments = new CopyOnWriteArrayList<>();
 				for (BmInstrument instrument : activeBmInstrumentsMap.values()) {
-						knownInstruments.add(new SubscribeInfo(instrument.getSymbol(), "", ""));
+					String type = Constants.typesToSpecifiers.inverseBidiMap().get(instrument.getTyp());
+					if (type != null) {
+						knownInstruments.add(new SubscribeInfo(instrument.getSymbol(), "", type));
+					}
 				}
 				provider.setKnownInstruments(knownInstruments);
 
