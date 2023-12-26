@@ -1,5 +1,8 @@
 package com.bookmap.plugins.layer0.bitmex.adapter;
 
+import org.apache.commons.collections4.bidimap.DualHashBidiMap;
+import org.apache.commons.collections4.BidiMap;
+
 public class Constants {
 
 	public static final String version = "v.0.8.0.8";
@@ -33,4 +36,20 @@ public class Constants {
     public static final String ENABLE_TRADING_CHECKBOX_LABEL = "Enable trading";
     public static final String IS_DEMO_CHECKBOX_NAME = "isDemo";
     public static final String IS_DEMO_CHECKBOX_LABEL = "This is a demo account";
+
+	public static final BidiMap <String,String> typesToSpecifiers = new DualHashBidiMap<>();
+	static {
+		typesToSpecifiers.put("PERPETUAL", "FFWCSX");
+		typesToSpecifiers.put("PERPETUAL_CONTRACTS", "FFWCSF");
+		typesToSpecifiers.put("SPOT", "IFXXXP");
+		typesToSpecifiers.put("FUTURES", "FFCCSX");
+		/*
+		 * Not supported at the moment:
+		 * BitMEX Basket Index - MRBXXX
+		 * BitMEX Crypto Index - MRCXXX
+		 * BitMEX FX Index - MRFXXX
+		 * BitMEX Lending/Premium Index - MRRXXX
+		 * BitMEX Volatility Index - MRIXXX
+		 */
+	}
 }
