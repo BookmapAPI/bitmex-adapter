@@ -1,7 +1,5 @@
 package com.bookmap.plugins.layer0.bitmex.adapter;
 
-import java.util.List;
-
 import org.apache.commons.lang3.tuple.Pair;
 
 import com.bookmap.plugins.layer0.bitmex.Provider;
@@ -17,12 +15,16 @@ import velox.api.layer1.data.OrderType;
 import velox.api.layer1.data.SimpleOrderSendParameters;
 import velox.api.layer1.layers.utils.OrderBook;
 
+import java.util.List;
+import java.util.function.BiFunction;
+
 public class TradeConnector {
 
-    HttpClientHolder clientHolder;
+    private HttpClientHolder clientHolder;
 	private String orderApiKey;
 	private String orderApiSecret;
 	private Provider provider;
+	private BiFunction<String, Integer,Integer> toSpotSizeFunction;
 
     public TradeConnector(HttpClientHolder clientHolder) {
         super();
@@ -58,11 +60,14 @@ public class TradeConnector {
 		return pegOffset;
 	}
 
-	public JsonObject createSendData(SimpleOrderSendParameters params, OrderType orderType, String clOrdId,
+	public JsonObject createSendData(BmInstrument instrument, SimpleOrderSendParameters params, OrderType orderType, String clOrdId,
 			String clOrdLinkID, String contingencyType) {
-		String symbol = ConnectorUtils.isolateSymbol(params.alias);
+		String symbol = params.alias;
 		String side = params.isBuy ? "Buy" : "Sell";
-		double orderQty = params.size;
+
+		double orderQty = instrument.isSpot()
+				? toSpotSizeFunction.apply(instrument.getSymbol(), params.size)
+				: params.size;
 
 		JsonObject json = new JsonObject();
 		json.addProperty("symbol", symbol);
@@ -151,7 +156,7 @@ public class TradeConnector {
 		require(GeneralType.ORDER, Method.DELETE, data1, true);
 	}
 
-	public String resizeOrder(String orderId, long orderQty) {
+	public String resizeOrder(String alias, String orderId, long orderQty) {
 		JsonObject json = new JsonObject();
 		json.addProperty("orderID", orderId);
 		json.addProperty("leavesQty", orderQty);
@@ -193,8 +198,7 @@ public class TradeConnector {
 		JsonObject json = new JsonObject();
 		json.addProperty("orderID", params.orderId);
 		String clientId = provider.getClientId(params.orderId);
-		String symbol = ConnectorUtils
-				.isolateSymbol(provider.getAlias(clientId));
+		String symbol = provider.getAlias(clientId);
 		json.addProperty("pegOffsetValue", getPegOffset(symbol, params.stopPrice));
 		return json;
 	}
@@ -209,6 +213,10 @@ public class TradeConnector {
 	
 	public Pair<Boolean, String> require(GeneralType genType, Method method, String data, boolean isOrderListBeingCanceled, String requestParameters) {
 	    return clientHolder.makeRequest(genType, method, data, isOrderListBeingCanceled, requestParameters);
+	}
+
+	public void setToSpotSizeFunction(BiFunction<String, Integer,Integer> toSpotSizeFunction){
+		this.toSpotSizeFunction = toSpotSizeFunction;
 	}
 
 }

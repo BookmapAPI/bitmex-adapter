@@ -38,12 +38,17 @@ public class BmInstrument {
 	private int executionsVolume = 0;
 	private int sellOrdersCount = 0;
 	private int buyOrdersCount = 0;
+	private double lotSize;
+	private long underlyingToPositionMultiplier;
+	private double sizeMultiplier = Double.NaN;
+
 
 	/**
 	 * The tick size a user has been subscribed to.
 	 */
 	private double activeTickSize;
-	
+	private double activeSizeMultiplier;
+
     {//temp workaround
         this.validPosition.setOpenOrderBuyQty(0);
         this.validPosition.setOpenOrderSellQty(0);
@@ -231,8 +236,16 @@ public class BmInstrument {
 		return activeTickSize;
 	}
 
+	public double getActiveSizeMultiplier() {
+		return activeSizeMultiplier;
+	}
+
 	public void setActiveTickSize(double activeTickSize) {
 		this.activeTickSize = activeTickSize;
+	}
+
+	public void setActiveSizeMultiplier(double activeSizeMultiplier) {
+		this.activeSizeMultiplier = activeSizeMultiplier;
 	}
 
 	public String getTyp() {
@@ -241,5 +254,33 @@ public class BmInstrument {
 
 	public void setTyp(String typ) {
 		this.typ = typ;
+	}
+
+
+	public long getUnderlyingToPositionMultiplier() {
+		return underlyingToPositionMultiplier;
+	}
+
+	public void setUnderlyingToPositionMultiplier(long underlyingToPositionMultiplier) {
+		this.underlyingToPositionMultiplier = underlyingToPositionMultiplier;
+	}
+
+	public double getLotSize() {
+		return lotSize;
+	}
+
+	public void setLotSize(double lotSize) {
+		this.lotSize = lotSize;
+	}
+
+	public double getSizeMultiplier() {
+		if (Double.isNaN(sizeMultiplier)){
+			sizeMultiplier = underlyingToPositionMultiplier/lotSize;
+		}
+		return sizeMultiplier;
+	}
+
+	public boolean isSpot(){
+		return typ.equals(Constants.typesToSpecifiers.get("SPOT"));
 	}
 }

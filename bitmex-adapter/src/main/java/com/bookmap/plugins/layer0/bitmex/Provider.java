@@ -36,6 +36,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @Layer1ApiVersion(Layer1ApiVersionValue.VERSION1)
@@ -66,6 +67,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	private boolean isDemo;
 	private volatile boolean isLoginSuccessful = true;
 	private String authFailedReason;
+	private SpotSizeConverter spotSizeConverter;
 
 	protected class Instrument {
 		protected final String alias;
@@ -175,11 +177,12 @@ public class Provider extends ExternalLiveBaseProvider {
 					BmInstrument instr = activeBmInstruments.get(symbol);
 					double pips = ((SubscribeInfoCrypto)subscribeInfo).pips;
 					instr.setActiveTickSize(pips);
+					double sizeMultiplier = ((SubscribeInfoCrypto)subscribeInfo).sizeMultiplier;
+					instr.setActiveSizeMultiplier(sizeMultiplier);
 
 					Instrument newInstrument = new Instrument(alias, pips);
 					instruments.put(alias, newInstrument);
-					InstrumentInfo instrumentInfo = new InstrumentInfo(symbol, exchange, type, newInstrument.pips,
-							1, "", false);
+					InstrumentInfo instrumentInfo = new InstrumentInfo(symbol, exchange, type, newInstrument.pips, 1, null, true, sizeMultiplier);
 
 					instrumentListeners.forEach(l -> l.onInstrumentAdded(alias, instrumentInfo));
 					connector.subscribe(instr);
@@ -242,7 +245,8 @@ public class Provider extends ExternalLiveBaseProvider {
 				data = createBracketOrderStringData(simpleParams, stopLoss, takeProfit);
 				genType = GeneralType.ORDERBULK;
 			} else {// Single order otherwise
-				JsonObject json = prepareSimpleOrder(simpleParams, null, null);
+				BmInstrument instrument = connector.getActiveInstrumentsMap().get(((SimpleOrderSendParameters) orderSendParameters).alias);
+				JsonObject json = prepareSimpleOrder(instrument, simpleParams, null, null);
 				data = json.toString();
 				genType = GeneralType.ORDER;
 			}
@@ -331,9 +335,10 @@ public class Provider extends ExternalLiveBaseProvider {
 		String contingencyType = "OneCancelsTheOther";
 		String clOrdLinkID = System.currentTimeMillis() + "-LINKED-" + orderOcoCount++;
 
+		BmInstrument instrument = connector.getActiveInstrumentsMap().get(ordersList.get(0).alias);
 		JsonArray array = new JsonArray();
 		for (SimpleOrderSendParameters simpleParams : ordersList) {
-			JsonObject json = prepareSimpleOrder(simpleParams, clOrdLinkID, contingencyType);
+			JsonObject json = prepareSimpleOrder(instrument, simpleParams, clOrdLinkID, contingencyType);
 			array.add(json);
 		}
 		String data = "orders=" + array.toString();
@@ -345,15 +350,16 @@ public class Provider extends ExternalLiveBaseProvider {
 			SimpleOrderSendParameters takeProfit) {
 		String clOrdLinkID = System.currentTimeMillis() + "-LINKED-" + orderOcoCount++;
 
+		BmInstrument instrument = connector.getActiveInstrumentsMap().get(simpleParams.alias);
 		JsonArray array = new JsonArray();
-		array.add(prepareSimpleOrder(simpleParams, clOrdLinkID, "OneTriggersTheOther"));
-		array.add(prepareSimpleOrder(stopLoss, clOrdLinkID, "OneCancelsTheOther"));
-		array.add(prepareSimpleOrder(takeProfit, clOrdLinkID, "OneCancelsTheOther"));
+		array.add(prepareSimpleOrder(instrument, simpleParams, clOrdLinkID, "OneTriggersTheOther"));
+		array.add(prepareSimpleOrder(instrument, stopLoss, clOrdLinkID, "OneCancelsTheOther"));
+		array.add(prepareSimpleOrder(instrument, takeProfit, clOrdLinkID, "OneCancelsTheOther"));
 		String data = "orders=" + array.toString();
 		return data;
 	}
 
-	private JsonObject prepareSimpleOrder(SimpleOrderSendParameters simpleParameters, String clOrdLinkID,
+	private JsonObject prepareSimpleOrder(BmInstrument instrument, SimpleOrderSendParameters simpleParameters, String clOrdLinkID,
 			String contingencyType) {
 		// Detecting order type
 		OrderType orderType = OrderType.getTypeFromPrices(simpleParameters.stopPrice, simpleParameters.limitPrice);
@@ -386,7 +392,7 @@ public class Provider extends ExternalLiveBaseProvider {
 			workingOrders.put(simpleParameters.clientId, builder);
 		}
 
-		JsonObject json = tradeConnector.createSendData(simpleParameters, orderType, simpleParameters.clientId, clOrdLinkID,
+		JsonObject json = tradeConnector.createSendData(instrument, simpleParameters, orderType, simpleParameters.clientId, clOrdLinkID,
 				contingencyType);
 		return json;
 	}
@@ -529,7 +535,7 @@ public class Provider extends ExternalLiveBaseProvider {
         // single order
         pendingClientIds.add(builder.getClientId());
         type = GeneralType.ORDER;
-        data = tradeConnector.resizeOrder(builder.getOrderId(), newSize);
+        data = tradeConnector.resizeOrder(builder.getInstrumentAlias(), builder.getOrderId(), newSize);
 
 		setPendingStatus(pendingClientIds, OrderStatus.PENDING_MODIFY);
 		Pair<Boolean, String> response = tradeConnector.require(type, Method.PUT, data);
@@ -646,6 +652,12 @@ public class Provider extends ExternalLiveBaseProvider {
             }
         }
 
+		spotSizeConverter = new SpotSizeConverter(connector.getActiveInstrumentsMap()
+				.values()
+				.stream()
+				.collect(Collectors.toSet()));
+		tradeConnector.setToSpotSizeFunction(spotSizeConverter::toSpotSize);
+
         if (isLoginSuccessful) {
             adminListeners.forEach(Layer1ApiAdminListener::onLoginSuccessful);
             if (isDemo) {
@@ -665,12 +677,29 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	public void listenForOrderBookL2(UnitData unit) {
 		for (Layer1ApiDataListener listener : dataListeners) {
-			listener.onDepth(unit.getSymbol(), unit.isBid(), unit.getIntPrice(), toIntOrMax(unit.getSize(), Constants.maxSize));
+
+			String symbol = unit.getSymbol();
+			BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
+			double sizeRatio = instr.getTyp().equals("IFXXXP")
+					? (double) instr.getActiveSizeMultiplier() / instr.getUnderlyingToPositionMultiplier()
+					: 1;
+
+			long size = (long) (unit.getSize() * sizeRatio);
+
+			listener.onDepth(unit.getSymbol(), unit.isBid(), unit.getIntPrice(), toIntOrMax(size, Constants.maxSize));
 		}
 	}
 
 	public void listenForTrade(UnitData unit) {
 		for (Layer1ApiDataListener listener : dataListeners) {
+			String symbol = unit.getSymbol();
+			BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
+			double sizeRatio = instr.getTyp().equals("IFXXXP")
+					? (double) instr.getActiveSizeMultiplier() / instr.getUnderlyingToPositionMultiplier()
+					: 1;
+
+			long size = (long) (unit.getSize() * sizeRatio);
+
 			final boolean isOtc = false;
 			listener.onTrade(unit.getSymbol(), unit.getIntPrice(), toIntOrMax(unit.getSize(), Constants.maxSize),
 					new TradeInfo(isOtc, unit.isBid()));
@@ -721,7 +750,7 @@ public class Provider extends ExternalLiveBaseProvider {
 			builder.setOrderId(exec.getOrderID());
 			builder.setStatus(OrderStatus.WORKING);
 
-			if (exec.getTriggered().equals("NotTriggered")) {
+			if ("NotTriggered".equals(exec.getTriggered())) {
 				// 'NotTriggered' really means 'notTriggeredBracketChild'.
 				builder.setStatus(OrderStatus.SUSPENDED);
 			}
@@ -736,7 +765,12 @@ public class Provider extends ExternalLiveBaseProvider {
 		} else if (exec.getExecType().equals("Replaced")
 				|| exec.getExecType().equals("Restated")) {
 		    Log.info("Provider listenForExecution: " + exec.getExecType());
-			builder.setUnfilled(toIntOrMax(exec.getLeavesQty(), Constants.maxSize));
+			long unfilled = exec.getLeavesQty();
+			if (spotSizeConverter.isSpot(exec.getSymbol())){
+				unfilled = spotSizeConverter.fromSpotSize(exec.getSymbol(), toIntOrMax(exec.getLeavesQty(), Constants.maxSize));
+			}
+
+			builder.setUnfilled(toIntOrMax(unfilled, Constants.maxSize));
 			builder.setLimitPrice(exec.getPrice());
 			builder.setStopPrice(exec.getStopPx());
 			
@@ -746,7 +780,11 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		} else if (exec.getExecType().equals("Trade")) {
 		    Log.info("Provider listenForExecution: trade " + exec.getOrderID());
-			ExecutionInfo executionInfo = new ExecutionInfo(exec.getOrderID(), toIntOrMax(exec.getLastQty(), Constants.maxSize),
+			long lastQty = exec.getLastQty();
+			if (spotSizeConverter.isSpot(exec.getSymbol())){
+				lastQty = spotSizeConverter.fromSpotSize(exec.getSymbol(), toIntOrMax(lastQty, Constants.maxSize));
+			}
+			ExecutionInfo executionInfo = new ExecutionInfo(exec.getOrderID(), toIntOrMax(lastQty, Constants.maxSize),
 					exec.getLastPx(),
 					exec.getExecID(), System.currentTimeMillis());
 			tradingListeners.forEach(l -> l.onOrderExecuted(executionInfo));
@@ -754,13 +792,27 @@ public class Provider extends ExternalLiveBaseProvider {
 			// updating filled orders volume
 			String symbol = exec.getSymbol();
 			BmInstrument instr = connector.getActiveInstrumentsMap().get(symbol);
-			// instr.setExecutionsVolume(instr.getExecutionsVolume() + toIntOrMax(exec.getCumQty(), Constants.maxSize)
-			instr.setExecutionsVolume(instr.getExecutionsVolume() + toIntOrMax(exec.getLastQty(), Constants.maxSize));
+			lastQty = exec.getLastQty();
+			if (spotSizeConverter.isSpot(exec.getSymbol())){
+				lastQty = spotSizeConverter.fromSpotSize(exec.getSymbol(), toIntOrMax(lastQty, Constants.maxSize));
+			}
+			instr.setExecutionsVolume(instr.getExecutionsVolume() + toIntOrMax(lastQty, Constants.maxSize));
 
 			// Changing the order itself
 			builder.setAverageFillPrice(exec.getAvgPx());
-			builder.setUnfilled(toIntOrMax(exec.getLeavesQty(), Constants.maxSize));
-			builder.setFilled(toIntOrMax(exec.getCumQty(), Constants.maxSize));
+
+			long unfilled = exec.getLeavesQty();
+			if (spotSizeConverter.isSpot(exec.getSymbol())){
+				unfilled = spotSizeConverter.fromSpotSize(exec.getSymbol(), toIntOrMax(unfilled, Constants.maxSize));
+			}
+			builder.setUnfilled(toIntOrMax(unfilled, Constants.maxSize));
+
+			long filled = exec.getCumQty();
+			if (spotSizeConverter.isSpot(exec.getSymbol())){
+				filled = spotSizeConverter.fromSpotSize(exec.getSymbol(), toIntOrMax(filled, Constants.maxSize));
+			}
+			builder.setFilled(toIntOrMax(filled, Constants.maxSize));
+
 
 			if (exec.getOrdStatus().equals("Filled")) {
 			    Log.info("Provider listenForExecution: orderId filled " + exec.getOrderID()); 
@@ -847,7 +899,7 @@ public class Provider extends ExternalLiveBaseProvider {
                 .flatMapToInt(infoBuilder -> IntStream.of(infoBuilder.getUnfilled()))
                 .sum();
         
-        StatusInfo info = new StatusInfo(validPosition.getSymbol(),
+        StatusInfo info = new StatusInfo(instr.getSymbol(),
                 (double) validPosition.getUnrealisedPnl() / (double) Math.abs(instr.getMultiplier()),
                 (double) validPosition.getRealisedPnl() / (double) Math.abs(instr.getMultiplier()),
                 "",
@@ -857,6 +909,7 @@ public class Provider extends ExternalLiveBaseProvider {
                 toIntOrMax(openBuys, Constants.maxSize),
                 toIntOrMax(openSells, Constants.maxSize));
 
+		Log.info(String.format("symbol %s : reportPosition buys %d sells %d", validPosition.getSymbol(), info.workingBuys, info.workingSells));
         tradingListeners.forEach(l -> l.onStatus(info));
     }
 
@@ -946,17 +999,26 @@ public class Provider extends ExternalLiveBaseProvider {
 			OrderStatus status = exec.getOrdStatus().equals("Filled") ? OrderStatus.FILLED : OrderStatus.CANCELLED;
 			long unfilled = exec.getLeavesQty() == 0 ? exec.getOrderQty() - exec.getCumQty() : exec.getLeavesQty();
 
+			if (spotSizeConverter.isSpot(exec.getSymbol())){
+				unfilled = spotSizeConverter.fromSpotSize(exec.getSymbol(), toIntOrMax(unfilled, Constants.maxSize));
+			}
+
+			long filled = exec.getCumQty();
+			if (spotSizeConverter.isSpot(exec.getSymbol())){
+				filled = spotSizeConverter.fromSpotSize(exec.getSymbol(), toIntOrMax(filled, Constants.maxSize));
+			}
+
 			builder.setStopPrice(exec.getStopPx())
 					.setLimitPrice(exec.getPrice())
 					.setUnfilled(toIntOrMax(unfilled, Constants.maxSize))
-					.setFilled(toIntOrMax(exec.getCumQty(), Constants.maxSize))
+					.setFilled(toIntOrMax(filled, Constants.maxSize))
 					.setDuration(OrderDuration.GTC)
 					.setStatus(status)
 					.setAverageFillPrice(exec.getAvgPx())
 					.setModificationUtcTime(exec.getExecTransactTime());
 			tradingListeners.forEach(l -> l.onOrderUpdated(builder.build()));
 			if (status.equals(OrderStatus.FILLED)) {
-				ExecutionInfo executionInfo = new ExecutionInfo(exec.getOrderID(), toIntOrMax(exec.getCumQty(), Constants.maxSize),
+				ExecutionInfo executionInfo = new ExecutionInfo(exec.getOrderID(), toIntOrMax(filled, Constants.maxSize),
 						exec.getAvgPx(),
 						exec.getExecID(), exec.getExecTransactTime());
 				tradingListeners.forEach(l -> l.onOrderExecuted(executionInfo));
@@ -1041,11 +1103,21 @@ public class Provider extends ExternalLiveBaseProvider {
 
 		final OrderInfoBuilder builder = new OrderInfoBuilder(order.getSymbol(), order.getOrderID(), isBuy, type,
 		        order.getClOrdID(), doNotIncrease);
-		
-		builder.setStopPrice(order.getStopPx())
+
+		long leavesQty = order.getLeavesQty();
+		if (spotSizeConverter.isSpot(order.getSymbol())){
+			leavesQty = spotSizeConverter.fromSpotSize(order.getSymbol(), toIntOrMax(order.getLeavesQty(), Constants.maxSize));
+		}
+		long cumQty = order.getCumQty();
+		if (spotSizeConverter.isSpot(order.getSymbol())){
+			cumQty = spotSizeConverter.fromSpotSize(order.getSymbol(), toIntOrMax(order.getCumQty(), Constants.maxSize));
+		}
+
+		BmInstrument instrument = connector.getActiveInstrumentsMap().get(order.getSymbol());
+				builder.setStopPrice(order.getStopPx())
 		.setLimitPrice(order.getPrice())
-		.setUnfilled(toIntOrMax(order.getLeavesQty(), Constants.maxSize))		
-		.setFilled(toIntOrMax(order.getCumQty(), Constants.maxSize))
+		.setUnfilled(toIntOrMax(leavesQty, Constants.maxSize))
+		.setFilled(toIntOrMax(cumQty, Constants.maxSize))
 		.setStatus(OrderStatus.WORKING);
 
         if (order.getTimeInForce() != null){
@@ -1096,7 +1168,7 @@ public class Provider extends ExternalLiveBaseProvider {
 				.setBalanceSupported(true)
 				.setTrailingStopsAsIndependentOrders(true)
 				.setExchangeUsedForSubscription(false)
-				.setTypeUsedForSubscription(false)
+				.setTypeUsedForSubscription(true)
 				.setHistoricalDataInfo(new BmSimpleHistoricalDataInfo(
 				        isDemo ? Constants.demoHistoricalServerUrl : Constants.realHistoricalServerUrl))
 				.setKnownInstruments(knownInstruments)
@@ -1106,6 +1178,13 @@ public class Provider extends ExternalLiveBaseProvider {
 					}
 					double minSelectablePip = getMinSelectablePip(subscribeInfo);
 					return new DefaultAndList<>(minSelectablePip, getSelectablePips(minSelectablePip));
+				})
+				.setSizeMultiplierFunction(subscribeInfo -> {
+					if (connector.getActiveInstrumentsMap().get(subscribeInfo.symbol) == null) {
+						return null;
+					}
+					double minSelectableSize = getMinSelectableSize(subscribeInfo);
+					return new DefaultAndList<>(minSelectableSize, Collections.singletonList(minSelectableSize));
 				});
 
 		return a.build();
@@ -1113,6 +1192,12 @@ public class Provider extends ExternalLiveBaseProvider {
 
 	private double getMinSelectablePip(SubscribeInfo subscribeInfo){
 		return connector.getActiveInstrumentsMap().get(subscribeInfo.symbol).getTickSize();
+	}
+
+	private double getMinSelectableSize(SubscribeInfo subscribeInfo){
+		return subscribeInfo.type.equals("SPOT")
+				? connector.getActiveInstrumentsMap().get(subscribeInfo.symbol).getSizeMultiplier()
+				: 1;
 	}
 
 	private List<Double> getSelectablePips(double minSelectablePip) {
