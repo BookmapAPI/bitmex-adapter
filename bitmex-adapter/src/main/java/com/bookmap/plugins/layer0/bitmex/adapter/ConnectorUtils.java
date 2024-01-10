@@ -199,18 +199,6 @@ public class ConnectorUtils {
 		}
 	}
 
-	public static String isolateSymbol(String alias) {
-		char[] symbData = alias.toCharArray();
-		StringBuilder sb = new StringBuilder();
-		sb.append("");
-
-		for (int i = 0; i < symbData.length
-				&& (symbData[i] >= 'A' && symbData[i] <= 'Z' || symbData[i] >= '0' && symbData[i] <= '9');) {
-			sb.append(symbData[i++]);
-		}
-		return sb.toString();
-	}
-
     public static Header getHeader(Header[] headers, String name) {
         Header rateLimitHeader = Arrays.stream(headers)
                 .filter(header -> header.getName().toLowerCase().equals(name.toLowerCase()))

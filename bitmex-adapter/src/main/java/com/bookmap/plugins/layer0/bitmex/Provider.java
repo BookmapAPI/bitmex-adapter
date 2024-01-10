@@ -279,7 +279,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	private SimpleOrderSendParameters createStopLossFromParameters(SimpleOrderSendParameters simpleParams) {
-		String symbol = ConnectorUtils.isolateSymbol(simpleParams.alias);
+		String symbol = simpleParams.alias;
 		BmInstrument bmInstrument = connector.getActiveInstrumentsMap().get(symbol);
 		double tickSize = bmInstrument.getActiveTickSize();
 		int offsetMultiplier = simpleParams.isBuy ? 1 : -1;
@@ -299,7 +299,7 @@ public class Provider extends ExternalLiveBaseProvider {
 	}
 
 	private SimpleOrderSendParameters createTakeProfitFromParameters(SimpleOrderSendParameters simpleParams) {
-		String symbol = ConnectorUtils.isolateSymbol(simpleParams.alias);
+		String symbol = simpleParams.alias;
 		BmInstrument bmInstrument = connector.getActiveInstrumentsMap().get(symbol);
 		double tickSize = bmInstrument.getActiveTickSize();
 		int offsetMultiplier = simpleParams.isBuy ? 1 : -1;
