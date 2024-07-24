@@ -4,7 +4,7 @@ plugins {
 }
 
 group 'com.bookmap.api.adapter'
-version = '0.8.0.9'
+version = '0.8.0.10'
 
 targetCompatibility = 1.8
 sourceCompatibility = 1.8
@@ -18,7 +18,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly group: 'com.bookmap.api', name: 'api-core', version: '7.2.0.14'
+    compileOnly group: 'com.bookmap.api', name: 'api-core', version: '7.4.0.10'
     compileOnly group: 'commons-codec', name: 'commons-codec', version: '1.10'
     compileOnly group: 'org.apache.commons', name: 'commons-collections4', version: '4.1'
     compileOnly group: 'org.apache.commons', name: 'commons-lang3', version: '3.7'
@@ -30,5 +30,5 @@ dependencies {
 }
 
 jar {
-    baseName = '7.2.0.14---7.5.1.9999---0---bitmex-adapter--'
+    archiveBaseName = '7.4.0.10---7.6.1.9999---0---bitmex-adapter--'
 }
