@@ -5,7 +5,7 @@ import org.apache.commons.collections4.BidiMap;
 
 public class Constants {
 
-	public static final String version = "v.0.8.0.9";
+	public static final String version = "v.0.8.0.10";
 	public static final String bitmex_Wss = "wss://www.bitmex.com/realtime";
 	public static final String bitmex_restApi = "https://www.bitmex.com";
 
