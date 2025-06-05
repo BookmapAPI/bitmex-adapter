@@ -1236,6 +1236,15 @@ public class Provider extends ExternalLiveBaseProvider {
             connector.closeSocket();
             connector.setInterruptionNeeded(true);
         }
+        if (connectorThread != null) {
+            connectorThread.interrupt();
+            try {
+                connectorThread.join();
+            } catch (InterruptedException e) {
+                Log.warn("Interrupted while waiting for connectorThread to terminate during shutdown", e);
+                Thread.currentThread().interrupt();
+            }
+        }
         if (httpClientHolder != null) {
             try {
                 httpClientHolder.close();
