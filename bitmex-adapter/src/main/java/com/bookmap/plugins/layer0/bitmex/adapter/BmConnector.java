@@ -507,7 +507,7 @@ public class BmConnector implements Runnable {
 
 	@Override
 	public void run() {
-		while (!interruptionNeeded.get()) {
+		while (!interruptionNeeded.get() && !Thread.currentThread().isInterrupted()) {
 
             if (!isConnectionEstablished()) {
                 if (!isInitiallyConnected) {
@@ -519,7 +519,8 @@ public class BmConnector implements Runnable {
                     try {
                         Thread.sleep(5000);
                     } catch (InterruptedException e) {
-                        Log.error("", e);
+                        Thread.currentThread().interrupt();
+                        Log.error("Interrupted while waiting for reconnection to finish", e);
                         throw new RuntimeException();
                     }
                 }
@@ -557,7 +558,8 @@ public class BmConnector implements Runnable {
 			try {
                 Thread.sleep(1_000);
             } catch (InterruptedException e) {
-                Log.error("", e);
+                Thread.currentThread().interrupt();
+                Log.error("Interrupted BmConnector run thread during sleep, likely shutting down", e);
             }
 		}
         if (executionsResetTimer != null) {
